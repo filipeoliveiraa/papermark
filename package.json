@@ -51,7 +51,7 @@
     "@sindresorhus/slugify": "^2.2.1",
     "@stripe/stripe-js": "^4.1.0",
     "@tailwindcss/typography": "^0.5.13",
-    "@teamhanko/passkeys-next-auth-provider": "^0.2.7",
+    "@teamhanko/passkeys-next-auth-provider": "^0.3.1",
     "@tremor/react": "^3.17.4",
     "@trigger.dev/nextjs": "^2.3.19",
     "@trigger.dev/react": "^2.3.19",
