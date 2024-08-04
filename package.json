@@ -94,7 +94,7 @@
     "next-themes": "^0.3.0",
     "notion-client": "^6.16.0",
     "notion-utils": "^6.16.0",
-    "openai": "^4.20.0",
+    "openai": "^4.52.7",
     "postcss": "^8.4.39",
     "posthog-js": "^1.148.0",
     "react": "^18.3.1",
