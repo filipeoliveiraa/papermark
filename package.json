@@ -18,7 +18,7 @@
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,mdx}\""
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.614.0",
+    "@aws-sdk/client-s3": "^3.616.0",
     "@aws-sdk/cloudfront-signer": "^3.609.0",
     "@aws-sdk/s3-request-presigner": "^3.614.0",
     "@chronark/zod-bird": "^0.3.9",
