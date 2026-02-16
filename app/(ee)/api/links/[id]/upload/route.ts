@@ -157,18 +157,25 @@ export async function POST(
     if (link.enableNotification) {
       try {
         // Cancel any existing pending notification runs for this viewer+dataroom+link
+        // Note: runs.list tag filter uses OR logic, so we must post-filter
+        // to ensure we only cancel runs matching ALL three tags
+        const requiredTags = [
+          `dataroom_${dataroomId}`,
+          `link_${linkId}`,
+          `viewer_${viewerId}`,
+        ];
         const allRuns = await runs.list({
           taskIdentifier: ["send-dataroom-upload-notification"],
-          tag: [
-            `dataroom_${dataroomId}`,
-            `link_${linkId}`,
-            `viewer_${viewerId}`,
-          ],
+          tag: requiredTags,
           status: ["DELAYED", "QUEUED"],
           period: "10m",
         });
 
-        await Promise.all(allRuns.data.map((run) => runs.cancel(run.id)));
+        const matchingRuns = allRuns.data.filter((run) =>
+          requiredTags.every((tag) => run.tags?.includes(tag)),
+        );
+
+        await Promise.all(matchingRuns.map((run) => runs.cancel(run.id)));
 
         // Trigger a new notification with 5-minute delay to batch uploads
         waitUntil(
