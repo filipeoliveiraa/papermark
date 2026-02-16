@@ -146,8 +146,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, description, domain, slug: rawSlug } = validation.data;
-    const slug = rawSlug?.toLowerCase(); // Normalize to lowercase for case-insensitive URL handling
+    const { name, description, domain, slug } = validation.data;
 
     // Get team details for plan check
     const team = await prisma.team.findUnique({

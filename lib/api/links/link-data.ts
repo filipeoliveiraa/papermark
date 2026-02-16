@@ -768,7 +768,7 @@ export async function fetchLinkDataByDomainSlug({
   const link = await prisma.link.findUnique({
     where: {
       domainSlug_slug: {
-        slug: slug.toLowerCase(), // Normalize to lowercase for case-insensitive matching
+        slug: slug,
         domainSlug: domain,
       },
     },

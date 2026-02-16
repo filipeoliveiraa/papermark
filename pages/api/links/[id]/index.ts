@@ -253,11 +253,6 @@ export default async function handle(
       slug = null;
     }
 
-    // Normalize slug to lowercase for case-insensitive URL handling
-    if (slug) {
-      slug = slug.toLowerCase();
-    }
-
     let domainObj: DomainObject | null;
 
     if (domain && slug) {

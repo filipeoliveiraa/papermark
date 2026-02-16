@@ -36,7 +36,8 @@ import { ButtonTooltip } from "@/components/ui/tooltip";
 import { DEFAULT_LINK_TYPE } from ".";
 
 function generateRandomSlug(length: number = 10): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let result = "";
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -274,7 +275,7 @@ export default function DomainSection({
               required
               value={data.slug || ""}
               disabled={isDisabled}
-              pattern="^[a-z0-9-]+$"
+              pattern="^[a-zA-Z0-9-]+$"
               onKeyDown={(e) => {
                 // Allow navigation keys, backspace, delete, etc.
                 if (e.key.length === 1 && !/^[a-zA-Z0-9-]$/.test(e.key)) {
@@ -293,7 +294,7 @@ export default function DomainSection({
                   );
                 } else {
                   e.currentTarget.setCustomValidity(
-                    "Only lowercase letters, numbers, and '-' are allowed.",
+                    "Only letters, numbers, and '-' are allowed.",
                   );
                 }
               }}
@@ -307,9 +308,10 @@ export default function DomainSection({
               onChange={(e) => {
                 if (isDisabled) return;
 
-                const currentValue = e.target.value
-                  .toLowerCase()
-                  .replace(/[^a-z0-9-]/g, "");
+                const currentValue = e.target.value.replace(
+                  /[^a-zA-Z0-9-]/g,
+                  "",
+                );
                 const isBlocked = BLOCKED_PATHNAMES.includes(
                   `/${currentValue}`,
                 );
