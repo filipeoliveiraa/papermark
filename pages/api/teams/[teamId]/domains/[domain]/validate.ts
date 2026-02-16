@@ -13,7 +13,6 @@ import { authOptions } from "../../../../auth/[...nextauth]";
 
 type DomainValidationStatus =
   | "invalid"
-  | "conflict"
   | "has site"
   | "available";
 
@@ -75,7 +74,7 @@ export default async function handle(
 
     if (existingDomain) {
       return res.status(200).json({
-        status: "conflict" as DomainValidationStatus,
+        status: "has site" as DomainValidationStatus,
       });
     }
 

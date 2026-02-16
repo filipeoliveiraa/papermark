@@ -43,7 +43,6 @@ const sanitizeDomain = (value: string) =>
 
 type DomainStatus =
   | "checking"
-  | "conflict"
   | "has site"
   | "available"
   | "idle"
@@ -67,11 +66,6 @@ const STATUS_CONFIG: Record<
     suffix: "...",
     icon: LoadingSpinner,
     className: "bg-neutral-100 text-neutral-500",
-  },
-  conflict: {
-    suffix: "is already in use.",
-    icon: AlertTriangleIcon,
-    className: "bg-rose-100 text-rose-600",
   },
   "has site": {
     suffix:
@@ -180,7 +174,7 @@ export function AddDomainModal({
         const nextStatus = data?.status as DomainStatus | undefined;
         if (
           nextStatus &&
-          ["invalid", "conflict", "has site", "available"].includes(nextStatus)
+          ["invalid", "has site", "available"].includes(nextStatus)
         ) {
           setDomainStatus(nextStatus);
         } else {
@@ -354,7 +348,7 @@ export function AddDomainModal({
                 </div>
                 <div className="flex items-center justify-between gap-4 p-2 text-sm">
                   <p>
-                    {["checking", "conflict", "has site", "available"].includes(
+                    {["checking", "has site", "available"].includes(
                       domainStatus,
                     ) ? (
                       <>
