@@ -13,7 +13,7 @@ export const sendDataroomUploadNotificationTask = task({
   id: "send-dataroom-upload-notification",
   retry: { maxAttempts: 3 },
   run: async (payload: UploadNotificationPayload) => {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
     // Get all recent uploads for this dataroom via this link by this viewer
     const recentUploads = await prisma.documentUpload.findMany({
@@ -22,7 +22,7 @@ export const sendDataroomUploadNotificationTask = task({
         linkId: payload.linkId,
         viewerId: payload.viewerId,
         uploadedAt: {
-          gte: fiveMinutesAgo,
+          gte: tenMinutesAgo,
         },
       },
       select: {
@@ -131,8 +131,7 @@ export const sendDataroomUploadNotificationTask = task({
     // Use the viewer's email from the uploads
     const uploaderEmail = recentUploads[0]?.viewer?.email || null;
 
-    const linkName =
-      link?.name || `Link #${payload.linkId.slice(-5)}`;
+    const linkName = link?.name || `Link #${payload.linkId.slice(-5)}`;
 
     try {
       const response = await fetch(
