@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 type UploadNotificationPayload = {
   dataroomId: string;
   linkId: string;
+  viewerId: string;
   teamId: string;
 };
 
@@ -14,11 +15,12 @@ export const sendDataroomUploadNotificationTask = task({
   run: async (payload: UploadNotificationPayload) => {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-    // Get all recent uploads for this dataroom via this link
+    // Get all recent uploads for this dataroom via this link by this viewer
     const recentUploads = await prisma.documentUpload.findMany({
       where: {
         dataroomId: payload.dataroomId,
         linkId: payload.linkId,
+        viewerId: payload.viewerId,
         uploadedAt: {
           gte: fiveMinutesAgo,
         },

@@ -156,10 +156,14 @@ export async function POST(
     // 4. Send upload notification to team if enabled
     if (link.enableNotification) {
       try {
-        // Cancel any existing pending notification runs for this dataroom+link
+        // Cancel any existing pending notification runs for this viewer+dataroom+link
         const allRuns = await runs.list({
           taskIdentifier: ["send-dataroom-upload-notification"],
-          tag: [`dataroom_${dataroomId}`, `link_${linkId}`],
+          tag: [
+            `dataroom_${dataroomId}`,
+            `link_${linkId}`,
+            `viewer_${viewerId}`,
+          ],
           status: ["DELAYED", "QUEUED"],
           period: "10m",
         });
@@ -172,14 +176,16 @@ export async function POST(
             {
               dataroomId,
               linkId,
+              viewerId,
               teamId: link.teamId,
             },
             {
-              idempotencyKey: `upload-notification-${link.teamId}-${dataroomId}-${linkId}-${newDataroomDocument.id}`,
+              idempotencyKey: `upload-notification-${link.teamId}-${dataroomId}-${linkId}-${viewerId}-${newDataroomDocument.id}`,
               tags: [
                 `team_${link.teamId}`,
                 `dataroom_${dataroomId}`,
                 `link_${linkId}`,
+                `viewer_${viewerId}`,
               ],
               delay: new Date(Date.now() + 5 * 60 * 1000), // 5 minute delay
             },
