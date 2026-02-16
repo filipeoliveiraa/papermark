@@ -229,6 +229,7 @@ export function ViewerDownloadProgressModal({
   };
 
   const handleDownloadAll = async (urls: string[]) => {
+    if (downloadProgress) return;
     setDownloadProgress({ current: 0, total: urls.length });
     for (let i = 0; i < urls.length; i++) {
       setDownloadProgress({ current: i + 1, total: urls.length });
@@ -250,7 +251,6 @@ export function ViewerDownloadProgressModal({
     setStatus(null);
     setError(null);
     setIsPolling(false);
-    setDownloadProgress(null);
     onClose();
   };
 

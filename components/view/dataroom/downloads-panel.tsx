@@ -208,6 +208,7 @@ export function DownloadsPanel({ linkId }: { linkId: string }) {
   };
 
   const handleDownloadAll = async (jobId: string, urls: string[]) => {
+    if (downloadProgress) return;
     setDownloadProgress({ jobId, current: 0, total: urls.length });
     for (let i = 0; i < urls.length; i++) {
       setDownloadProgress({ jobId, current: i + 1, total: urls.length });
@@ -392,7 +393,7 @@ export function DownloadsPanel({ linkId }: { linkId: string }) {
                             <Button
                               size="sm"
                               className="w-full"
-                              disabled={downloadProgress?.jobId === job.id}
+                              disabled={!!downloadProgress}
                               onClick={() =>
                                 handleDownloadAll(job.id, job.downloadUrls!)
                               }

@@ -258,6 +258,7 @@ export function DownloadProgressModal({
   };
 
   const handleDownloadAll = async (downloadId: string, urls: string[]) => {
+    if (downloadProgress) return;
     setDownloadProgress({ downloadId, current: 0, total: urls.length });
     for (let i = 0; i < urls.length; i++) {
       setDownloadProgress({ downloadId, current: i + 1, total: urls.length });
@@ -280,7 +281,6 @@ export function DownloadProgressModal({
     setShowNewDownload(false);
     setExistingDownloads([]);
     setExpandedDownloadId(null);
-    setDownloadProgress(null);
     setLoading(true);
     onClose();
   };
@@ -428,7 +428,7 @@ export function DownloadProgressModal({
                   <>
                     <Button
                       className="w-full"
-                      disabled={downloadProgress?.downloadId === status.id}
+                      disabled={!!downloadProgress}
                       onClick={() =>
                         handleDownloadAll(status.id, status.downloadUrls!)
                       }
@@ -607,9 +607,7 @@ export function DownloadProgressModal({
                             <Button
                               size="sm"
                               className="w-full"
-                              disabled={
-                                downloadProgress?.downloadId === download.id
-                              }
+                              disabled={!!downloadProgress}
                               onClick={() =>
                                 handleDownloadAll(
                                   download.id,
