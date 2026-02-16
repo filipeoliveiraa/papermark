@@ -60,6 +60,7 @@ const BaseSchema = z.object({
     "document.create",
     "link.create",
     "link.update",
+    "links.get",
     "dataroom.create",
   ]),
 });
@@ -89,6 +90,10 @@ const LinkUpdateSchema = BaseSchema.extend({
   link: LinkSchema,
 });
 
+const LinksGetSchema = BaseSchema.extend({
+  resourceType: z.literal("links.get"),
+});
+
 // Schema for dataroom folder structure
 const DataroomFolderSchema: z.ZodType<any> = z.lazy(() =>
   z.object({
@@ -110,6 +115,7 @@ const RequestBodySchema = z.discriminatedUnion("resourceType", [
   DocumentCreateSchema,
   LinkCreateSchema,
   LinkUpdateSchema,
+  LinksGetSchema,
   DataroomCreateSchema,
 ]);
 
@@ -117,7 +123,7 @@ export default async function incomingWebhookHandler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  if (req.method !== "POST" && req.method !== "GET") {
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -203,12 +209,6 @@ export default async function incomingWebhookHandler(
       return res.status(404).json({ error: "Webhook not found" });
     }
 
-    // Handle GET requests – return all links for the team
-    if (req.method === "GET") {
-      return await handleGetTeamLinks(incomingWebhook.teamId, res);
-    }
-
-    // Handle POST requests
     // Validate request body against the schema
     const validationResult = RequestBodySchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -242,6 +242,8 @@ export default async function incomingWebhookHandler(
         token,
         res,
       );
+    } else if (validatedData.resourceType === "links.get") {
+      return await handleLinksGet(incomingWebhook.teamId, res);
     } else if (validatedData.resourceType === "dataroom.create") {
       return await handleDataroomCreate(
         validatedData,
@@ -260,9 +262,9 @@ export default async function incomingWebhookHandler(
 }
 
 /**
- * Handle GET request – return all links for the team
+ * Handle links.get resource type – return all links for the team
  */
-async function handleGetTeamLinks(teamId: string, res: NextApiResponse) {
+async function handleLinksGet(teamId: string, res: NextApiResponse) {
   try {
     const links = await prisma.link.findMany({
       where: {
