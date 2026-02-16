@@ -9,11 +9,19 @@ import { z } from "zod";
 
 import { hashToken } from "@/lib/api/auth/token";
 import { createDocument } from "@/lib/documents/create-document";
+import { copyFileToBucketServer } from "@/lib/files/copy-file-to-bucket-server";
 import { putFileServer } from "@/lib/files/put-file-server";
 import { newId } from "@/lib/id-helper";
 import { extractTeamId, isValidWebhookId } from "@/lib/incoming-webhooks";
 import prisma from "@/lib/prisma";
 import { ratelimit } from "@/lib/redis";
+import {
+  convertCadToPdfTask,
+  convertFilesToPdfTask,
+  convertKeynoteToPdfTask,
+} from "@/lib/trigger/convert-files";
+import { processVideo } from "@/lib/trigger/optimize-video-files";
+import { convertPdfToImageRoute } from "@/lib/trigger/pdf-to-image-route";
 import {
   convertDataUrlToBuffer,
   generateEncrpytedPassword,
@@ -24,6 +32,7 @@ import {
   getExtensionFromContentType,
   getSupportedContentType,
 } from "@/lib/utils/get-content-type";
+import { conversionQueue } from "@/lib/utils/trigger-utils";
 import { sendLinkCreatedWebhook } from "@/lib/webhook/triggers/link-created";
 import { webhookFileUrlSchema } from "@/lib/zod/url-validation";
 
@@ -58,6 +67,7 @@ const LinkSchema = z.object({
 const BaseSchema = z.object({
   resourceType: z.enum([
     "document.create",
+    "document.update",
     "link.create",
     "link.update",
     "links.get",
@@ -75,6 +85,13 @@ const DocumentCreateSchema = BaseSchema.extend({
   dataroomFolderId: z.string().nullable().optional(),
   createLink: z.boolean().optional().default(false),
   link: LinkSchema.optional(),
+});
+
+const DocumentUpdateSchema = BaseSchema.extend({
+  resourceType: z.literal("document.update"),
+  documentId: z.string(),
+  fileUrl: webhookFileUrlSchema,
+  contentType: z.string(),
 });
 
 const LinkCreateSchema = BaseSchema.extend({
@@ -113,6 +130,7 @@ const DataroomCreateSchema = BaseSchema.extend({
 
 const RequestBodySchema = z.discriminatedUnion("resourceType", [
   DocumentCreateSchema,
+  DocumentUpdateSchema,
   LinkCreateSchema,
   LinkUpdateSchema,
   LinksGetSchema,
@@ -226,6 +244,12 @@ export default async function incomingWebhookHandler(
         validatedData,
         incomingWebhook.teamId,
         token,
+        res,
+      );
+    } else if (validatedData.resourceType === "document.update") {
+      return await handleDocumentUpdate(
+        validatedData,
+        incomingWebhook.teamId,
         res,
       );
     } else if (validatedData.resourceType === "link.create") {
@@ -670,6 +694,296 @@ async function handleDocumentCreate(
         ? `https://${newLink.domainSlug}/${newLink.slug}`
         : `${process.env.NEXT_PUBLIC_MARKETING_URL}/view/${newLink?.id}`
       : undefined,
+  });
+}
+
+/**
+ * Handle document.update resource type – creates a new version for an existing document
+ */
+async function handleDocumentUpdate(
+  data: z.infer<typeof DocumentUpdateSchema>,
+  teamId: string,
+  res: NextApiResponse,
+) {
+  const { documentId, fileUrl, contentType } = data;
+
+  // Check if team is paused
+  const teamIsPaused = await isTeamPausedById(teamId);
+  if (teamIsPaused) {
+    return res.status(403).json({
+      error:
+        "Team is currently paused. Document updates are not available.",
+    });
+  }
+
+  // Check if the content type is supported
+  const supportedContentType = getSupportedContentType(contentType);
+  if (!supportedContentType) {
+    return res.status(400).json({ error: "Unsupported content type" });
+  }
+
+  // Verify document exists and belongs to team
+  const document = await prisma.document.findUnique({
+    where: {
+      id: documentId,
+      teamId: teamId,
+    },
+    select: {
+      id: true,
+      name: true,
+      advancedExcelEnabled: true,
+      versions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { versionNumber: true },
+      },
+    },
+  });
+
+  if (!document) {
+    return res
+      .status(404)
+      .json({ error: "Document not found or not associated with this team" });
+  }
+
+  // Fetch the team plan for queue configuration
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { plan: true },
+  });
+
+  if (!team) {
+    return res.status(404).json({ error: "Team not found" });
+  }
+
+  // Fetch file from URL
+  const response = await fetch(fileUrl);
+  if (!response.ok) {
+    return res.status(400).json({ error: "Failed to fetch file from URL" });
+  }
+
+  // Validate response content type
+  const responseContentType = response.headers.get("content-type");
+  if (!responseContentType || responseContentType.startsWith("text/html")) {
+    return res
+      .status(400)
+      .json({ error: "Remote resource is not a supported file type" });
+  }
+  if (!responseContentType.startsWith(contentType)) {
+    console.warn(
+      `Content type mismatch: expected ${contentType}, got ${responseContentType}`,
+    );
+  }
+
+  // Convert to buffer
+  const fileBuffer = Buffer.from(await response.arrayBuffer());
+
+  // Ensure filename has proper extension
+  let fileName = document.name?.trim() ?? "document";
+  const actualContentType = (
+    responseContentType?.split(";")[0] ?? contentType
+  ).trim();
+  const expectedExtension = getExtensionFromContentType(actualContentType);
+  if (expectedExtension) {
+    const lower = fileName.toLowerCase();
+    const dotIdx = lower.lastIndexOf(".");
+    const currentExt = dotIdx !== -1 ? lower.slice(dotIdx + 1) : null;
+    const alias: Record<string, string[]> = {
+      jpeg: ["jpeg", "jpg"],
+      jpg: ["jpg", "jpeg"],
+      tiff: ["tiff", "tif"],
+    };
+    const matches =
+      !!currentExt &&
+      (currentExt === expectedExtension ||
+        (alias[expectedExtension]?.includes(currentExt) ?? false));
+    if (!matches) {
+      fileName = `${fileName}.${expectedExtension}`;
+    }
+  }
+
+  // Upload the file to storage
+  const { type: storageType, data: fileData } = await putFileServer({
+    file: {
+      name: fileName,
+      type: contentType,
+      buffer: fileBuffer,
+    },
+    teamId: teamId,
+    restricted: false,
+  });
+
+  if (!fileData || !storageType) {
+    return res.status(500).json({ error: "Failed to save file to storage" });
+  }
+
+  const type = supportedContentType;
+
+  // Determine new version number
+  const currentVersionNumber = document.versions.length > 0
+    ? document.versions[0].versionNumber
+    : 1;
+
+  // Create a new document version
+  const version = await prisma.documentVersion.create({
+    data: {
+      documentId: documentId,
+      file: fileData,
+      originalFile: fileData,
+      type: type,
+      storageType,
+      numPages: document.advancedExcelEnabled ? 1 : 1,
+      isPrimary: true,
+      versionNumber: currentVersionNumber + 1,
+      contentType,
+      fileSize: fileBuffer.byteLength,
+    },
+  });
+
+  // Turn off isPrimary flag for all other versions
+  await prisma.documentVersion.updateMany({
+    where: {
+      documentId: documentId,
+      id: { not: version.id },
+    },
+    data: {
+      isPrimary: false,
+    },
+  });
+
+  // Update the document's file and contentType to reflect the new version
+  await prisma.document.update({
+    where: { id: documentId },
+    data: {
+      file: fileData,
+      originalFile: fileData,
+      contentType: contentType,
+      type: type,
+    },
+  });
+
+  // Trigger appropriate conversion tasks based on document type
+  if (
+    type === "slides" &&
+    (contentType === "application/vnd.apple.keynote" ||
+      contentType === "application/x-iwork-keynote-sffkey")
+  ) {
+    await convertKeynoteToPdfTask.trigger(
+      {
+        documentId: document.id,
+        documentVersionId: version.id,
+        teamId,
+      },
+      {
+        idempotencyKey: `${teamId}-${version.id}-keynote`,
+        tags: [
+          `team_${teamId}`,
+          `document_${document.id}`,
+          `version:${version.id}`,
+        ],
+        queue: conversionQueue(team.plan),
+        concurrencyKey: teamId,
+      },
+    );
+  } else if (type === "docs" || type === "slides") {
+    await convertFilesToPdfTask.trigger(
+      {
+        documentId: document.id,
+        documentVersionId: version.id,
+        teamId,
+      },
+      {
+        idempotencyKey: `${teamId}-${version.id}-docs`,
+        tags: [
+          `team_${teamId}`,
+          `document_${document.id}`,
+          `version:${version.id}`,
+        ],
+        queue: conversionQueue(team.plan),
+        concurrencyKey: teamId,
+      },
+    );
+  }
+
+  if (type === "cad") {
+    await convertCadToPdfTask.trigger(
+      {
+        documentId: document.id,
+        documentVersionId: version.id,
+        teamId,
+      },
+      {
+        idempotencyKey: `${teamId}-${version.id}-cad`,
+        tags: [
+          `team_${teamId}`,
+          `document_${document.id}`,
+          `version:${version.id}`,
+        ],
+        queue: conversionQueue(team.plan),
+        concurrencyKey: teamId,
+      },
+    );
+  }
+
+  if (type === "pdf") {
+    await convertPdfToImageRoute.trigger(
+      {
+        documentId: document.id,
+        documentVersionId: version.id,
+        teamId,
+        versionNumber: version.versionNumber,
+      },
+      {
+        idempotencyKey: `${teamId}-${version.id}`,
+        tags: [
+          `team_${teamId}`,
+          `document_${document.id}`,
+          `version:${version.id}`,
+        ],
+        queue: conversionQueue(team.plan),
+        concurrencyKey: teamId,
+      },
+    );
+  }
+
+  if (
+    type === "video" &&
+    contentType !== "video/mp4" &&
+    contentType?.startsWith("video/")
+  ) {
+    await processVideo.trigger(
+      {
+        videoUrl: fileData,
+        teamId,
+        docId: fileData.split("/")[1],
+        documentVersionId: version.id,
+        fileSize: fileBuffer.byteLength,
+      },
+      {
+        idempotencyKey: `${teamId}-${version.id}`,
+        tags: [
+          `team_${teamId}`,
+          `document_${document.id}`,
+          `version:${version.id}`,
+        ],
+        queue: conversionQueue(team.plan),
+        concurrencyKey: teamId,
+      },
+    );
+  }
+
+  if (type === "sheet" && document.advancedExcelEnabled) {
+    await copyFileToBucketServer({
+      filePath: version.file,
+      storageType: version.storageType,
+      teamId,
+    });
+  }
+
+  return res.status(200).json({
+    message: "Document version created successfully",
+    documentId: document.id,
+    versionNumber: version.versionNumber,
   });
 }
 
