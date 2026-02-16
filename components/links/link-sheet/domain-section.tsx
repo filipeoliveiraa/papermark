@@ -95,7 +95,7 @@ export default function DomainSection({
     // Handle opening the add domain modal
     if (value === "add_domain" || value === "add_dataroom_domain") {
       setModalOpen(true);
-      setData({ ...data, domain: "papermark.com" });
+      setData((prev) => ({ ...prev, domain: "papermark.com" }));
       setDisplayValue("papermark.com");
       return;
     }
@@ -108,22 +108,23 @@ export default function DomainSection({
         (linkType === "DATAROOM_LINK" && !canUseCustomDomainForDataroom)
       ) {
         setUpgradeModalOpen(true);
-        setData({ ...data, domain: "papermark.com" });
+        setData((prev) => ({ ...prev, domain: "papermark.com" }));
         setDisplayValue("papermark.com");
         return;
       }
 
       // Auto-generate a slug if there isn't one yet
-      if (!data.slug) {
-        const newSlug = generateRandomSlug();
-        setData({ ...data, domain: value, slug: newSlug });
-        setDisplayValue(value);
-        return;
-      }
+      setData((prev) => ({
+        ...prev,
+        domain: value,
+        ...(!prev.slug && { slug: generateRandomSlug() }),
+      }));
+      setDisplayValue(value);
+      return;
     }
 
     // Update domain normally if allowed
-    setData({ ...data, domain: value });
+    setData((prev) => ({ ...prev, domain: value }));
     setDisplayValue(value);
   };
 
@@ -148,13 +149,12 @@ export default function DomainSection({
       // Auto-generate a slug when a custom domain is auto-selected as default
       const isCustomDomain =
         domainValue !== "papermark.com" && canUseCustomDomain;
-      const needsSlug = isCustomDomain && !data.slug;
 
-      setData({
-        ...data,
+      setData((prev) => ({
+        ...prev,
         domain: domainValue,
-        ...(needsSlug && { slug: generateRandomSlug() }),
-      });
+        ...(isCustomDomain && !prev.slug && { slug: generateRandomSlug() }),
+      }));
 
       setDisplayValue(domainValue);
     }
@@ -325,7 +325,7 @@ export default function DomainSection({
                 } else {
                   e.currentTarget.setCustomValidity("");
                 }
-                setData({ ...data, slug: currentValue });
+                setData((prev) => ({ ...prev, slug: currentValue }));
               }}
               aria-invalid={isSlugInvalid}
             />
