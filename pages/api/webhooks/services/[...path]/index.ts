@@ -8,20 +8,15 @@ import { waitUntil } from "@vercel/functions";
 import { z } from "zod";
 
 import { hashToken } from "@/lib/api/auth/token";
-import { createDocument } from "@/lib/documents/create-document";
-import { copyFileToBucketServer } from "@/lib/files/copy-file-to-bucket-server";
+import {
+  createDocument,
+  createNewDocumentVersion,
+} from "@/lib/documents/create-document";
 import { putFileServer } from "@/lib/files/put-file-server";
 import { newId } from "@/lib/id-helper";
 import { extractTeamId, isValidWebhookId } from "@/lib/incoming-webhooks";
 import prisma from "@/lib/prisma";
 import { ratelimit } from "@/lib/redis";
-import {
-  convertCadToPdfTask,
-  convertFilesToPdfTask,
-  convertKeynoteToPdfTask,
-} from "@/lib/trigger/convert-files";
-import { processVideo } from "@/lib/trigger/optimize-video-files";
-import { convertPdfToImageRoute } from "@/lib/trigger/pdf-to-image-route";
 import {
   convertDataUrlToBuffer,
   generateEncrpytedPassword,
@@ -32,7 +27,6 @@ import {
   getExtensionFromContentType,
   getSupportedContentType,
 } from "@/lib/utils/get-content-type";
-import { conversionQueue } from "@/lib/utils/trigger-utils";
 import { sendLinkCreatedWebhook } from "@/lib/webhook/triggers/link-created";
 import { webhookFileUrlSchema } from "@/lib/zod/url-validation";
 
@@ -250,6 +244,7 @@ export default async function incomingWebhookHandler(
       return await handleDocumentUpdate(
         validatedData,
         incomingWebhook.teamId,
+        token,
         res,
       );
     } else if (validatedData.resourceType === "link.create") {
@@ -698,23 +693,17 @@ async function handleDocumentCreate(
 }
 
 /**
- * Handle document.update resource type – creates a new version for an existing document
+ * Handle document.update resource type – creates a new version for an existing document.
+ * Delegates version creation and document processing to the versions API endpoint
+ * via createNewDocumentVersion.
  */
 async function handleDocumentUpdate(
   data: z.infer<typeof DocumentUpdateSchema>,
   teamId: string,
+  token: string,
   res: NextApiResponse,
 ) {
   const { documentId, fileUrl, contentType } = data;
-
-  // Check if team is paused
-  const teamIsPaused = await isTeamPausedById(teamId);
-  if (teamIsPaused) {
-    return res.status(403).json({
-      error:
-        "Team is currently paused. Document updates are not available.",
-    });
-  }
 
   // Check if the content type is supported
   const supportedContentType = getSupportedContentType(contentType);
@@ -728,32 +717,13 @@ async function handleDocumentUpdate(
       id: documentId,
       teamId: teamId,
     },
-    select: {
-      id: true,
-      name: true,
-      advancedExcelEnabled: true,
-      versions: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { versionNumber: true },
-      },
-    },
+    select: { id: true, name: true },
   });
 
   if (!document) {
     return res
       .status(404)
       .json({ error: "Document not found or not associated with this team" });
-  }
-
-  // Fetch the team plan for queue configuration
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: { plan: true },
-  });
-
-  if (!team) {
-    return res.status(404).json({ error: "Team not found" });
   }
 
   // Fetch file from URL
@@ -817,174 +787,43 @@ async function handleDocumentUpdate(
     return res.status(500).json({ error: "Failed to save file to storage" });
   }
 
-  const type = supportedContentType;
-
-  // Determine new version number
-  const currentVersionNumber = document.versions.length > 0
-    ? document.versions[0].versionNumber
-    : 1;
-
-  // Create a new document version
-  const version = await prisma.documentVersion.create({
-    data: {
-      documentId: documentId,
-      file: fileData,
-      originalFile: fileData,
-      type: type,
-      storageType,
-      numPages: document.advancedExcelEnabled ? 1 : 1,
-      isPrimary: true,
-      versionNumber: currentVersionNumber + 1,
-      contentType,
-      fileSize: fileBuffer.byteLength,
-    },
-  });
-
-  // Turn off isPrimary flag for all other versions
-  await prisma.documentVersion.updateMany({
-    where: {
-      documentId: documentId,
-      id: { not: version.id },
-    },
-    data: {
-      isPrimary: false,
-    },
-  });
-
-  // Update the document's file and contentType to reflect the new version
-  await prisma.document.update({
-    where: { id: documentId },
-    data: {
-      file: fileData,
-      originalFile: fileData,
-      contentType: contentType,
-      type: type,
-    },
-  });
-
-  // Trigger appropriate conversion tasks based on document type
-  if (
-    type === "slides" &&
-    (contentType === "application/vnd.apple.keynote" ||
-      contentType === "application/x-iwork-keynote-sffkey")
-  ) {
-    await convertKeynoteToPdfTask.trigger(
-      {
-        documentId: document.id,
-        documentVersionId: version.id,
-        teamId,
-      },
-      {
-        idempotencyKey: `${teamId}-${version.id}-keynote`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${version.id}`,
-        ],
-        queue: conversionQueue(team.plan),
-        concurrencyKey: teamId,
-      },
-    );
-  } else if (type === "docs" || type === "slides") {
-    await convertFilesToPdfTask.trigger(
-      {
-        documentId: document.id,
-        documentVersionId: version.id,
-        teamId,
-      },
-      {
-        idempotencyKey: `${teamId}-${version.id}-docs`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${version.id}`,
-        ],
-        queue: conversionQueue(team.plan),
-        concurrencyKey: teamId,
-      },
-    );
-  }
-
-  if (type === "cad") {
-    await convertCadToPdfTask.trigger(
-      {
-        documentId: document.id,
-        documentVersionId: version.id,
-        teamId,
-      },
-      {
-        idempotencyKey: `${teamId}-${version.id}-cad`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${version.id}`,
-        ],
-        queue: conversionQueue(team.plan),
-        concurrencyKey: teamId,
-      },
-    );
-  }
-
-  if (type === "pdf") {
-    await convertPdfToImageRoute.trigger(
-      {
-        documentId: document.id,
-        documentVersionId: version.id,
-        teamId,
-        versionNumber: version.versionNumber,
-      },
-      {
-        idempotencyKey: `${teamId}-${version.id}`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${version.id}`,
-        ],
-        queue: conversionQueue(team.plan),
-        concurrencyKey: teamId,
-      },
-    );
-  }
-
-  if (
-    type === "video" &&
-    contentType !== "video/mp4" &&
-    contentType?.startsWith("video/")
-  ) {
-    await processVideo.trigger(
-      {
-        videoUrl: fileData,
-        teamId,
-        docId: fileData.split("/")[1],
-        documentVersionId: version.id,
+  // Create a new document version via the shared helper.
+  // This handles version creation, primary flag management, and triggers
+  // all document processing (pdf-to-image, docs/slides conversion, video, etc.)
+  try {
+    const versionResponse = await createNewDocumentVersion({
+      documentData: {
+        name: fileName,
+        key: fileData,
+        storageType: storageType,
+        contentType: contentType,
+        supportedFileType: supportedContentType,
         fileSize: fileBuffer.byteLength,
       },
-      {
-        idempotencyKey: `${teamId}-${version.id}`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${version.id}`,
-        ],
-        queue: conversionQueue(team.plan),
-        concurrencyKey: teamId,
-      },
-    );
-  }
-
-  if (type === "sheet" && document.advancedExcelEnabled) {
-    await copyFileToBucketServer({
-      filePath: version.file,
-      storageType: version.storageType,
-      teamId,
+      documentId: documentId,
+      teamId: teamId,
+      numPages: 1,
+      token: token,
     });
-  }
 
-  return res.status(200).json({
-    message: "Document version created successfully",
-    documentId: document.id,
-    versionNumber: version.versionNumber,
-  });
+    if (!versionResponse.ok) {
+      const errorBody = await versionResponse.json().catch(() => ({}));
+      return res.status(versionResponse.status).json({
+        error: "Failed to create document version",
+        details: errorBody,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Document version created successfully",
+      documentId: document.id,
+    });
+  } catch (error) {
+    console.error("Document update error:", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to create document version" });
+  }
 }
 
 /**
