@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 
 import { determineTextColor } from "@/lib/utils/determine-text-color";
+import { triggerBlobDownload } from "@/lib/utils/trigger-download";
 
 import {
   DropdownMenu,
@@ -179,17 +180,12 @@ export default function Nav({
         }, 100);
       } else {
         // Handle JSON response with downloadUrl (non-watermarked files)
-        const { downloadUrl } = await response.json();
+        const { downloadUrl, fileName } = await response.json();
 
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.rel = "noopener noreferrer";
-        document.body.appendChild(link);
-        link.click();
-
-        setTimeout(() => {
-          document.body.removeChild(link);
-        }, 100);
+        await triggerBlobDownload(
+          downloadUrl,
+          fileName || "document",
+        );
       }
 
       return "File downloaded successfully";
