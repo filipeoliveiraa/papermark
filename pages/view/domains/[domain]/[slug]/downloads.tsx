@@ -6,7 +6,7 @@ import { DownloadsPanel } from "@/components/view/dataroom/downloads-panel";
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const domain = context.params?.domain as string;
-  const slug = context.params?.slug as string;
+  const slug = (context.params?.slug as string)?.toLowerCase(); // Normalize to lowercase
   if (!domain || !slug) {
     return { notFound: true };
   }

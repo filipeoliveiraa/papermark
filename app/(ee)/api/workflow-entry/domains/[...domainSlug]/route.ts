@@ -34,7 +34,7 @@ export async function POST(
     }
 
     const domain = domainSlug[0];
-    const slug = domainSlug[1];
+    const slug = domainSlug[1]?.toLowerCase(); // Normalize to lowercase for case-insensitive matching
     const action = domainSlug[2]; // "verify" or "access"
 
     if (action !== "verify" && action !== "access") {

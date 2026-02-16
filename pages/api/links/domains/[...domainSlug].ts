@@ -23,7 +23,7 @@ export default async function handle(
     const { domainSlug } = req.query as { domainSlug: string[] };
 
     const domain = domainSlug[0];
-    const slug = domainSlug[1];
+    const slug = domainSlug[1]?.toLowerCase(); // Normalize to lowercase for case-insensitive matching
     const documentId = domainSlug[3];
 
     if (slug === "404") {

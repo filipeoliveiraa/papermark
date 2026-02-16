@@ -82,42 +82,47 @@ export default async function handler(
           : null;
       const exat = expiresAt ? new Date(expiresAt) : null;
 
-      let { domain, slug, ...linkData } = linkDomainData;
+    let { domain, slug, ...linkData } = linkDomainData;
 
-      // set domain and slug to null if the domain is papermark.com
-      if (domain && domain === "papermark.com") {
-        domain = null;
-        slug = null;
+    // set domain and slug to null if the domain is papermark.com
+    if (domain && domain === "papermark.com") {
+      domain = null;
+      slug = null;
+    }
+
+    // Normalize slug to lowercase for case-insensitive URL handling
+    if (slug) {
+      slug = slug.toLowerCase();
+    }
+
+    let domainObj: DomainObject | null;
+
+    if (domain && slug) {
+      domainObj = await prisma.domain.findUnique({
+        where: {
+          slug: domain,
+        },
+      });
+
+      if (!domainObj) {
+        return res.status(400).json({ error: "Domain not found." });
       }
 
-      let domainObj: DomainObject | null;
-
-      if (domain && slug) {
-        domainObj = await prisma.domain.findUnique({
-          where: {
-            slug: domain,
+      const existingLink = await prisma.link.findUnique({
+        where: {
+          domainSlug_slug: {
+            slug: slug,
+            domainSlug: domain,
           },
+        },
+      });
+
+      if (existingLink) {
+        return res.status(400).json({
+          error: "The link already exists.",
         });
-
-        if (!domainObj) {
-          return res.status(400).json({ error: "Domain not found." });
-        }
-
-        const existingLink = await prisma.link.findUnique({
-          where: {
-            domainSlug_slug: {
-              slug: slug,
-              domainSlug: domain,
-            },
-          },
-        });
-
-        if (existingLink) {
-          return res.status(400).json({
-            error: "The link already exists.",
-          });
-        }
       }
+    }
 
       if (linkData.enableAgreement && !linkData.agreementId) {
         return res.status(400).json({

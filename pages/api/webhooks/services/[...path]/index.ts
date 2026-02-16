@@ -363,6 +363,11 @@ async function handleDocumentCreate(
     }
   }
 
+  // Normalize slug to lowercase for case-insensitive URL handling
+  if (link?.slug) {
+    link.slug = link.slug.toLowerCase();
+  }
+
   // If custom domain and slug are provided, validate them
   if (createLink && link?.domain && link?.slug) {
     // Check if domain exists
@@ -684,6 +689,11 @@ async function handleLinkCreate(
 ) {
   const { targetId, linkType, link } = data;
 
+  // Normalize slug to lowercase for case-insensitive URL handling
+  if (link.slug) {
+    link.slug = link.slug.toLowerCase();
+  }
+
   // Check if team is paused
   const teamIsPaused = await isTeamPausedById(teamId);
   if (teamIsPaused) {
@@ -895,6 +905,11 @@ async function handleLinkUpdate(
   res: NextApiResponse,
 ) {
   const { linkId, link } = data;
+
+  // Normalize slug to lowercase for case-insensitive URL handling
+  if (link.slug) {
+    link.slug = link.slug.toLowerCase();
+  }
 
   // Check if team is paused
   const teamIsPaused = await isTeamPausedById(teamId);
@@ -1208,6 +1223,11 @@ async function handleDataroomCreate(
       error:
         "Team is currently paused. New dataroom creation is not available.",
     });
+  }
+
+  // Normalize slug to lowercase for case-insensitive URL handling
+  if (link?.slug) {
+    link.slug = link.slug.toLowerCase();
   }
 
   // If custom domain and slug are provided for link, validate them
