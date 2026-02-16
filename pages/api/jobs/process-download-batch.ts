@@ -87,7 +87,20 @@ export default async function handler(
 
     const body = JSON.parse(payload.body);
 
-    return res.status(200).json({ downloadUrl: body.downloadUrl });
+    // Parse the presigned URL to extract S3 key info for on-demand re-signing
+    let s3KeyInfo: { bucket: string; key: string; region: string } | undefined;
+    try {
+      const { parseS3PresignedUrl } = await import(
+        "@/lib/files/bulk-download-presign"
+      );
+      s3KeyInfo = parseS3PresignedUrl(body.downloadUrl);
+    } catch {
+      // Non-fatal: fall back to stored presigned URL
+    }
+
+    return res
+      .status(200)
+      .json({ downloadUrl: body.downloadUrl, s3KeyInfo });
   } catch (error) {
     console.error("Error processing download batch:", error);
     return res.status(500).json({

@@ -130,7 +130,7 @@ export const bulkDownloadTask = task({
           fileCount: fileKeys.length,
         });
 
-        const downloadUrl = await processDownloadBatch({
+        const result = await processDownloadBatch({
           teamId,
           folderStructure,
           fileKeys,
@@ -152,7 +152,8 @@ export const bulkDownloadTask = task({
           status: "COMPLETED",
           processedFiles: fileKeys.length,
           progress: 100,
-          downloadUrls: [downloadUrl],
+          downloadUrls: [result.downloadUrl],
+          downloadS3Keys: result.s3KeyInfo ? [result.s3KeyInfo] : undefined,
           completedAt: new Date().toISOString(),
           expiresAt: new Date(
             Date.now() + 3 * 24 * 60 * 60 * 1000,
@@ -173,13 +174,13 @@ export const bulkDownloadTask = task({
 
         logger.info("Bulk download task completed successfully", {
           jobId,
-          downloadUrls: [downloadUrl],
+          downloadUrls: [result.downloadUrl],
         });
 
         return {
           success: true,
           jobId,
-          downloadUrls: [downloadUrl],
+          downloadUrls: [result.downloadUrl],
         };
       }
 
@@ -195,6 +196,8 @@ export const bulkDownloadTask = task({
       const batches = splitFilesIntoBatches(folderStructure, fileKeys);
       const totalBatches = batches.length;
       const downloadUrls: string[] = [];
+      const downloadS3Keys: { bucket: string; key: string; region: string }[] =
+        [];
 
       logger.info("Created file batches", {
         jobId,
@@ -219,7 +222,7 @@ export const bulkDownloadTask = task({
         });
 
         try {
-          const downloadUrl = await processDownloadBatch({
+          const result = await processDownloadBatch({
             teamId,
             folderStructure: batch.folderStructure,
             fileKeys: batch.fileKeys,
@@ -236,7 +239,10 @@ export const bulkDownloadTask = task({
             ),
           });
 
-          downloadUrls.push(downloadUrl);
+          downloadUrls.push(result.downloadUrl);
+          if (result.s3KeyInfo) {
+            downloadS3Keys.push(result.s3KeyInfo);
+          }
 
           // Calculate progress
           const processedFiles = batches
@@ -253,7 +259,7 @@ export const bulkDownloadTask = task({
           logger.info(`Batch ${batchNumber} completed`, {
             jobId,
             batchNumber,
-            downloadUrl,
+            downloadUrl: result.downloadUrl,
             progress,
           });
         } catch (batchError) {
@@ -275,6 +281,7 @@ export const bulkDownloadTask = task({
         processedFiles: fileKeys.length,
         progress: 100,
         downloadUrls,
+        downloadS3Keys: downloadS3Keys.length > 0 ? downloadS3Keys : undefined,
         completedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
       });
@@ -332,6 +339,11 @@ interface ProcessDownloadBatchParams {
   expirationHours?: number;
 }
 
+interface ProcessDownloadBatchResult {
+  downloadUrl: string;
+  s3KeyInfo?: { bucket: string; key: string; region: string };
+}
+
 async function processDownloadBatch({
   teamId,
   folderStructure,
@@ -343,7 +355,7 @@ async function processDownloadBatch({
   totalParts,
   zipFileName,
   expirationHours = 72,
-}: ProcessDownloadBatchParams): Promise<string> {
+}: ProcessDownloadBatchParams): Promise<ProcessDownloadBatchResult> {
   const baseUrl = process.env.NEXTAUTH_URL || "https://app.papermark.com";
   const internalApiKey = process.env.INTERNAL_API_KEY;
 
@@ -377,7 +389,7 @@ async function processDownloadBatch({
   }
 
   const data = await response.json();
-  return data.downloadUrl;
+  return { downloadUrl: data.downloadUrl, s3KeyInfo: data.s3KeyInfo };
 }
 
 interface FileBatch {

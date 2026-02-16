@@ -3,8 +3,12 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { getServerSession } from "next-auth";
 
+import { generateFreshPresignedUrl } from "@/lib/files/bulk-download-presign";
 import prisma from "@/lib/prisma";
-import { downloadJobStore } from "@/lib/redis-download-job-store";
+import {
+  type DownloadJob,
+  downloadJobStore,
+} from "@/lib/redis-download-job-store";
 import { CustomUser } from "@/lib/types";
 
 export default async function handler(
@@ -71,7 +75,30 @@ export default async function handler(
         return false;
       });
 
-      return res.status(200).json(userJobs);
+      // Generate fresh presigned URLs for completed jobs
+      const jobsWithFreshUrls = await Promise.all(
+        userJobs.map(async (job: DownloadJob) => {
+          if (
+            job.status === "COMPLETED" &&
+            job.downloadS3Keys?.length &&
+            job.downloadUrls?.length
+          ) {
+            try {
+              const freshUrls = await Promise.all(
+                job.downloadS3Keys.map((s3Key) =>
+                  generateFreshPresignedUrl(teamId, s3Key),
+                ),
+              );
+              return { ...job, downloadUrls: freshUrls };
+            } catch {
+              return job;
+            }
+          }
+          return job;
+        }),
+      );
+
+      return res.status(200).json(jobsWithFreshUrls);
     } catch (error) {
       console.error("Error fetching download jobs:", error);
       return res.status(500).json({

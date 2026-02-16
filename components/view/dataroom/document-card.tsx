@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { triggerBlobDownload } from "@/lib/utils/trigger-download";
 import { fileIcon } from "@/lib/utils/get-file-icon";
 import {
   HIERARCHICAL_DISPLAY_STYLE,
@@ -151,27 +152,16 @@ export default function DocumentCard({
         return "File downloaded successfully";
       }
 
-      // For all other files, use the iframe method
+      // For all other files, fetch as blob for reliable cross-browser download
       if (contentType?.includes("application/json")) {
         const data = await response.json();
-        const downloadUrl = data.isDirectDownload
-          ? data.downloadUrl
-          : response.url;
 
-        // Create a hidden iframe for download
-        const iframe = window.document.createElement("iframe");
-        iframe.style.display = "none";
-        window.document.body.appendChild(iframe);
-        iframe.src = downloadUrl;
+        await triggerBlobDownload(
+          data.downloadUrl,
+          data.fileName || document.name,
+        );
 
-        // Clean up the iframe after a delay
-        setTimeout(() => {
-          if (iframe && iframe.parentNode) {
-            window.document.body.removeChild(iframe);
-          }
-        }, 5000);
-
-        return "Download started";
+        return "File downloaded successfully";
       }
 
       throw new Error("Unexpected response format");
