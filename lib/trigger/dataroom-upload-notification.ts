@@ -128,7 +128,7 @@ export const sendDataroomUploadNotificationTask = task({
       (upload) => upload.originalFilename || "Untitled document",
     );
 
-    // Use the first uploader's email (uploads in same batch might be from different visitors)
+    // Use the viewer's email from the uploads
     const uploaderEmail = recentUploads[0]?.viewer?.email || null;
 
     const linkName =
