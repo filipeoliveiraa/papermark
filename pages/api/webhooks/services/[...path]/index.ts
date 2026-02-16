@@ -8,7 +8,10 @@ import { waitUntil } from "@vercel/functions";
 import { z } from "zod";
 
 import { hashToken } from "@/lib/api/auth/token";
-import { createDocument } from "@/lib/documents/create-document";
+import {
+  createDocument,
+  createNewDocumentVersion,
+} from "@/lib/documents/create-document";
 import { putFileServer } from "@/lib/files/put-file-server";
 import { newId } from "@/lib/id-helper";
 import { extractTeamId, isValidWebhookId } from "@/lib/incoming-webhooks";
@@ -58,6 +61,7 @@ const LinkSchema = z.object({
 const BaseSchema = z.object({
   resourceType: z.enum([
     "document.create",
+    "document.update",
     "link.create",
     "link.update",
     "links.get",
@@ -75,6 +79,13 @@ const DocumentCreateSchema = BaseSchema.extend({
   dataroomFolderId: z.string().nullable().optional(),
   createLink: z.boolean().optional().default(false),
   link: LinkSchema.optional(),
+});
+
+const DocumentUpdateSchema = BaseSchema.extend({
+  resourceType: z.literal("document.update"),
+  documentId: z.string(),
+  fileUrl: webhookFileUrlSchema,
+  contentType: z.string(),
 });
 
 const LinkCreateSchema = BaseSchema.extend({
@@ -113,6 +124,7 @@ const DataroomCreateSchema = BaseSchema.extend({
 
 const RequestBodySchema = z.discriminatedUnion("resourceType", [
   DocumentCreateSchema,
+  DocumentUpdateSchema,
   LinkCreateSchema,
   LinkUpdateSchema,
   LinksGetSchema,
@@ -223,6 +235,13 @@ export default async function incomingWebhookHandler(
     // Handle different resource types
     if (validatedData.resourceType === "document.create") {
       return await handleDocumentCreate(
+        validatedData,
+        incomingWebhook.teamId,
+        token,
+        res,
+      );
+    } else if (validatedData.resourceType === "document.update") {
+      return await handleDocumentUpdate(
         validatedData,
         incomingWebhook.teamId,
         token,
@@ -671,6 +690,140 @@ async function handleDocumentCreate(
         : `${process.env.NEXT_PUBLIC_MARKETING_URL}/view/${newLink?.id}`
       : undefined,
   });
+}
+
+/**
+ * Handle document.update resource type – creates a new version for an existing document.
+ * Delegates version creation and document processing to the versions API endpoint
+ * via createNewDocumentVersion.
+ */
+async function handleDocumentUpdate(
+  data: z.infer<typeof DocumentUpdateSchema>,
+  teamId: string,
+  token: string,
+  res: NextApiResponse,
+) {
+  const { documentId, fileUrl, contentType } = data;
+
+  // Check if the content type is supported
+  const supportedContentType = getSupportedContentType(contentType);
+  if (!supportedContentType) {
+    return res.status(400).json({ error: "Unsupported content type" });
+  }
+
+  // Verify document exists and belongs to team
+  const document = await prisma.document.findUnique({
+    where: {
+      id: documentId,
+      teamId: teamId,
+    },
+    select: { id: true, name: true },
+  });
+
+  if (!document) {
+    return res
+      .status(404)
+      .json({ error: "Document not found or not associated with this team" });
+  }
+
+  // Fetch file from URL
+  const response = await fetch(fileUrl);
+  if (!response.ok) {
+    return res.status(400).json({ error: "Failed to fetch file from URL" });
+  }
+
+  // Validate response content type
+  const responseContentType = response.headers.get("content-type");
+  if (!responseContentType || responseContentType.startsWith("text/html")) {
+    return res
+      .status(400)
+      .json({ error: "Remote resource is not a supported file type" });
+  }
+  if (!responseContentType.startsWith(contentType)) {
+    console.warn(
+      `Content type mismatch: expected ${contentType}, got ${responseContentType}`,
+    );
+  }
+
+  // Convert to buffer
+  const fileBuffer = Buffer.from(await response.arrayBuffer());
+
+  // Ensure filename has proper extension
+  let fileName = document.name?.trim() ?? "document";
+  const actualContentType = (
+    responseContentType?.split(";")[0] ?? contentType
+  ).trim();
+  const expectedExtension = getExtensionFromContentType(actualContentType);
+  if (expectedExtension) {
+    const lower = fileName.toLowerCase();
+    const dotIdx = lower.lastIndexOf(".");
+    const currentExt = dotIdx !== -1 ? lower.slice(dotIdx + 1) : null;
+    const alias: Record<string, string[]> = {
+      jpeg: ["jpeg", "jpg"],
+      jpg: ["jpg", "jpeg"],
+      tiff: ["tiff", "tif"],
+    };
+    const matches =
+      !!currentExt &&
+      (currentExt === expectedExtension ||
+        (alias[expectedExtension]?.includes(currentExt) ?? false));
+    if (!matches) {
+      fileName = `${fileName}.${expectedExtension}`;
+    }
+  }
+
+  // Upload the file to storage
+  const { type: storageType, data: fileData } = await putFileServer({
+    file: {
+      name: fileName,
+      type: contentType,
+      buffer: fileBuffer,
+    },
+    teamId: teamId,
+    restricted: false,
+  });
+
+  if (!fileData || !storageType) {
+    return res.status(500).json({ error: "Failed to save file to storage" });
+  }
+
+  // Create a new document version via the shared helper.
+  // This handles version creation, primary flag management, and triggers
+  // all document processing (pdf-to-image, docs/slides conversion, video, etc.)
+  try {
+    const versionResponse = await createNewDocumentVersion({
+      documentData: {
+        name: fileName,
+        key: fileData,
+        storageType: storageType,
+        contentType: contentType,
+        supportedFileType: supportedContentType,
+        fileSize: fileBuffer.byteLength,
+      },
+      documentId: documentId,
+      teamId: teamId,
+      numPages: 1,
+      token: token,
+    });
+
+    if (!versionResponse.ok) {
+      const errorBody = await versionResponse.json().catch(() => ({}));
+      return res.status(versionResponse.status).json({
+        error: "Failed to create document version",
+        details: errorBody,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Document version created successfully",
+      documentId: document.id,
+    });
+  } catch (error) {
+    console.error("Document update error:", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to create document version" });
+  }
 }
 
 /**
