@@ -18,6 +18,7 @@ export interface DownloadJob {
   processedFiles: number;
   progress: number; // 0-100
   downloadUrls?: string[]; // Multiple ZIPs if large (S3 presigned URLs auto-expire)
+  downloadS3Keys?: { bucket: string; key: string; region: string }[]; // S3 object references for on-demand presigning
   error?: string;
   teamId: string;
   userId: string;

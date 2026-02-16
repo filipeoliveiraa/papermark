@@ -786,18 +786,15 @@ export default function LinksTable({
   }, [targetType]);
 
   // Handle toggle and persist to localStorage
-  const handleAllLinksToggle = useCallback(
-    (open: boolean) => {
-      setIsAllLinksOpen(open);
-      try {
-        // Store "true" when collapsed, "false" when expanded
-        localStorage.setItem(ALL_LINKS_COLLAPSED_KEY, String(!open));
-      } catch (e) {
-        console.warn("Could not write to localStorage:", e);
-      }
-    },
-    [],
-  );
+  const handleAllLinksToggle = useCallback((open: boolean) => {
+    setIsAllLinksOpen(open);
+    try {
+      // Store "true" when collapsed, "false" when expanded
+      localStorage.setItem(ALL_LINKS_COLLAPSED_KEY, String(!open));
+    } catch (e) {
+      console.warn("Could not write to localStorage:", e);
+    }
+  }, []);
 
   const isDataroom = targetType === "DATAROOM";
 
@@ -839,9 +836,7 @@ export default function LinksTable({
                           </ButtonTooltip>
                         ) : null}
                         <ButtonTooltip
-                          content={
-                            link.name || `Link #${link.id.slice(-5)}`
-                          }
+                          content={link.name || `Link #${link.id.slice(-5)}`}
                         >
                           <span className="max-w-[150px] truncate md:max-w-[170px] lg:max-w-[200px] xl:max-w-[230px] 2xl:max-w-[300px]">
                             {link.name || `Link #${link.id.slice(-5)}`}
@@ -903,9 +898,7 @@ export default function LinksTable({
                           link={link}
                           isFree={isFree}
                           onCopy={handleCopyToClipboard}
-                          isProcessing={isDocumentProcessing(
-                            primaryVersion,
-                          )}
+                          isProcessing={isDocumentProcessing(primaryVersion)}
                           primaryVersion={primaryVersion}
                           mutateDocument={mutateDocument}
                           isPopoverOpen={popoverOpen === link.id}
@@ -915,9 +908,7 @@ export default function LinksTable({
                             link={link}
                             onCopy={handleCopyToClipboard}
                             onPreview={handlePreviewLink}
-                            isProcessing={isDocumentProcessing(
-                              primaryVersion,
-                            )}
+                            isProcessing={isDocumentProcessing(primaryVersion)}
                           />
                           {isMobile ? (
                             <ButtonTooltip content="Edit link">
@@ -1023,10 +1014,7 @@ export default function LinksTable({
                     ) : null}
                     <TableCell>
                       <CollapsibleTrigger
-                        disabled={
-                          isDataroom ||
-                          link._count.views === 0
-                        }
+                        disabled={isDataroom || link._count.views === 0}
                       >
                         <div className="flex items-center space-x-1 [&[data-state=open]>svg.chevron]:rotate-180">
                           <BarChart className="h-4 w-4 text-muted-foreground" />
@@ -1036,8 +1024,7 @@ export default function LinksTable({
                               views
                             </span>
                           </p>
-                          {!isDataroom &&
-                          link._count.views > 0 ? (
+                          {!isDataroom && link._count.views > 0 ? (
                             <ChevronDown className="chevron h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200" />
                           ) : null}
                         </div>
@@ -1108,8 +1095,7 @@ export default function LinksTable({
                           </DropdownMenuItem>
                           {/* Dataroom-only: Edit File Permissions */}
                           {isDataroom &&
-                            link.audienceType !==
-                              LinkAudienceType.GROUP && (
+                            link.audienceType !== LinkAudienceType.GROUP && (
                               <DropdownMenuItem
                                 onClick={() => handleEditPermissions(link)}
                                 disabled={isLoading}
@@ -1145,8 +1131,7 @@ export default function LinksTable({
                             onClick={() => {
                               setSelectedEmbedLink({
                                 id: link.id,
-                                name:
-                                  link.name || `Link #${link.id.slice(-5)}`,
+                                name: link.name || `Link #${link.id.slice(-5)}`,
                               });
                               setEmbedModalOpen(true);
                             }}

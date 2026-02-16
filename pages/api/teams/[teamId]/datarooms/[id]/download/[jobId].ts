@@ -3,6 +3,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { getServerSession } from "next-auth";
 
+import { generateFreshPresignedUrl } from "@/lib/files/bulk-download-presign";
 import prisma from "@/lib/prisma";
 import { downloadJobStore } from "@/lib/redis-download-job-store";
 import { CustomUser } from "@/lib/types";
@@ -68,6 +69,25 @@ export default async function handler(
         .json({ error: "Job does not belong to this dataroom" });
     }
 
+    // Generate fresh presigned URLs using long-term IAM credentials
+    let freshDownloadUrls: string[] | undefined;
+    if (
+      job.status === "COMPLETED" &&
+      job.downloadS3Keys?.length &&
+      job.downloadUrls?.length
+    ) {
+      try {
+        freshDownloadUrls = await Promise.all(
+          job.downloadS3Keys.map((s3Key) =>
+            generateFreshPresignedUrl(teamId, s3Key),
+          ),
+        );
+      } catch (error) {
+        console.error("Failed to generate fresh presigned URLs:", error);
+        freshDownloadUrls = job.downloadUrls;
+      }
+    }
+
     // Return full status for polling
     return res.status(200).json({
       id: job.id,
@@ -75,7 +95,10 @@ export default async function handler(
       progress: job.progress,
       totalFiles: job.totalFiles,
       processedFiles: job.processedFiles,
-      downloadUrls: job.status === "COMPLETED" ? job.downloadUrls : undefined,
+      downloadUrls:
+        job.status === "COMPLETED"
+          ? (freshDownloadUrls ?? job.downloadUrls)
+          : undefined,
       error: job.status === "FAILED" ? job.error : undefined,
       isReady: job.status === "COMPLETED" && !!job.downloadUrls?.length,
       dataroomName: job.dataroomName,
