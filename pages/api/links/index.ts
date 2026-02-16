@@ -82,42 +82,42 @@ export default async function handler(
           : null;
       const exat = expiresAt ? new Date(expiresAt) : null;
 
-    let { domain, slug, ...linkData } = linkDomainData;
+      let { domain, slug, ...linkData } = linkDomainData;
 
-    // set domain and slug to null if the domain is papermark.com
-    if (domain && domain === "papermark.com") {
-      domain = null;
-      slug = null;
-    }
-
-    let domainObj: DomainObject | null;
-
-    if (domain && slug) {
-      domainObj = await prisma.domain.findUnique({
-        where: {
-          slug: domain,
-        },
-      });
-
-      if (!domainObj) {
-        return res.status(400).json({ error: "Domain not found." });
+      // set domain and slug to null if the domain is papermark.com
+      if (domain && domain === "papermark.com") {
+        domain = null;
+        slug = null;
       }
 
-      const existingLink = await prisma.link.findUnique({
-        where: {
-          domainSlug_slug: {
-            slug: slug,
-            domainSlug: domain,
+      let domainObj: DomainObject | null;
+
+      if (domain && slug) {
+        domainObj = await prisma.domain.findUnique({
+          where: {
+            slug: domain,
           },
-        },
-      });
-
-      if (existingLink) {
-        return res.status(400).json({
-          error: "The link already exists.",
         });
+
+        if (!domainObj) {
+          return res.status(400).json({ error: "Domain not found." });
+        }
+
+        const existingLink = await prisma.link.findUnique({
+          where: {
+            domainSlug_slug: {
+              slug: slug,
+              domainSlug: domain,
+            },
+          },
+        });
+
+        if (existingLink) {
+          return res.status(400).json({
+            error: "The link already exists.",
+          });
+        }
       }
-    }
 
       if (linkData.enableAgreement && !linkData.agreementId) {
         return res.status(400).json({

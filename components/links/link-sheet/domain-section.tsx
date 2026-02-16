@@ -184,6 +184,11 @@ export default function DomainSection({
   const currentDomain = domains?.find((domain) => domain.slug === data.domain);
   const isDomainVerified = currentDomain?.verified;
 
+  const isSlugInvalid =
+    !!data.slug &&
+    (!/^[a-zA-Z0-9-]+$/.test(data.slug) ||
+      BLOCKED_PATHNAMES.includes(`/${data.slug}`));
+
   const isDisabled =
     linkType === "DOCUMENT_LINK"
       ? isEditingCustomDomain && !canUseCustomDomainForDocument
@@ -322,7 +327,7 @@ export default function DomainSection({
                 }
                 setData({ ...data, slug: currentValue });
               }}
-              aria-invalid="true"
+              aria-invalid={isSlugInvalid}
             />
             <ButtonTooltip content="Generate random slug">
               <Button
