@@ -12,6 +12,7 @@ import { useTeam } from "@/context/team-context";
 import { PlanEnum } from "@/ee/stripe/constants";
 import { Domain, LinkType } from "@prisma/client";
 import { ShuffleIcon } from "lucide-react";
+import { customAlphabet } from "nanoid";
 import { mutate } from "swr";
 
 import { BLOCKED_PATHNAMES } from "@/lib/constants";
@@ -35,15 +36,11 @@ import { ButtonTooltip } from "@/components/ui/tooltip";
 
 import { DEFAULT_LINK_TYPE } from ".";
 
-function generateRandomSlug(length: number = 10): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
+// Unambiguous alphabet: excludes easily confused characters (0/O, 1/l/I)
+const generateRandomSlug = customAlphabet(
+  "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz",
+  10,
+);
 
 export default function DomainSection({
   data,
@@ -80,7 +77,7 @@ export default function DomainSection({
     editLink && data.domain && data.domain !== "papermark.com" ? true : false;
 
   const generateAndSetSlug = useCallback(() => {
-    const newSlug = generateRandomSlug(10);
+    const newSlug = generateRandomSlug();
     setData((prev) => ({ ...prev, slug: newSlug }));
   }, [setData]);
 
@@ -118,7 +115,7 @@ export default function DomainSection({
 
       // Auto-generate a slug if there isn't one yet
       if (!data.slug) {
-        const newSlug = generateRandomSlug(10);
+        const newSlug = generateRandomSlug();
         setData({ ...data, domain: value, slug: newSlug });
         setDisplayValue(value);
         return;
@@ -156,7 +153,7 @@ export default function DomainSection({
       setData({
         ...data,
         domain: domainValue,
-        ...(needsSlug && { slug: generateRandomSlug(10) }),
+        ...(needsSlug && { slug: generateRandomSlug() }),
       });
 
       setDisplayValue(domainValue);
