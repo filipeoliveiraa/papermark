@@ -4,7 +4,10 @@ import { processDocument } from "@/lib/api/documents/process-document";
 import { verifyDataroomSession } from "@/lib/auth/dataroom-auth";
 import { DocumentData } from "@/lib/documents/create-document";
 import prisma from "@/lib/prisma";
+import { sendDataroomUploadNotificationTask } from "@/lib/trigger/dataroom-upload-notification";
 import { supportsAdvancedExcelMode } from "@/lib/utils/get-content-type";
+import { runs } from "@trigger.dev/sdk/v3";
+import { waitUntil } from "@vercel/functions";
 
 export async function POST(
   request: NextRequest,
@@ -45,7 +48,9 @@ export async function POST(
       where: { id: linkId, dataroomId },
       select: {
         id: true,
+        name: true,
         enableUpload: true,
+        enableNotification: true,
         uploadFolderId: true,
         dataroomId: true,
         teamId: true,
@@ -147,6 +152,56 @@ export async function POST(
         teamId: link.teamId,
       },
     });
+
+    // 4. Send upload notification to team if enabled
+    if (link.enableNotification) {
+      try {
+        // Cancel any existing pending notification runs for this viewer+dataroom+link
+        // Note: runs.list tag filter uses OR logic, so we must post-filter
+        // to ensure we only cancel runs matching ALL three tags
+        const requiredTags = [
+          `dataroom_${dataroomId}`,
+          `link_${linkId}`,
+          `viewer_${viewerId}`,
+        ];
+        const allRuns = await runs.list({
+          taskIdentifier: ["send-dataroom-upload-notification"],
+          tag: requiredTags,
+          status: ["DELAYED", "QUEUED"],
+          period: "10m",
+        });
+
+        const matchingRuns = allRuns.data.filter((run) =>
+          requiredTags.every((tag) => run.tags?.includes(tag)),
+        );
+
+        await Promise.all(matchingRuns.map((run) => runs.cancel(run.id)));
+
+        // Trigger a new notification with 5-minute delay to batch uploads
+        waitUntil(
+          sendDataroomUploadNotificationTask.trigger(
+            {
+              dataroomId,
+              linkId,
+              viewerId,
+              teamId: link.teamId,
+            },
+            {
+              idempotencyKey: `upload-notification-${link.teamId}-${dataroomId}-${linkId}-${viewerId}-${newDataroomDocument.id}`,
+              tags: [
+                `team_${link.teamId}`,
+                `dataroom_${dataroomId}`,
+                `link_${linkId}`,
+                `viewer_${viewerId}`,
+              ],
+              delay: new Date(Date.now() + 5 * 60 * 1000), // 5 minute delay
+            },
+          ),
+        );
+      } catch (error) {
+        console.error("Error triggering upload notification:", error);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
