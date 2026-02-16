@@ -60,6 +60,7 @@ const BaseSchema = z.object({
     "document.create",
     "link.create",
     "link.update",
+    "links.get",
     "dataroom.create",
   ]),
 });
@@ -89,6 +90,10 @@ const LinkUpdateSchema = BaseSchema.extend({
   link: LinkSchema,
 });
 
+const LinksGetSchema = BaseSchema.extend({
+  resourceType: z.literal("links.get"),
+});
+
 // Schema for dataroom folder structure
 const DataroomFolderSchema: z.ZodType<any> = z.lazy(() =>
   z.object({
@@ -110,6 +115,7 @@ const RequestBodySchema = z.discriminatedUnion("resourceType", [
   DocumentCreateSchema,
   LinkCreateSchema,
   LinkUpdateSchema,
+  LinksGetSchema,
   DataroomCreateSchema,
 ]);
 
@@ -236,6 +242,8 @@ export default async function incomingWebhookHandler(
         token,
         res,
       );
+    } else if (validatedData.resourceType === "links.get") {
+      return await handleLinksGet(incomingWebhook.teamId, res);
     } else if (validatedData.resourceType === "dataroom.create") {
       return await handleDataroomCreate(
         validatedData,
@@ -250,6 +258,59 @@ export default async function incomingWebhookHandler(
   } catch (error) {
     console.error("Webhook error:", error);
     return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
+ * Handle links.get resource type – return all links for the team
+ */
+async function handleLinksGet(teamId: string, res: NextApiResponse) {
+  try {
+    const links = await prisma.link.findMany({
+      where: {
+        teamId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        linkType: true,
+        documentId: true,
+        dataroomId: true,
+        slug: true,
+        domainSlug: true,
+        expiresAt: true,
+        isArchived: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const transformedLinks = links.map((link) => ({
+      linkId: link.id,
+      name: link.name,
+      linkType: link.linkType,
+      documentId: link.documentId ?? null,
+      dataroomId: link.dataroomId ?? null,
+      slug: link.slug,
+      domainSlug: link.domainSlug,
+      expiresAt: link.expiresAt,
+      isArchived: link.isArchived,
+      createdAt: link.createdAt,
+      updatedAt: link.updatedAt,
+      linkUrl:
+        link.domainSlug && link.slug
+          ? `https://${link.domainSlug}/${link.slug}`
+          : `${process.env.NEXT_PUBLIC_MARKETING_URL}/view/${link.id}`,
+    }));
+
+    return res.status(200).json(transformedLinks);
+  } catch (error) {
+    console.error("Error fetching team links:", error);
+    return res.status(500).json({ error: "Failed to fetch team links" });
   }
 }
 
