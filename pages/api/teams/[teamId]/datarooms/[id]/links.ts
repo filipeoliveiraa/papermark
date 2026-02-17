@@ -62,6 +62,7 @@ export default async function handle(
             orderBy: {
               viewedAt: "desc",
             },
+            take: 1,
           },
           customFields: true,
           _count: {
