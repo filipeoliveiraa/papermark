@@ -1,5 +1,6 @@
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { AbortTaskRunError, logger, task } from "@trigger.dev/sdk/v3";
 
+import { isTrustedTeam } from "@/lib/edge-config/trusted-teams";
 import { getFile } from "@/lib/files/get-file";
 import prisma from "@/lib/prisma";
 import { updateStatus } from "@/lib/utils/generate-trigger-status";
@@ -30,14 +31,11 @@ export const convertPdfToImageRoute = task({
       },
     });
 
-    // if documentVersion is null, log error and return
+    // if documentVersion is null, log error and abort
     if (!documentVersion) {
       logger.error("File not found", { payload });
       updateStatus({ progress: 0, text: "Document not found" });
-      return {
-        success: false,
-        message: "Document version not found",
-      };
+      throw new AbortTaskRunError("Document version not found");
     }
 
     logger.info("Document version", { documentVersion });
@@ -54,10 +52,7 @@ export const convertPdfToImageRoute = task({
     if (!signedUrl) {
       logger.error("Failed to get signed url", { payload });
       updateStatus({ progress: 0, text: "Failed to retrieve document" });
-      return {
-        success: false,
-        message: "Failed to get signed URL for document",
-      };
+      throw new AbortTaskRunError("Failed to get signed URL for document");
     }
 
     let numPages = documentVersion.numPages;
@@ -89,10 +84,9 @@ export const convertPdfToImageRoute = task({
             payload,
           });
           updateStatus({ progress: 0, text: "Failed to get number of pages" });
-          return {
-            success: false,
-            message: "Failed to get number of pages",
-          };
+          throw new AbortTaskRunError(
+            `Failed to get number of pages (status: ${response.status})`,
+          );
         }
 
         const { numPages: numPagesResult } = (await response.json()) as {
@@ -104,14 +98,18 @@ export const convertPdfToImageRoute = task({
         if (numPagesResult < 1) {
           logger.error("Failed to get number of pages", { payload });
           updateStatus({ progress: 0, text: "Failed to get number of pages" });
-          return {
-            success: false,
-            message: "Failed to get number of pages - invalid page count",
-          };
+          throw new AbortTaskRunError(
+            "Failed to get number of pages - invalid page count",
+          );
         }
 
         numPages = numPagesResult;
       } catch (error: unknown) {
+        // Re-throw AbortTaskRunError so it propagates without retry
+        if (error instanceof AbortTaskRunError) {
+          throw error;
+        }
+
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
         const errorCause =
@@ -123,12 +121,14 @@ export const convertPdfToImageRoute = task({
           payload,
         });
         updateStatus({ progress: 0, text: "Failed to retrieve page count" });
-        return {
-          success: false,
-          message: `Failed to fetch page count: ${errorMessage}`,
-        };
+        throw new AbortTaskRunError(
+          `Failed to fetch page count: ${errorMessage}`,
+        );
       }
     }
+
+    // Check once if this team is trusted (skips keyword checks for all pages)
+    const trustedTeam = await isTrustedTeam(teamId);
 
     updateStatus({ progress: 20, text: "Converting document..." });
 
@@ -158,6 +158,7 @@ export const convertPdfToImageRoute = task({
               pageNumber: currentPage,
               url: signedUrl,
               teamId: teamId,
+              trustedTeam: trustedTeam,
             }),
             headers: {
               "Content-Type": "application/json",
@@ -183,10 +184,12 @@ export const convertPdfToImageRoute = task({
               text: `Document couldn't be processed`,
             });
 
-            throw new Error("Document processing blocked");
+            throw new AbortTaskRunError("Document processing blocked");
           }
 
-          throw new Error("Failed to convert page");
+          throw new Error(
+            `Failed to convert page ${currentPage} (status: ${response.status})`,
+          );
         }
 
         const { documentPageId } = (await response.json()) as {
@@ -198,6 +201,11 @@ export const convertPdfToImageRoute = task({
           payload,
         });
       } catch (error: unknown) {
+        // Re-throw AbortTaskRunError so it propagates without retry
+        if (error instanceof AbortTaskRunError) {
+          throw error;
+        }
+
         conversionWithoutError = false;
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
@@ -224,12 +232,9 @@ export const convertPdfToImageRoute = task({
         progress: (currentPage / numPages) * 100,
         text: `Error processing page ${currentPage} of ${numPages}`,
       });
-      return {
-        success: false,
-        message: `Failed to process page ${currentPage} of ${numPages}`,
-        totalPages: numPages,
-        failedAtPage: currentPage,
-      };
+      throw new AbortTaskRunError(
+        `Failed to process page ${currentPage} of ${numPages}`,
+      );
     }
 
     // 5. after all pages are uploaded, update document version to hasPages = true

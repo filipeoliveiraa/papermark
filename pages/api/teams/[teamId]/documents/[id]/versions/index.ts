@@ -154,17 +154,6 @@ export default async function handle(
         },
       });
 
-      // turn off isPrimary flag for all other versions
-      await prisma.documentVersion.updateMany({
-        where: {
-          documentId: documentId,
-          id: { not: version.id },
-        },
-        data: {
-          isPrimary: false,
-        },
-      });
-
       if (type === "docs" || type === "slides") {
         await convertFilesToPdfTask.trigger(
           {

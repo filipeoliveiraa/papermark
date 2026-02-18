@@ -31,12 +31,14 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     return;
   }
 
-  const { documentVersionId, pageNumber, url, teamId } = req.body as {
-    documentVersionId: string;
-    pageNumber: number;
-    url: string;
-    teamId: string;
-  };
+  const { documentVersionId, pageNumber, url, teamId, trustedTeam } =
+    req.body as {
+      documentVersionId: string;
+      pageNumber: number;
+      url: string;
+      teamId: string;
+      trustedTeam?: boolean;
+    };
 
   try {
     // Fetch the PDF data
@@ -168,8 +170,8 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
       return { href: link.getURI(), coords, isInternal: false };
     });
 
-    // Check embedded links for blocked keywords
-    if (embeddedLinks.length > 0) {
+    // Check embedded links for blocked keywords (skip for trusted teams)
+    if (embeddedLinks.length > 0 && !trustedTeam) {
       try {
         const keywords = await get("keywords");
         if (Array.isArray(keywords) && keywords.length > 0) {
