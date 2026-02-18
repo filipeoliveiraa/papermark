@@ -8,7 +8,6 @@ import { toast } from "sonner";
 
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { triggerBlobDownload } from "@/lib/utils/trigger-download";
 import { fileIcon } from "@/lib/utils/get-file-icon";
 import {
   HIERARCHICAL_DISPLAY_STYLE,
@@ -152,14 +151,20 @@ export default function DocumentCard({
         return "File downloaded successfully";
       }
 
-      // For all other files, fetch as blob for reliable cross-browser download
+      // For all other files, use a hidden iframe to trigger the download
       if (contentType?.includes("application/json")) {
         const data = await response.json();
 
-        await triggerBlobDownload(
-          data.downloadUrl,
-          data.fileName || document.name,
-        );
+        const iframe = window.document.createElement("iframe");
+        iframe.style.display = "none";
+        window.document.body.appendChild(iframe);
+        iframe.src = data.downloadUrl;
+
+        setTimeout(() => {
+          if (iframe.parentNode) {
+            window.document.body.removeChild(iframe);
+          }
+        }, 5000);
 
         return "File downloaded successfully";
       }

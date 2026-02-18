@@ -7,7 +7,6 @@ import { toast } from "sonner";
 
 import { useSafePageViewTracker } from "@/lib/tracking/safe-page-view-tracker";
 import { getTrackingOptions } from "@/lib/tracking/tracking-config";
-import { triggerBlobDownload } from "@/lib/utils/trigger-download";
 
 import { Button } from "@/components/ui/button";
 
@@ -234,12 +233,18 @@ export default function DownloadOnlyViewer({
         }, 100);
       } else {
         // Handle JSON response with downloadUrl (non-watermarked files)
-        const { downloadUrl, fileName } = await response.json();
+        const { downloadUrl } = await response.json();
 
-        await triggerBlobDownload(
-          downloadUrl,
-          fileName || documentName || "document",
-        );
+        const iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        document.body.appendChild(iframe);
+        iframe.src = downloadUrl;
+
+        setTimeout(() => {
+          if (iframe.parentNode) {
+            document.body.removeChild(iframe);
+          }
+        }, 5000);
       }
 
       return "File downloaded successfully";
