@@ -1,5 +1,6 @@
 import { AbortTaskRunError, logger, task } from "@trigger.dev/sdk/v3";
 
+import { isTrustedTeam } from "@/lib/edge-config/trusted-teams";
 import { getFile } from "@/lib/files/get-file";
 import prisma from "@/lib/prisma";
 import { updateStatus } from "@/lib/utils/generate-trigger-status";
@@ -126,6 +127,9 @@ export const convertPdfToImageRoute = task({
       }
     }
 
+    // Check once if this team is trusted (skips keyword checks for all pages)
+    const trustedTeam = await isTrustedTeam(teamId);
+
     updateStatus({ progress: 20, text: "Converting document..." });
 
     // 4. iterate through pages and upload to blob in a task
@@ -154,6 +158,7 @@ export const convertPdfToImageRoute = task({
               pageNumber: currentPage,
               url: signedUrl,
               teamId: teamId,
+              trustedTeam: trustedTeam,
             }),
             headers: {
               "Content-Type": "application/json",
