@@ -66,6 +66,7 @@ export default function ViewData({
   dataroomId,
   canDownload,
   annotationsEnabled,
+  textSelectionEnabled,
 }: {
   viewData: DEFAULT_DOCUMENT_VIEW_TYPE | DEFAULT_DATAROOM_DOCUMENT_VIEW_TYPE;
   link: LinkWithDocument | LinkWithDataroomDocument;
@@ -83,6 +84,7 @@ export default function ViewData({
   dataroomId?: string;
   canDownload?: boolean;
   annotationsEnabled?: boolean;
+  textSelectionEnabled?: boolean;
 }) {
   const { isMobile } = useMediaQuery();
 
@@ -136,6 +138,7 @@ export default function ViewData({
             versionNumber={document.versions[0].versionNumber}
             theme={notionData.theme}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
+            textSelectionEnabled={textSelectionEnabled ?? false}
             navData={navData}
           />
         ) : viewData.fileType === "link" ? (

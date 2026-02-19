@@ -68,7 +68,7 @@ export const DEFAULT_LINK_PROPS = (
   enableNotification: true,
   enableFeedback: false,
   enableScreenshotProtection: false,
-  enableCustomMetatag: false,
+    enableCustomMetatag: false,
   metaTitle: null,
   metaDescription: null,
   metaImage: null,
