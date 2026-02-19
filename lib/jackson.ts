@@ -19,23 +19,59 @@ const encryptionKey = crypto
   .digest("base64url")
   .substring(0, 32);
 
-const opts: JacksonOption = {
-  externalUrl: process.env.NEXTAUTH_URL || "https://app.papermark.com",
-  samlPath: "/api/auth/saml/callback",
-  samlAudience,
-  db: {
-    engine: "sql",
-    type: "postgres",
-    url:
-      (process.env.POSTGRES_PRISMA_URL as string) ||
-      process.env.POSTGRES_PRISMA_URL_NON_POOLING,
+function sanitizePostgresUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
 
-    encryptionKey,
-  },
-  idpEnabled: true, // to allow to SSO from their IDP
-  scimPath: "/api/scim/v2.0",
-  clientSecretVerifier: process.env.NEXTAUTH_SECRET as string,
-};
+    // Some providers emit ssl cert params with value "system", which can cause
+    // node-postgres to attempt reading a local file literally named "system".
+    for (const param of ["sslcert", "sslrootcert", "sslkey", "sslcrl"]) {
+      const value = parsed.searchParams.get(param);
+      if (value?.toLowerCase() === "system") {
+        parsed.searchParams.delete(param);
+      }
+    }
+
+    return parsed.toString();
+  } catch {
+    // If URL parsing fails, pass through so downstream errors remain visible.
+    return rawUrl;
+  }
+}
+
+function getJacksonDbUrl(): string {
+  const candidates = [
+    process.env.POSTGRES_PRISMA_URL,
+    process.env.POSTGRES_PRISMA_URL_NON_POOLING,
+  ];
+
+  const dbUrl = candidates.find((value) => typeof value === "string" && value.trim().length > 0);
+
+  if (!dbUrl) {
+    throw new Error(
+      "Missing Jackson DB URL. Set POSTGRES_PRISMA_URL or POSTGRES_PRISMA_URL_NON_POOLING.",
+    );
+  }
+
+  return sanitizePostgresUrl(dbUrl);
+}
+
+function getJacksonOptions(): JacksonOption {
+  return {
+    externalUrl: process.env.NEXTAUTH_URL || "https://app.papermark.com",
+    samlPath: "/api/auth/saml/callback",
+    samlAudience,
+    db: {
+      engine: "sql",
+      type: "postgres",
+      url: getJacksonDbUrl(),
+      encryptionKey,
+    },
+    idpEnabled: true, // to allow to SSO from their IDP
+    scimPath: "/api/scim/v2.0",
+    clientSecretVerifier: process.env.NEXTAUTH_SECRET as string,
+  };
+}
 
 declare global {
   var apiController: IConnectionAPIController | undefined;
@@ -49,7 +85,7 @@ export async function jackson() {
     !globalThis.oauthController ||
     !globalThis.directorySyncController
   ) {
-    const ret = await samlJackson(opts);
+    const ret = await samlJackson(getJacksonOptions());
     globalThis.apiController = ret.connectionAPIController;
     globalThis.oauthController = ret.oauthController;
     globalThis.directorySyncController = ret.directorySyncController;

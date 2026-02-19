@@ -9,6 +9,15 @@ import { authOptions } from "@/pages/api/auth/[...nextauth]";
 
 const SSO_ELIGIBLE_PLANS = ["datarooms-premium", "datarooms-premium+old"];
 
+function isJacksonUnavailableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("error connecting to engine") ||
+    message.includes("Missing Jackson DB URL") ||
+    message.includes("ENOENT: no such file or directory, open 'system'")
+  );
+}
+
 async function getAuthenticatedAdmin(teamId: string) {
   const session = await getServerSession(authOptions);
   if (!session) return null;
@@ -44,6 +53,17 @@ export async function GET(
   }
 
   try {
+    if (!auth.team.ssoEnabled || !SSO_ELIGIBLE_PLANS.includes(auth.team.plan)) {
+      return NextResponse.json({
+        connections: [],
+        issuer: samlAudience,
+        acs: `${process.env.NEXTAUTH_URL}/api/auth/saml/callback`,
+        ssoEmailDomain: auth.team.ssoEmailDomain,
+        ssoEnforcedAt: auth.team.ssoEnforcedAt,
+        slug: auth.team.slug,
+      });
+    }
+
     const { apiController } = await jackson();
 
     const connections = await apiController.getConnections({
@@ -60,6 +80,18 @@ export async function GET(
       slug: auth.team.slug,
     });
   } catch (error: any) {
+    if (isJacksonUnavailableError(error)) {
+      console.warn("[SAML] Jackson unavailable, returning empty connections", error);
+      return NextResponse.json({
+        connections: [],
+        issuer: samlAudience,
+        acs: `${process.env.NEXTAUTH_URL}/api/auth/saml/callback`,
+        ssoEmailDomain: auth.team.ssoEmailDomain,
+        ssoEnforcedAt: auth.team.ssoEnforcedAt,
+        slug: auth.team.slug,
+      });
+    }
+
     console.error("[SAML] Get connections error:", error);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
