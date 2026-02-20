@@ -78,6 +78,7 @@
     "@tiptap/react": "^3.19.0",
     "@tiptap/starter-kit": "^3.19.0",
     "@tremor/react": "^3.18.7",
+    "@trigger.dev/python": "^3.3.17",
     "@trigger.dev/react-hooks": "^3.3.17",
     "@trigger.dev/sdk": "^3.3.17",
     "@tus/s3-store": "^1.9.1",
