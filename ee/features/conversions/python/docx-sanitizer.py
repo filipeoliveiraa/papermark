@@ -242,10 +242,39 @@ def main():
         sys.exit(0)
 
     output = args.output or args.input
-    if sanitize_docx(args.input, output, mode=args.mode):
-        print(f"Sanitized DOCX written to: {output}")
+    if output == args.input:
+        temp_fd = None
+        temp_path = None
+        try:
+            input_dir = os.path.dirname(os.path.abspath(args.input)) or "."
+            temp_fd, temp_path = tempfile.mkstemp(
+                suffix=".docx",
+                prefix=".docx-sanitizer-",
+                dir=input_dir,
+            )
+            os.close(temp_fd)
+            temp_fd = None
+
+            if sanitize_docx(args.input, temp_path, mode=args.mode):
+                os.replace(temp_path, args.input)
+                temp_path = None
+                print(f"Sanitized DOCX written to: {args.input}")
+            else:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+                sys.exit(1)
+        except Exception as e:
+            if temp_fd is not None:
+                os.close(temp_fd)
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
+            log.exception("Error while sanitizing in place: %s", e)
+            sys.exit(1)
     else:
-        sys.exit(1)
+        if sanitize_docx(args.input, output, mode=args.mode):
+            print(f"Sanitized DOCX written to: {output}")
+        else:
+            sys.exit(1)
 
 
 if __name__ == '__main__':
