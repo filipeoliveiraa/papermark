@@ -1,6 +1,6 @@
 import { python } from "@trigger.dev/python";
 import { logger, retry, task } from "@trigger.dev/sdk/v3";
-import { writeFile, readFile } from "node:fs/promises";
+import { writeFile, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -82,45 +82,38 @@ export const convertFilesToPdfTask = task({
       type: document.versions[0].storageType,
     });
 
-    // Prepare form data
-    const formData = new FormData();
-    formData.append(
-      "downloadFrom",
-      JSON.stringify([
+    const CONVERSION_TIMEOUT_MS = 3 * 60 * 1000; // 3 min client-side timeout
+
+    updateStatus({ progress: 20, text: "Converting document…" });
+
+    let conversionResponse: Response;
+    try {
+      const fd = new FormData();
+      fd.append("downloadFrom", JSON.stringify([{ url: fileUrl }]));
+      fd.append("quality", "75");
+
+      conversionResponse = await fetch(
+        `${process.env.NEXT_PRIVATE_CONVERSION_BASE_URL}/forms/libreoffice/convert`,
         {
-          url: fileUrl,
-        },
-      ]),
-    );
-    formData.append("quality", "75");
-
-    updateStatus({ progress: 20, text: "Converting document..." });
-
-    // Make the conversion request
-    const conversionResponse = await retry.fetch(
-      `${process.env.NEXT_PRIVATE_CONVERSION_BASE_URL}/forms/libreoffice/convert`,
-      {
-        method: "POST",
-        body: formData,
-        headers: {
-          Authorization: `Basic ${process.env.NEXT_PRIVATE_INTERNAL_AUTH_TOKEN}`,
-        },
-        retry: {
-          byStatus: {
-            "500-599": {
-              strategy: "backoff",
-              maxAttempts: 3,
-              factor: 2,
-              minTimeoutInMs: 1_000,
-              maxTimeoutInMs: 30_000,
-              randomize: false,
-            },
+          method: "POST",
+          body: fd,
+          headers: {
+            Authorization: `Basic ${process.env.NEXT_PRIVATE_INTERNAL_AUTH_TOKEN}`,
           },
+          signal: AbortSignal.timeout(CONVERSION_TIMEOUT_MS),
         },
-      },
-    );
+      );
+    } catch (err) {
+      logger.warn("Gotenberg conversion failed, will attempt sanitization", {
+        error: String(err),
+      });
+      conversionResponse = new Response(null, {
+        status: 504,
+        statusText: "Conversion timed out or unreachable",
+      });
+    }
 
-    let conversionBuffer: Buffer;
+    let conversionBuffer!: Buffer;
 
     if (!conversionResponse.ok) {
       const contentType = document.versions[0].contentType;
@@ -129,58 +122,118 @@ export const convertFilesToPdfTask = task({
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
       if (isDocx) {
-        logger.warn("DOCX conversion failed, attempting sanitization…", {
-          status: conversionResponse.status,
-        });
-        updateStatus({ progress: 25, text: "Sanitizing document…" });
-
-        const docxResponse = await fetch(fileUrl);
-        const docxBuffer = Buffer.from(await docxResponse.arrayBuffer());
-
         const inputPath = join(tmpdir(), `input-${Date.now()}.docx`);
         const outputPath = join(tmpdir(), `output-${Date.now()}.docx`);
-        await writeFile(inputPath, docxBuffer);
+        try {
+          let docxResponse: Response;
+          try {
+            docxResponse = await fetch(fileUrl);
+          } catch (err) {
+            updateStatus({ progress: 0, text: "Failed to retrieve DOCX file" });
+            throw new Error(
+              `Failed to fetch DOCX from signed URL for sanitization: ${String(err)}`,
+            );
+          }
 
-        const result = await python.runScript(
-          "./ee/features/conversions/python/docx-sanitizer.py",
-          ["-v", inputPath, outputPath],
-        );
-        logger.info("Sanitizer output", { stderr: result.stderr });
+          if (!docxResponse.ok) {
+            updateStatus({ progress: 0, text: "Failed to retrieve DOCX file" });
+            throw new Error(
+              `Failed to fetch DOCX from signed URL for sanitization: HTTP ${docxResponse.status} ${docxResponse.statusText}`,
+            );
+          }
 
-        const sanitizedBuffer = await readFile(outputPath);
-        const retryFormData = new FormData();
-        retryFormData.append(
-          "files",
-          new Blob([new Uint8Array(sanitizedBuffer)], { type: contentType }),
-          document.name,
-        );
-        retryFormData.append("quality", "75");
+          const responseContentType = docxResponse.headers.get("content-type");
+          if (
+            responseContentType &&
+            !responseContentType.includes(
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ) &&
+            !responseContentType.includes("application/octet-stream")
+          ) {
+            updateStatus({ progress: 0, text: "Invalid DOCX download response" });
+            throw new Error(
+              `Signed URL returned unexpected content-type for DOCX sanitization: ${responseContentType}`,
+            );
+          }
 
-        const retryResponse = await fetch(
-          `${process.env.NEXT_PRIVATE_CONVERSION_BASE_URL}/forms/libreoffice/convert`,
-          {
-            method: "POST",
-            body: retryFormData,
-            headers: {
-              Authorization: `Basic ${process.env.NEXT_PRIVATE_INTERNAL_AUTH_TOKEN}`,
-            },
-          },
-        );
+          const docxBuffer = Buffer.from(await docxResponse.arrayBuffer());
+          await writeFile(inputPath, docxBuffer);
 
-        if (!retryResponse.ok) {
-          updateStatus({ progress: 0, text: "Conversion failed" });
-          const body = await retryResponse.json();
-          throw new Error(
-            `Conversion failed after sanitization: ${body.message} ${retryResponse.status}`,
+          const attemptConversion = async (
+            sanitizedPath: string,
+          ): Promise<Response> => {
+            const buf = await readFile(sanitizedPath);
+            const fd = new FormData();
+            fd.append(
+              "files",
+              new Blob([new Uint8Array(buf)], { type: contentType }),
+              document.name,
+            );
+            fd.append("quality", "75");
+            return fetch(
+              `${process.env.NEXT_PRIVATE_CONVERSION_BASE_URL}/forms/libreoffice/convert`,
+              {
+                method: "POST",
+                body: fd,
+                headers: {
+                  Authorization: `Basic ${process.env.NEXT_PRIVATE_INTERNAL_AUTH_TOKEN}`,
+                },
+                signal: AbortSignal.timeout(CONVERSION_TIMEOUT_MS),
+              },
+            );
+          };
+
+          logger.warn("DOCX conversion failed, sanitizing document…", {
+            status: conversionResponse.status,
+          });
+
+          updateStatus({ progress: 25, text: "Sanitizing document…" });
+
+          const result = await python.runScript(
+            "./ee/features/conversions/python/docx-sanitizer.py",
+            ["-v", "--mode", "all", inputPath, outputPath],
           );
-        }
+          logger.info("Sanitizer output", { stderr: result.stderr });
 
-        conversionBuffer = Buffer.from(await retryResponse.arrayBuffer());
+          let retryResponse: Response;
+          try {
+            retryResponse = await attemptConversion(outputPath);
+          } catch (err) {
+            updateStatus({ progress: 0, text: "Conversion timed out" });
+            throw new Error(
+              `Conversion timed out after sanitization — LibreOffice could not process this file within ${CONVERSION_TIMEOUT_MS / 1000}s`,
+            );
+          }
+
+          if (!retryResponse.ok) {
+            updateStatus({ progress: 0, text: "Conversion failed" });
+            let message: string;
+            try {
+              const body = await retryResponse.json();
+              message = body.message ?? retryResponse.statusText;
+            } catch {
+              message = retryResponse.statusText || "Unknown error";
+            }
+            throw new Error(
+              `Conversion failed after sanitization: ${message} (${retryResponse.status})`,
+            );
+          }
+
+          conversionBuffer = Buffer.from(await retryResponse.arrayBuffer());
+        } finally {
+          await Promise.allSettled([unlink(inputPath), unlink(outputPath)]);
+        }
       } else {
         updateStatus({ progress: 0, text: "Conversion failed" });
-        const body = await conversionResponse.json();
+        let message: string;
+        try {
+          const body = await conversionResponse.json();
+          message = body.message ?? conversionResponse.statusText;
+        } catch {
+          message = conversionResponse.statusText || "Unknown error";
+        }
         throw new Error(
-          `Conversion failed: ${body.message} ${conversionResponse.status}`,
+          `Conversion failed: ${message} (${conversionResponse.status})`,
         );
       }
     } else {
