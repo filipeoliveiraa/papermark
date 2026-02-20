@@ -138,7 +138,21 @@ def sanitize_docx(input_path: str, output_path: str, mode: str = 'all') -> bool:
 
         with tempfile.TemporaryDirectory() as tmp:
             with zipfile.ZipFile(input_path, 'r') as z:
-                z.extractall(tmp)
+                tmp_abs = os.path.abspath(tmp)
+                for info in z.infolist():
+                    member_name = info.filename
+                    target_path = os.path.abspath(os.path.join(tmp, member_name))
+                    if not target_path.startswith(tmp_abs + os.sep):
+                        raise ValueError(f"Unsafe ZIP entry path: {member_name}")
+                    if info.is_dir():
+                        continue
+
+                    parent_dir = os.path.dirname(target_path)
+                    if parent_dir:
+                        os.makedirs(parent_dir, exist_ok=True)
+
+                    with z.open(info) as src, open(target_path, 'wb') as dst:
+                        shutil.copyfileobj(src, dst)
 
             doc_path = os.path.join(tmp, 'word', 'document.xml')
             if not os.path.exists(doc_path):
