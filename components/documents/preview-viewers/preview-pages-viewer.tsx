@@ -24,27 +24,34 @@ export function PreviewPagesViewer({
   const [imageCache, setImageCache] = useState<{ [key: number]: boolean }>({});
   const [imageLoaded, setImageLoaded] = useState(imageCache[1] || false);
   const [pages, setPages] = useState(documentData.pages ?? []);
+  const pagesRef = useRef(pages);
   const pendingRef = useRef<Set<number>>(new Set());
 
   const { numPages, documentName, isVertical } = documentData;
 
   useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
+
+  useEffect(() => {
     setPages(documentData.pages ?? []);
+    pagesRef.current = documentData.pages ?? [];
   }, [documentData.pages]);
 
   const ensurePagesLoaded = useCallback(
     async (centerPage: number) => {
       if (!pagesApiEndpoint) return;
 
+      const currentPages = pagesRef.current;
       const start = Math.max(1, centerPage - PRELOAD_RADIUS);
       const end = Math.min(numPages, centerPage + PRELOAD_RADIUS);
       const needed: number[] = [];
 
       for (let i = start; i <= end; i++) {
         if (
-          !pages[i - 1]?.file &&
+          !currentPages[i - 1]?.file &&
           !pendingRef.current.has(i) &&
-          i <= pages.length
+          i <= currentPages.length
         ) {
           needed.push(i);
         }
@@ -81,7 +88,7 @@ export function PreviewPagesViewer({
         needed.forEach((pn) => pendingRef.current.delete(pn));
       }
     },
-    [pagesApiEndpoint, pages, numPages],
+    [pagesApiEndpoint, numPages],
   );
 
   useEffect(() => {
