@@ -35,20 +35,26 @@ export function useLazyPages({
   apiEndpoint = "/api/views/pages",
 }: UseLazyPagesOptions) {
   const [pages, setPages] = useState<PageData[]>(initialPages);
+  const pagesRef = useRef<PageData[]>(pages);
   const pendingRef = useRef<Set<number>>(new Set());
-  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
 
   useEffect(() => {
     setPages(initialPages);
+    pagesRef.current = initialPages;
   }, [initialPages]);
 
   const fetchPageUrls = useCallback(
     async (pageNumbers: number[]) => {
+      const currentPages = pagesRef.current;
       const needed = pageNumbers.filter(
         (pn) =>
           pn >= 1 &&
-          pn <= pages.length &&
-          !pages[pn - 1]?.file &&
+          pn <= currentPages.length &&
+          !currentPages[pn - 1]?.file &&
           !pendingRef.current.has(pn),
       );
 
@@ -93,17 +99,18 @@ export function useLazyPages({
         needed.forEach((pn) => pendingRef.current.delete(pn));
       }
     },
-    [pages.length, viewId, documentVersionId, apiEndpoint],
+    [viewId, documentVersionId, apiEndpoint],
   );
 
   const ensurePagesLoaded = useCallback(
     (currentPage: number) => {
+      const currentPages = pagesRef.current;
       const start = Math.max(1, currentPage - preloadRadius);
-      const end = Math.min(pages.length, currentPage + preloadRadius);
+      const end = Math.min(currentPages.length, currentPage + preloadRadius);
       const needed: number[] = [];
 
       for (let i = start; i <= end; i++) {
-        if (!pages[i - 1]?.file && !pendingRef.current.has(i)) {
+        if (!currentPages[i - 1]?.file && !pendingRef.current.has(i)) {
           needed.push(i);
         }
       }
@@ -112,14 +119,8 @@ export function useLazyPages({
         fetchPageUrls(needed);
       }
     },
-    [pages, preloadRadius, fetchPageUrls],
+    [preloadRadius, fetchPageUrls],
   );
-
-  useEffect(() => {
-    return () => {
-      abortControllerRef.current?.abort();
-    };
-  }, []);
 
   return { pages, ensurePagesLoaded, fetchPageUrls };
 }
