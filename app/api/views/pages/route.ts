@@ -32,17 +32,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate viewId if provided (non-preview requests)
     if (viewId) {
       const view = await prisma.view.findUnique({
         where: { id: viewId },
-        select: { id: true },
+        select: { id: true, documentId: true },
       });
 
       if (!view) {
         return NextResponse.json(
           { message: "View not found." },
           { status: 404 },
+        );
+      }
+
+      // Verify the document version belongs to the document associated with this view
+      const documentVersion = await prisma.documentVersion.findUnique({
+        where: { id: documentVersionId },
+        select: { documentId: true },
+      });
+
+      if (!documentVersion || documentVersion.documentId !== view.documentId) {
+        return NextResponse.json(
+          { message: "Unauthorized access." },
+          { status: 403 },
         );
       }
     }
