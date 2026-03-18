@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
@@ -7,20 +7,86 @@ import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 
+const PRELOAD_RADIUS = 5;
+
 interface PreviewPagesViewerProps {
   documentData: DocumentPreviewData;
   onClose: () => void;
+  pagesApiEndpoint?: string;
 }
 
 export function PreviewPagesViewer({
   documentData,
   onClose,
+  pagesApiEndpoint,
 }: PreviewPagesViewerProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [imageCache, setImageCache] = useState<{ [key: number]: boolean }>({});
   const [imageLoaded, setImageLoaded] = useState(imageCache[1] || false);
+  const [pages, setPages] = useState(documentData.pages ?? []);
+  const pendingRef = useRef<Set<number>>(new Set());
 
-  const { pages, numPages, documentName, isVertical } = documentData;
+  const { numPages, documentName, isVertical } = documentData;
+
+  useEffect(() => {
+    setPages(documentData.pages ?? []);
+  }, [documentData.pages]);
+
+  const ensurePagesLoaded = useCallback(
+    async (centerPage: number) => {
+      if (!pagesApiEndpoint) return;
+
+      const start = Math.max(1, centerPage - PRELOAD_RADIUS);
+      const end = Math.min(numPages, centerPage + PRELOAD_RADIUS);
+      const needed: number[] = [];
+
+      for (let i = start; i <= end; i++) {
+        if (
+          !pages[i - 1]?.file &&
+          !pendingRef.current.has(i) &&
+          i <= pages.length
+        ) {
+          needed.push(i);
+        }
+      }
+
+      if (needed.length === 0) return;
+
+      needed.forEach((pn) => pendingRef.current.add(pn));
+
+      try {
+        const response = await fetch(pagesApiEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageNumbers: needed }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setPages((prev) => {
+            const updated = [...prev];
+            for (const fetchedPage of data.pages) {
+              const idx = fetchedPage.pageNumber - 1;
+              if (idx >= 0 && idx < updated.length && updated[idx]) {
+                updated[idx] = {
+                  ...updated[idx],
+                  file: fetchedPage.file,
+                };
+              }
+            }
+            return updated;
+          });
+        }
+      } finally {
+        needed.forEach((pn) => pendingRef.current.delete(pn));
+      }
+    },
+    [pagesApiEndpoint, pages, numPages],
+  );
+
+  useEffect(() => {
+    ensurePagesLoaded(currentPage);
+  }, [currentPage, ensurePagesLoaded]);
 
   const goToNextPage = useCallback(() => {
     if (currentPage < numPages) {
@@ -78,6 +144,8 @@ export function PreviewPagesViewer({
     );
   }
 
+  const hasFileUrl = !!currentPageData.file;
+
   return (
     <div className="relative h-full w-full overflow-hidden">
       {/* Navigation Controls */}
@@ -127,27 +195,29 @@ export function PreviewPagesViewer({
       {/* Page Content */}
       <div className="flex h-full w-full items-center justify-center p-4">
         <div className="relative max-h-full max-w-full">
-          {!imageLoaded && (
+          {(!imageLoaded || !hasFileUrl) && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
             </div>
           )}
 
-          <img
-            src={currentPageData.file}
-            alt={`Page ${currentPage}`}
-            className={cn(
-              "max-h-[calc(100vh-120px)] max-w-full object-contain transition-opacity duration-200",
-              imageLoaded ? "opacity-100" : "opacity-0",
-            )}
-            onLoad={handleImageLoad}
-            onError={() => {
-              setImageLoaded(true);
-              setImageCache((prev) => ({ ...prev, [currentPage]: true }));
-            }}
-            draggable={false}
-            onContextMenu={(e) => e.preventDefault()}
-          />
+          {hasFileUrl && (
+            <img
+              src={currentPageData.file!}
+              alt={`Page ${currentPage}`}
+              className={cn(
+                "max-h-[calc(100vh-120px)] max-w-full object-contain transition-opacity duration-200",
+                imageLoaded ? "opacity-100" : "opacity-0",
+              )}
+              onLoad={handleImageLoad}
+              onError={() => {
+                setImageLoaded(true);
+                setImageCache((prev) => ({ ...prev, [currentPage]: true }));
+              }}
+              draggable={false}
+              onContextMenu={(e) => e.preventDefault()}
+            />
+          )}
         </div>
       </div>
 

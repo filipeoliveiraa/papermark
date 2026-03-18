@@ -32,7 +32,7 @@ export type DEFAULT_DOCUMENT_VIEW_TYPE = {
   file?: string | null;
   pages?:
     | {
-        file: string;
+        file: string | null;
         pageNumber: string;
         embeddedLinks: string[];
         pageLinks: {

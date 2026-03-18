@@ -66,9 +66,10 @@ export default function PagesVerticalViewer({
   ipAddress,
   linkName,
   navData,
+  ensurePagesLoaded,
 }: {
   pages: {
-    file: string;
+    file: string | null;
     pageNumber: string;
     embeddedLinks: string[];
     pageLinks: {
@@ -93,6 +94,7 @@ export default function PagesVerticalViewer({
   ipAddress?: string;
   linkName?: string;
   navData: TNavData;
+  ensurePagesLoaded?: (currentPage: number) => void;
 }) {
   const { linkId, documentId, viewId, isPreview, dataroomId, brand } = navData;
 
@@ -374,7 +376,12 @@ export default function PagesVerticalViewer({
         index < DEFAULT_PRELOADED_IMAGES_NUM ? true : loaded,
       ),
     );
+    ensurePagesLoaded?.(1);
   }, []); // Run once on mount
+
+  useEffect(() => {
+    ensurePagesLoaded?.(pageNumber);
+  }, [pageNumber, ensurePagesLoaded]);
 
   useEffect(() => {
     // Remove token and email query parameters on component mount
@@ -874,7 +881,7 @@ export default function PagesVerticalViewer({
                               page.metadata.width
                             : 600; // fallback height
 
-                        if (!loadedImages[index]) {
+                        if (!loadedImages[index] || !page.file) {
                           // Render a placeholder div with correct dimensions to preserve scroll height
                           return (
                             <div

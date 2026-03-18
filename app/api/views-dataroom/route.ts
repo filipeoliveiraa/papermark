@@ -871,6 +871,7 @@ export async function POST(request: NextRequest) {
       // otherwise, return file from document version
       let documentPages, documentVersion;
       let sheetData;
+      const INITIAL_PAGES_TO_LOAD = 10;
 
       if (hasPages) {
         // get pages from document version
@@ -888,12 +889,17 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Only sign URLs for the first batch of pages to avoid timeouts on large documents.
+        // Remaining page URLs are fetched on-demand by the client via /api/views/pages.
         documentPages = await Promise.all(
-          documentPages.map(async (page) => {
+          documentPages.map(async (page, index) => {
             const { storageType, ...otherPage } = page;
             return {
               ...otherPage,
-              file: await getFile({ data: page.file, type: storageType }),
+              file:
+                index < INITIAL_PAGES_TO_LOAD
+                  ? await getFile({ data: page.file, type: storageType })
+                  : null,
             };
           }),
         );

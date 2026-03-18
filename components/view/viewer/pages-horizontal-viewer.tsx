@@ -40,9 +40,10 @@ export default function PagesHorizontalViewer({
   ipAddress,
   linkName,
   navData,
+  ensurePagesLoaded,
 }: {
   pages: {
-    file: string;
+    file: string | null;
     pageNumber: string;
     embeddedLinks: string[];
     pageLinks: {
@@ -68,6 +69,7 @@ export default function PagesHorizontalViewer({
   ipAddress?: string;
   linkName?: string;
   navData: TNavData;
+  ensurePagesLoaded?: (currentPage: number) => void;
 }) {
   const { isMobile, isPreview, linkId, documentId, viewId, dataroomId, brand } =
     navData;
@@ -354,7 +356,12 @@ export default function PagesHorizontalViewer({
         index < DEFAULT_PRELOADED_IMAGES_NUM ? true : loaded,
       ),
     );
+    ensurePagesLoaded?.(1);
   }, []); // Run once on mount
+
+  useEffect(() => {
+    ensurePagesLoaded?.(pageNumber);
+  }, [pageNumber, ensurePagesLoaded]);
 
   useEffect(() => {
     // Remove token and email query parameters on component mount
@@ -693,7 +700,7 @@ export default function PagesHorizontalViewer({
                                 }}
                                 useMap={`#page-map-${index + 1}`}
                                 src={
-                                  loadedImages[index]
+                                  loadedImages[index] && page.file
                                     ? page.file
                                     : "https://www.papermark.com/_static/blank.gif"
                                 }
