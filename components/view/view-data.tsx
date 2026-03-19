@@ -14,6 +14,7 @@ import {
 } from "@prisma/client";
 import { ExtendedRecordMap } from "notion-types";
 
+import { useLazyPages } from "@/lib/hooks/use-lazy-pages";
 import {
   LinkWithDataroomDocument,
   LinkWithDocument,
@@ -87,6 +88,14 @@ export default function ViewData({
   textSelectionEnabled?: boolean;
 }) {
   const { isMobile } = useMediaQuery();
+
+  const documentVersionId = document.versions[0]?.id;
+
+  const { pages: lazyPages, ensurePagesLoaded } = useLazyPages({
+    initialPages: viewData.pages ?? [],
+    viewId: viewData.viewId,
+    documentVersionId: documentVersionId,
+  });
 
   const navData: TNavData = {
     viewId: viewData.viewId,
@@ -185,7 +194,7 @@ export default function ViewData({
           />
         ) : viewData.pages && !document.versions[0].isVertical ? (
           <PagesHorizontalViewer
-            pages={viewData.pages}
+            pages={lazyPages}
             feedbackEnabled={link.enableFeedback!}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
             versionNumber={document.versions[0].versionNumber}
@@ -202,10 +211,11 @@ export default function ViewData({
             ipAddress={viewData.ipAddress}
             linkName={link.name ?? `Link #${link.id.slice(-5)}`}
             navData={navData}
+            ensurePagesLoaded={ensurePagesLoaded}
           />
         ) : viewData.pages && document.versions[0].isVertical ? (
           <PagesVerticalViewer
-            pages={viewData.pages}
+            pages={lazyPages}
             feedbackEnabled={link.enableFeedback!}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
             versionNumber={document.versions[0].versionNumber}
@@ -221,6 +231,7 @@ export default function ViewData({
             ipAddress={viewData.ipAddress}
             linkName={link.name ?? `Link #${link.id.slice(-5)}`}
             navData={navData}
+            ensurePagesLoaded={ensurePagesLoaded}
           />
         ) : viewData.fileType === "video" ? (
           <VideoViewer

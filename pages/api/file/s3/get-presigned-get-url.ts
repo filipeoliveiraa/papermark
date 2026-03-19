@@ -4,7 +4,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl as getCloudfrontSignedUrl } from "@aws-sdk/cloudfront-signer";
 import { getSignedUrl as getS3SignedUrl } from "@aws-sdk/s3-request-presigner";
 
-import { ONE_HOUR, ONE_SECOND } from "@/lib/constants";
+import { ONE_SECOND, TWO_MINUTES } from "@/lib/constants";
 import { getTeamS3ClientAndConfig } from "@/lib/files/aws-client";
 import { log } from "@/lib/utils";
 
@@ -64,7 +64,7 @@ export default async function handler(
         url: distributionUrl.toString(),
         keyPairId: `${config.distributionKeyId}`,
         privateKey: `${config.distributionKeyContents}`,
-        dateLessThan: new Date(Date.now() + ONE_HOUR).toISOString(),
+        dateLessThan: new Date(Date.now() + TWO_MINUTES).toISOString(),
       });
 
       return res.status(200).json({ url });
@@ -76,7 +76,7 @@ export default async function handler(
     });
 
     const url = await getS3SignedUrl(client, getObjectCommand, {
-      expiresIn: ONE_HOUR / ONE_SECOND,
+      expiresIn: TWO_MINUTES / ONE_SECOND,
     });
 
     return res.status(200).json({ url });
