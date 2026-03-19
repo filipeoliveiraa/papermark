@@ -26,6 +26,7 @@ export function PreviewPagesViewer({
   const [pages, setPages] = useState(documentData.pages ?? []);
   const pagesRef = useRef(pages);
   const pendingRef = useRef<Set<number>>(new Set());
+  const generationRef = useRef(0);
 
   const { numPages, documentName, isVertical } = documentData;
 
@@ -36,12 +37,15 @@ export function PreviewPagesViewer({
   useEffect(() => {
     setPages(documentData.pages ?? []);
     pagesRef.current = documentData.pages ?? [];
+    pendingRef.current = new Set();
+    generationRef.current += 1;
   }, [documentData.pages]);
 
   const ensurePagesLoaded = useCallback(
     async (centerPage: number) => {
       if (!pagesApiEndpoint) return;
 
+      const generation = generationRef.current;
       const currentPages = pagesRef.current;
       const start = Math.max(1, centerPage - PRELOAD_RADIUS);
       const end = Math.min(numPages, centerPage + PRELOAD_RADIUS);
@@ -68,6 +72,8 @@ export function PreviewPagesViewer({
           body: JSON.stringify({ pageNumbers: needed }),
         });
 
+        if (generationRef.current !== generation) return;
+
         if (response.ok) {
           const data = await response.json();
           setPages((prev) => {
@@ -85,7 +91,9 @@ export function PreviewPagesViewer({
           });
         }
       } finally {
-        needed.forEach((pn) => pendingRef.current.delete(pn));
+        if (generationRef.current === generation) {
+          needed.forEach((pn) => pendingRef.current.delete(pn));
+        }
       }
     },
     [pagesApiEndpoint, numPages],
@@ -218,8 +226,19 @@ export function PreviewPagesViewer({
               )}
               onLoad={handleImageLoad}
               onError={() => {
-                setImageLoaded(true);
-                setImageCache((prev) => ({ ...prev, [currentPage]: true }));
+                setImageLoaded(false);
+                setImageCache((prev) => ({ ...prev, [currentPage]: false }));
+
+                const idx = currentPage - 1;
+                const current = pagesRef.current;
+                if (idx >= 0 && idx < current.length && current[idx]) {
+                  const updated = [...current];
+                  updated[idx] = { ...updated[idx], file: "" };
+                  pagesRef.current = updated;
+                  setPages(updated);
+                }
+                pendingRef.current.delete(currentPage);
+                ensurePagesLoaded(currentPage);
               }}
               draggable={false}
               onContextMenu={(e) => e.preventDefault()}
