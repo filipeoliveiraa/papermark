@@ -23,8 +23,12 @@ import { AwayPoster } from "./away-poster";
 
 import "@/styles/custom-viewer-styles.css";
 
-const DEFAULT_PRELOADED_IMAGES_NUM = 5;
-const JUMP_WINDOW_SIZE = 3; // Number of pages to load before and after target when jumping
+const scaleCoordinates = (coords: string, scaleFactor: number) => {
+  return coords
+    .split(",")
+    .map((coord) => parseFloat(coord) * scaleFactor)
+    .join(",");
+};
 
 const calculateOptimalWidth = (
   containerWidth: number,
@@ -112,21 +116,18 @@ export default function PagesVerticalViewer({
     pageQuery >= 1 && pageQuery <= numPages ? pageQuery : 1,
   ); // start on first page
 
-  const [loadedImages, setLoadedImages] = useState<boolean[]>(
-    new Array(numPages).fill(false),
-  );
-
   const [submittedFeedback, setSubmittedFeedback] = useState<boolean>(false);
   const [accountCreated, setAccountCreated] = useState<boolean>(false);
   const [scale, setScale] = useState<number>(1);
 
-  const initialViewedPages = Array.from({ length: numPages }, (_, index) => ({
-    pageNumber: index + 1,
-    duration: 0,
-  }));
-
-  const [viewedPages, setViewedPages] =
-    useState<{ pageNumber: number; duration: number }[]>(initialViewedPages);
+  const [viewedPages, setViewedPages] = useState<
+    { pageNumber: number; duration: number }[]
+  >(() =>
+    Array.from({ length: numPages }, (_, index) => ({
+      pageNumber: index + 1,
+      duration: 0,
+    })),
+  );
 
   const [isWindowFocused, setIsWindowFocused] = useState(true);
 
@@ -144,13 +145,6 @@ export default function PagesVerticalViewer({
   >({});
 
   const { isMobile, isTablet } = useMediaQuery();
-
-  const scaleCoordinates = (coords: string, scaleFactor: number) => {
-    return coords
-      .split(",")
-      .map((coord) => parseFloat(coord) * scaleFactor)
-      .join(",");
-  };
 
   const getScaleFactor = ({
     naturalHeight,
@@ -192,7 +186,7 @@ export default function PagesVerticalViewer({
     return () => {
       window.removeEventListener("resize", updateImageDimensions);
     };
-  }, [loadedImages, pageNumber]);
+  }, [pageNumber]);
 
   // Update the previous page number after the effect hook has run
   useEffect(() => {
@@ -371,35 +365,8 @@ export default function PagesVerticalViewer({
   }, [screenshotProtectionEnabled]);
 
   useEffect(() => {
-    const start = Math.max(0, pageNumber - 1 - DEFAULT_PRELOADED_IMAGES_NUM);
-    const end = Math.min(numPages - 1, pageNumber - 1 + DEFAULT_PRELOADED_IMAGES_NUM);
-    setLoadedImages((prev) => {
-      const next = [...prev];
-      for (let i = start; i <= end; i++) {
-        next[i] = true;
-      }
-      return next;
-    });
-    ensurePagesLoaded?.(pageNumber);
-  }, []); // Run once on mount
-
-  useEffect(() => {
     ensurePagesLoaded?.(pageNumber);
   }, [pageNumber, ensurePagesLoaded]);
-
-  useEffect(() => {
-    setLoadedImages((prev) => {
-      let changed = false;
-      const next = [...prev];
-      pages.forEach((page, index) => {
-        if (page.file && !next[index]) {
-          next[index] = true;
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
-    });
-  }, [pages]);
 
   useEffect(() => {
     // Remove token and email query parameters on component mount
@@ -427,21 +394,7 @@ export default function PagesVerticalViewer({
     const container = containerRef.current;
     if (!container) return;
 
-    const scrollPosition = container.scrollTop;
-    const containerHeight = container.clientHeight;
     const containerRect = container.getBoundingClientRect();
-
-    // Always preload surrounding pages during scroll
-    const startPage = Math.max(0, pageNumber - 2 - 1);
-    const endPage = Math.min(numPages - 1, pageNumber + 2 - 1);
-
-    setLoadedImages((prev) => {
-      const newLoadedImages = [...prev];
-      for (let i = startPage; i <= endPage; i++) {
-        newLoadedImages[i] = true;
-      }
-      return newLoadedImages;
-    });
 
     // Find which page is most visible in the viewport
     let maxVisiblePage = pageNumber;
@@ -499,15 +452,6 @@ export default function PagesVerticalViewer({
     }
   };
 
-  // Function to preload next image
-  const preloadImage = (index: number) => {
-    if (index < numPages && !loadedImages[index]) {
-      const newLoadedImages = [...loadedImages];
-      newLoadedImages[index] = true;
-      setLoadedImages(newLoadedImages);
-    }
-  };
-
   const goToPreviousPage = () => {
     if (pageNumber <= 1) return;
     if (enableQuestion && feedback && pageNumber === numPagesWithFeedback) {
@@ -529,9 +473,6 @@ export default function PagesVerticalViewer({
       }
       return;
     }
-
-    // Preload previous pages
-    preloadImage(pageNumber - 4);
 
     const duration = getActiveDuration();
     trackPageViewSafely({
@@ -576,9 +517,6 @@ export default function PagesVerticalViewer({
       }
       return;
     }
-
-    // Preload the next page
-    preloadImage(pageNumber + 2);
 
     const duration = getActiveDuration();
     trackPageViewSafely({
@@ -647,23 +585,6 @@ export default function PagesVerticalViewer({
           dataroomId,
           setViewedPages,
           isPreview,
-        });
-
-        // Only load a bounded window around the target page to avoid unbounded downloads
-        // Unloaded pages will render as placeholders with correct height from metadata
-        const startPage = Math.max(0, targetPage - 1 - JUMP_WINDOW_SIZE);
-        const endPage = Math.min(
-          numPages - 1,
-          targetPage - 1 + JUMP_WINDOW_SIZE,
-        );
-
-        setLoadedImages((prev) => {
-          const newLoadedImages = [...prev];
-          // Only load pages within the window around targetPage
-          for (let i = startPage; i <= endPage; i++) {
-            newLoadedImages[i] = true;
-          }
-          return newLoadedImages;
         });
 
         setPageNumber(targetPage);
@@ -747,17 +668,20 @@ export default function PagesVerticalViewer({
     };
   }, [handleKeyDown, goToNextPage, goToPreviousPage]);
 
+  const handleScrollRef = useRef(handleScroll);
+  handleScrollRef.current = handleScroll;
+
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.addEventListener("scroll", handleScroll);
-    }
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handler = () => handleScrollRef.current();
+    container.addEventListener("scroll", handler, { passive: true });
 
     return () => {
-      if (containerRef.current) {
-        containerRef.current.removeEventListener("scroll", handleScroll);
-      }
+      container.removeEventListener("scroll", handler);
     };
-  }, [handleScroll]);
+  }, []);
 
   const [containerWidth, setContainerWidth] = useState<number>(0);
 
@@ -899,7 +823,7 @@ export default function PagesVerticalViewer({
                               page.metadata.width
                             : 600; // fallback height
 
-                        if (!loadedImages[index] || !page.file) {
+                        if (!page.file) {
                           // Render a placeholder div with correct dimensions to preserve scroll height
                           return (
                             <div
