@@ -152,6 +152,7 @@ export default function DataroomDocumentView({
         userId: userId ?? null,
         documentVersionId: link.dataroomDocument.document.versions[0].id,
         hasPages: link.dataroomDocument.document.versions[0].hasPages,
+        startPage: router.query.p ? Number(router.query.p) : undefined,
         dataroomId: link.dataroomId,
         linkType: "DATAROOM_LINK",
         dataroomViewId: viewData.dataroomViewId ?? null,

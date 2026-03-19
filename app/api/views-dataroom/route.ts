@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       dataroomViewId,
       viewType,
       groupId,
+      startPage,
       ...data
     } = body as {
       linkId: string;
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       dataroomViewId?: string;
       viewType: "DATAROOM_VIEW" | "DOCUMENT_VIEW";
       groupId?: string;
+      startPage?: number;
     };
 
     const { email, password, name, hasConfirmedAgreement } = data as {
@@ -889,15 +891,20 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Only sign URLs for the first batch of pages to avoid timeouts on large documents.
+        // Sign URLs for pages around the requested start page (or page 1 by default).
         // Remaining page URLs are fetched on-demand by the client via /api/views/pages.
+        const centerIndex = Math.max(0, (startPage ?? 1) - 1);
+        const halfWindow = Math.floor(INITIAL_PAGES_TO_LOAD / 2);
+        const signStart = Math.max(0, centerIndex - halfWindow);
+        const signEnd = Math.min(documentPages.length, signStart + INITIAL_PAGES_TO_LOAD);
+
         documentPages = await Promise.all(
           documentPages.map(async (page, index) => {
             const { storageType, ...otherPage } = page;
             return {
               ...otherPage,
               file:
-                index < INITIAL_PAGES_TO_LOAD
+                index >= signStart && index < signEnd
                   ? await getFile({ data: page.file, type: storageType })
                   : null,
             };

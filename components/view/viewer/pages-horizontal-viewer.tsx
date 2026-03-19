@@ -351,17 +351,35 @@ export default function PagesHorizontalViewer({
   }, [screenshotProtectionEnabled]);
 
   useEffect(() => {
-    setLoadedImages((prev) =>
-      prev.map((loaded, index) =>
-        index < DEFAULT_PRELOADED_IMAGES_NUM ? true : loaded,
-      ),
-    );
-    ensurePagesLoaded?.(1);
+    const start = Math.max(0, pageNumber - 1 - DEFAULT_PRELOADED_IMAGES_NUM);
+    const end = Math.min(numPages - 1, pageNumber - 1 + DEFAULT_PRELOADED_IMAGES_NUM);
+    setLoadedImages((prev) => {
+      const next = [...prev];
+      for (let i = start; i <= end; i++) {
+        next[i] = true;
+      }
+      return next;
+    });
+    ensurePagesLoaded?.(pageNumber);
   }, []); // Run once on mount
 
   useEffect(() => {
     ensurePagesLoaded?.(pageNumber);
   }, [pageNumber, ensurePagesLoaded]);
+
+  useEffect(() => {
+    setLoadedImages((prev) => {
+      let changed = false;
+      const next = [...prev];
+      pages.forEach((page, index) => {
+        if (page.file && !next[index]) {
+          next[index] = true;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [pages]);
 
   useEffect(() => {
     // Remove token and email query parameters on component mount

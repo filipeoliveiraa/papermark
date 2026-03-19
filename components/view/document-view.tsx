@@ -142,6 +142,7 @@ export default function DocumentView({
         userId: userId ?? null,
         documentVersionId: document.versions[0].id,
         hasPages: document.versions[0].hasPages,
+        startPage: router.query.p ? Number(router.query.p) : undefined,
         useAdvancedExcelViewer,
         previewToken,
         code: code ?? undefined,
