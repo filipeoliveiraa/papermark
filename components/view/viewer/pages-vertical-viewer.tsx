@@ -136,6 +136,9 @@ export default function PagesVerticalViewer({
   const visibilityRef = useRef<boolean>(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollActionRef = useRef<boolean>(false);
+  const scrollEndTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const hasTrackedDownRef = useRef<boolean>(false);
   const hasTrackedUpRef = useRef<boolean>(false);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
@@ -393,6 +396,8 @@ export default function PagesVerticalViewer({
   const handleScroll = () => {
     const container = containerRef.current;
     if (!container) return;
+
+    if (scrollActionRef.current) return;
 
     const containerRect = container.getBoundingClientRect();
 
@@ -675,11 +680,23 @@ export default function PagesVerticalViewer({
     const container = containerRef.current;
     if (!container) return;
 
-    const handler = () => handleScrollRef.current();
+    const handler = () => {
+      handleScrollRef.current();
+
+      if (scrollActionRef.current) {
+        if (scrollEndTimeoutRef.current)
+          clearTimeout(scrollEndTimeoutRef.current);
+        scrollEndTimeoutRef.current = setTimeout(() => {
+          scrollActionRef.current = false;
+        }, 150);
+      }
+    };
     container.addEventListener("scroll", handler, { passive: true });
 
     return () => {
       container.removeEventListener("scroll", handler);
+      if (scrollEndTimeoutRef.current)
+        clearTimeout(scrollEndTimeoutRef.current);
     };
   }, []);
 
