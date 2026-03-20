@@ -1,6 +1,6 @@
 import dynamic from "next/dynamic";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
 
 import { Slash } from "lucide-react";
@@ -451,6 +451,57 @@ export const NotionPage = ({
     };
   }, [scrollToHashElement]);
 
+  const PageLinkComponent = useMemo(
+    () =>
+      function PageLink({
+        href,
+        className,
+        children,
+        style,
+      }: {
+        href?: string;
+        className?: string;
+        children?: React.ReactNode;
+        style?: React.CSSProperties;
+        [key: string]: any;
+      }) {
+        const handleClick = (e: React.MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!href) return;
+
+          const pageId =
+            parsePageId(href, { uuid: false }) ??
+            href.split("/").pop()?.split("?")[0]?.split("#")[0];
+
+          if (pageId) {
+            setSubPageId(pageId);
+          }
+        };
+
+        return (
+          <a
+            className={className}
+            style={style}
+            href={href}
+            onClick={handleClick}
+          >
+            {children}
+          </a>
+        );
+      },
+    [setSubPageId],
+  );
+
+  const notionComponents = useMemo(
+    () => ({
+      Collection,
+      Code,
+      PageLink: PageLinkComponent,
+    }),
+    [PageLinkComponent],
+  );
+
   // Obfuscate Notion IDs in the DOM after rendering
   useEffect(() => {
     if (!notionContainerRef.current) return;
@@ -544,57 +595,7 @@ export const NotionPage = ({
           fullPage={true}
           darkMode={theme ? theme === "dark" : false}
           disableHeader={true}
-          components={{
-            Collection,
-            Code,
-            PageLink: ({
-              href,
-              className,
-              children,
-              style,
-              ...rest
-            }: {
-              href?: string;
-              className?: string;
-              children?: React.ReactNode;
-              style?: React.CSSProperties;
-              [key: string]: any;
-            }) => {
-              const handleClick = (e: React.MouseEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!href) return;
-
-                const pageId =
-                  parsePageId(href, { uuid: false }) ??
-                  href.split("/").pop()?.split("?")[0]?.split("#")[0];
-
-                if (pageId) {
-                  setSubPageId(pageId);
-                }
-              };
-
-              return (
-                <a
-                  className={className}
-                  style={style}
-                  href={href}
-                  onClick={handleClick}
-                  role="link"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      handleClick(
-                        e as unknown as React.MouseEvent,
-                      );
-                    }
-                  }}
-                >
-                  {children}
-                </a>
-              );
-            },
-          }}
+          components={notionComponents}
         />
       </div>
       {screenshotProtectionEnabled ? <ScreenProtector /> : null}
