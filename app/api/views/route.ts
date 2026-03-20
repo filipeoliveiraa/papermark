@@ -612,16 +612,20 @@ export async function POST(request: NextRequest) {
 
         // Sign URLs for pages around the requested start page (or page 1 by default).
         // Remaining page URLs are fetched on-demand by the client via /api/views/pages.
+        // Preview mode signs all pages upfront since no viewId exists for on-demand loading.
+        const signAll = isPreview;
         const centerIndex = Math.min(
           Math.max(0, (startPage ?? 1) - 1),
           Math.max(0, documentPages.length - 1),
         );
         const halfWindow = Math.floor(INITIAL_PAGES_TO_LOAD / 2);
-        const signStart = Math.max(0, centerIndex - halfWindow);
-        const signEnd = Math.min(
-          documentPages.length,
-          signStart + INITIAL_PAGES_TO_LOAD,
-        );
+        const signStart = signAll ? 0 : Math.max(0, centerIndex - halfWindow);
+        const signEnd = signAll
+          ? documentPages.length
+          : Math.min(
+              documentPages.length,
+              signStart + INITIAL_PAGES_TO_LOAD,
+            );
 
         documentPages = await Promise.all(
           documentPages.map(async (page, index) => {
