@@ -105,8 +105,8 @@ const obfuscateNotionIds = (container: HTMLElement) => {
     uuidPattern.lastIndex = 0;
   });
 
-  // Obfuscate anchor href attributes that contain Notion IDs
-  const anchors = container.querySelectorAll("a[href]");
+  // Obfuscate anchor href attributes that contain Notion IDs (skip external links with target)
+  const anchors = container.querySelectorAll("a[href]:not([target])");
   anchors.forEach((anchor) => {
     const href = anchor.getAttribute("href");
     if (href && uuidPattern.test(href)) {
