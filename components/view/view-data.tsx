@@ -68,6 +68,7 @@ export default function ViewData({
   canDownload,
   annotationsEnabled,
   textSelectionEnabled,
+  previewToken,
 }: {
   viewData: DEFAULT_DOCUMENT_VIEW_TYPE | DEFAULT_DATAROOM_DOCUMENT_VIEW_TYPE;
   link: LinkWithDocument | LinkWithDataroomDocument;
@@ -86,6 +87,7 @@ export default function ViewData({
   canDownload?: boolean;
   annotationsEnabled?: boolean;
   textSelectionEnabled?: boolean;
+  previewToken?: string;
 }) {
   const { isMobile } = useMediaQuery();
 
@@ -94,6 +96,8 @@ export default function ViewData({
   const { pages: lazyPages, ensurePagesLoaded } = useLazyPages({
     initialPages: viewData.pages ?? [],
     viewId: viewData.viewId,
+    previewToken: viewData.isPreview ? previewToken : undefined,
+    linkId: viewData.isPreview ? link.id : undefined,
     documentVersionId: documentVersionId,
   });
 
