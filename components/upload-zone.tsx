@@ -619,6 +619,31 @@ export default function UploadZone({
 
       let filesToBePassedToOnDrop: FileWithPaths[] = [];
 
+      /**
+       * Reads all entries from a FileSystemDirectoryReader.
+       * Per spec, readEntries() returns at most ~100 entries per call in
+       * Chromium browsers. It must be called repeatedly until it returns
+       * an empty array.
+       */
+      const readAllDirectoryEntries = async (
+        dirReader: FileSystemDirectoryReader,
+      ): Promise<FileSystemEntry[]> => {
+        const allEntries: FileSystemEntry[] = [];
+
+        let batch: FileSystemEntry[] = await new Promise<FileSystemEntry[]>(
+          (resolve, reject) => dirReader.readEntries(resolve, reject),
+        );
+
+        while (batch.length > 0) {
+          allEntries.push(...batch);
+          batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+            dirReader.readEntries(resolve, reject),
+          );
+        }
+
+        return allEntries;
+      };
+
       /** *********** START OF `traverseFolder` *********** */
       const traverseFolder = async (
         entry: FileSystemEntry,
@@ -686,9 +711,8 @@ export default function UploadZone({
               const dirReader = (
                 entry as FileSystemDirectoryEntry
               ).createReader();
-              const subEntries = await new Promise<FileSystemEntry[]>(
-                (resolve) => dirReader.readEntries(resolve),
-              );
+              const subEntries =
+                await readAllDirectoryEntries(dirReader);
 
               const filteredSubEntries = subEntries.filter(
                 (subEntry) => !isSystemFile(subEntry.name),
@@ -740,9 +764,8 @@ export default function UploadZone({
               const dirReader = (
                 entry as FileSystemDirectoryEntry
               ).createReader();
-              const subEntries = await new Promise<FileSystemEntry[]>(
-                (resolve) => dirReader.readEntries(resolve),
-              );
+              const subEntries =
+                await readAllDirectoryEntries(dirReader);
 
               const filteredSubEntries = subEntries.filter(
                 (subEntry) => !isSystemFile(subEntry.name),
