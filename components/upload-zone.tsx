@@ -58,6 +58,9 @@ interface FileWithPaths extends File {
 export interface RejectedFile {
   fileName: string;
   message: string;
+  reason?: "error" | "plan-limit" | "max-files";
+  /** Individual file paths skipped due to limits — used for downloadable list */
+  skippedFileNames?: string[];
 }
 
 export interface UploadItemState {
@@ -284,6 +287,7 @@ export default function UploadZone({
           {
             fileName: `${rejectedFiles.length} files selected`,
             message: `Maximum ${maxFiles} files per upload`,
+            reason: "max-files",
           },
         ]);
         return;
@@ -369,7 +373,8 @@ export default function UploadZone({
         setRejectedFiles((prev) => [
           ...skippedFiles.map((f) => ({
             fileName: f.name,
-            message: "Skipped (document limit reached)",
+            message: "Document limit reached",
+            reason: "plan-limit" as const,
           })),
           ...prev,
         ]);
@@ -771,6 +776,7 @@ export default function UploadZone({
           : Infinity;
       const fileLimit = Math.min(maxFilesPerUpload, planDocumentLimit);
       let collectedFileCount = 0;
+      const skippedPerTopLevel = new Map<string, string[]>();
 
       // Early check: skip folder traversal (and folder creation) if document limit is already reached
       if (fileLimit <= 0) {
@@ -811,6 +817,7 @@ export default function UploadZone({
         dataroomParentPath?: string,
         folderCounter?: { count: number },
         folderPathCapture?: { value?: string },
+        topLevelName?: string,
       ): Promise<FileWithPaths[]> => {
         /**
          * Summary of this function:
@@ -826,12 +833,7 @@ export default function UploadZone({
         }
 
         if (entry.isDirectory) {
-          /**
-           * Let's create the folder.
-           * Fact that reader can skip: For Consistency, child files will only be pushed if folder successfully gets created.
-           */
           try {
-            // An empty folder name can cause the unexpected url problems.
             if (entry.name.trim() === "") {
               setRejectedFiles((prev) => [
                 {
@@ -906,6 +908,7 @@ export default function UploadZone({
                     undefined,
                     folderCounter,
                     folderPathCapture,
+                    topLevelName,
                   )),
                 );
               }
@@ -975,6 +978,7 @@ export default function UploadZone({
                     resolvedDataroomPath,
                     folderCounter,
                     folderPathCapture,
+                    topLevelName,
                   )),
                 );
               }
@@ -998,6 +1002,11 @@ export default function UploadZone({
           }
 
           if (collectedFileCount >= fileLimit) {
+            if (topLevelName) {
+              const list = skippedPerTopLevel.get(topLevelName) ?? [];
+              list.push(entry.fullPath.startsWith("/") ? entry.fullPath.substring(1) : entry.fullPath);
+              skippedPerTopLevel.set(topLevelName, list);
+            }
             return files;
           }
 
@@ -1082,6 +1091,7 @@ export default function UploadZone({
               dataroomId ? folderPathName : undefined,
               counter,
               pathCapture,
+              entry.name,
             ).then((files) => {
               for (const f of files) {
                 f.topLevelItemName = entry.name;
@@ -1115,6 +1125,19 @@ export default function UploadZone({
 
       if (isFinite(fileLimit) && collectedFileCount >= fileLimit) {
         fileLimitTruncatedRef.current = true;
+      }
+
+      if (skippedPerTopLevel.size > 0) {
+        const skippedEntries: RejectedFile[] = [];
+        for (const [name, paths] of skippedPerTopLevel) {
+          skippedEntries.push({
+            fileName: `${name}: ${paths.length} file${paths.length !== 1 ? "s" : ""} not uploaded`,
+            message: "Document limit reached",
+            reason: "plan-limit",
+            skippedFileNames: paths,
+          });
+        }
+        setRejectedFiles((prev) => [...skippedEntries, ...prev]);
       }
 
       return filesToBePassedToOnDrop;

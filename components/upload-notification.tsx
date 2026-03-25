@@ -1,12 +1,16 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 
 import {
+  AlertTriangleIcon,
   BanIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   ChevronUpIcon,
+  DownloadIcon,
   FileIcon,
   FolderIcon,
+  XCircleIcon,
   XIcon,
 } from "lucide-react";
 
@@ -17,6 +21,8 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+
+import { usePlan } from "@/lib/swr/use-billing";
 
 import { Gauge } from "./ui/gauge";
 import { ButtonTooltip } from "./ui/tooltip";
@@ -166,6 +172,85 @@ const ItemRow = memo(
   },
 );
 
+function CollapsibleSection({
+  icon,
+  label,
+  count,
+  colorClass,
+  bgClass,
+  cta,
+  items,
+  onDownload,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  colorClass: string;
+  bgClass: string;
+  cta?: { label: string; href: string };
+  items: RejectedFile[];
+  onDownload?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className={`border-t border-gray-200 dark:border-gray-700`}>
+      <button
+        onClick={() => setOpen(!open)}
+        className={`flex w-full items-center justify-between px-4 py-2 ${bgClass}`}
+      >
+        <div className="flex items-center gap-2">
+          {open ? (
+            <ChevronDownIcon className={`h-3.5 w-3.5 ${colorClass}`} />
+          ) : (
+            <ChevronRightIcon className={`h-3.5 w-3.5 ${colorClass}`} />
+          )}
+          {icon}
+          <span className={`text-xs font-medium ${colorClass}`}>
+            {count} {label}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {onDownload ? (
+            <ButtonTooltip content="Download list" sideOffset={4}>
+              <span
+                role="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownload();
+                }}
+                className={`rounded p-1 ${colorClass} hover:bg-black/5 dark:hover:bg-white/10`}
+              >
+                <DownloadIcon className="h-3.5 w-3.5" />
+              </span>
+            </ButtonTooltip>
+          ) : null}
+          {cta ? (
+            <a
+              href={cta.href}
+              onClick={(e) => e.stopPropagation()}
+              className={`rounded px-2.5 py-1 text-xs font-medium ${colorClass} hover:underline`}
+            >
+              {cta.label}
+            </a>
+          ) : null}
+        </div>
+      </button>
+      {open
+        ? items.map((rejected, index) => (
+            <div
+              key={index}
+              className={`flex items-center justify-between px-4 py-2 text-sm ${colorClass} hover:bg-gray-50 dark:hover:bg-gray-800/50`}
+            >
+              <span className="w-56 truncate">{rejected.fileName}</span>
+              <span className="shrink-0 text-xs">{rejected.message}</span>
+            </div>
+          ))
+        : null}
+    </div>
+  );
+}
+
 export function UploadNotificationDrawer({
   open,
   onOpenChange,
@@ -178,6 +263,7 @@ export function UploadNotificationDrawer({
   onCancelItem,
 }: UploadNotificationDrawerProps) {
   const [expanded, setExpanded] = useState(true);
+  const { isDatarooms } = usePlan();
 
   const totalEntries = batch?.totalEntries ?? 0;
   const completedEntries = batch?.completedEntries ?? 0;
@@ -191,6 +277,70 @@ export function UploadNotificationDrawer({
 
   const itemCount = batch?.items.length ?? 0;
   const isPreparing = batch === null || itemCount === 0;
+
+  // js-combine-iterations: single pass to partition rejected files
+  const { skippedFiles, failedFiles } = useMemo(() => {
+    const skipped: RejectedFile[] = [];
+    const failed: RejectedFile[] = [];
+    for (const rf of rejectedFiles) {
+      if (rf.reason === "plan-limit" || rf.reason === "max-files") {
+        skipped.push(rf);
+      } else {
+        failed.push(rf);
+      }
+    }
+    return { skippedFiles: skipped, failedFiles: failed };
+  }, [rejectedFiles]);
+
+  const skippedCta = useMemo(() => {
+    if (skippedFiles.length === 0) return undefined;
+    const hasPlanLimit = skippedFiles.some((f) => f.reason === "plan-limit");
+    const hasMaxFiles = skippedFiles.some((f) => f.reason === "max-files");
+
+    if (hasPlanLimit) {
+      return { label: "Upgrade", href: "/settings/billing" };
+    }
+    if (hasMaxFiles && isDatarooms) {
+      return {
+        label: "Contact support",
+        href: "mailto:support@papermark.com",
+      };
+    }
+    return { label: "Upgrade", href: "/settings/billing" };
+  }, [skippedFiles, isDatarooms]);
+
+  const skippedLabel = useMemo(() => {
+    const hasPlanLimit = skippedFiles.some((f) => f.reason === "plan-limit");
+    return hasPlanLimit
+      ? "not uploaded (plan limit)"
+      : "not uploaded (upload limit)";
+  }, [skippedFiles]);
+
+  const handleDownloadSkipped = useCallback(() => {
+    const allNames: string[] = [];
+    for (const rf of skippedFiles) {
+      if (rf.skippedFileNames?.length) {
+        allNames.push(...rf.skippedFileNames);
+      } else {
+        allNames.push(rf.fileName);
+      }
+    }
+    if (allNames.length === 0) return;
+
+    const content = allNames.join("\n");
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "skipped-files.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [skippedFiles]);
+
+  const hasDownloadableSkipped = useMemo(
+    () => skippedFiles.some((rf) => rf.skippedFileNames?.length || rf.fileName),
+    [skippedFiles],
+  );
 
   const timeLeftLabel = useMemo(() => {
     if (!batch || isDone) return null;
@@ -211,7 +361,8 @@ export function UploadNotificationDrawer({
     }
   };
 
-  const cancelledItemCount = batch?.items.filter((it) => it.cancelled).length ?? 0;
+  const cancelledItemCount =
+    batch?.items.filter((it) => it.cancelled).length ?? 0;
 
   const headerTitle = isPreparing
     ? "Preparing upload..."
@@ -256,23 +407,23 @@ export function UploadNotificationDrawer({
             </div>
           </DrawerHeader>
 
-          {expanded && (
+          {expanded ? (
             <>
-              {!isDone && !isPreparing && timeLeftLabel && (
+              {!isDone && !isPreparing && timeLeftLabel ? (
                 <div className="flex items-center justify-between border-b border-gray-200 bg-blue-50/60 px-4 py-2 dark:border-gray-700 dark:bg-blue-950/30">
                   <span className="text-xs text-muted-foreground">
                     {timeLeftLabel}
                   </span>
-                  {onCancel && (
+                  {onCancel ? (
                     <button
                       onClick={onCancel}
                       className="text-xs font-medium text-primary hover:underline"
                     >
                       Cancel
                     </button>
-                  )}
+                  ) : null}
                 </div>
-              )}
+              ) : null}
 
               <div className="flex w-full flex-1 flex-col overflow-y-auto">
                 {batch?.items.map((item) => (
@@ -285,26 +436,37 @@ export function UploadNotificationDrawer({
                 ))}
               </div>
 
-              {rejectedFiles.length > 0 && (
-                <div className="border-t border-gray-200 dark:border-gray-700">
-                  <div className="px-4 py-1.5 text-xs font-medium text-destructive">
-                    {rejectedFiles.length} failed
-                  </div>
-                  {rejectedFiles.map((rejected, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between px-4 py-2 text-sm text-red-500 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                    >
-                      <span className="w-56 truncate">{rejected.fileName}</span>
-                      <span className="shrink-0 text-xs">
-                        {rejected.message}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {skippedFiles.length > 0 ? (
+                <CollapsibleSection
+                  icon={
+                    <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  }
+                  label={skippedLabel}
+                  count={skippedFiles.length}
+                  colorClass="text-amber-600 dark:text-amber-400"
+                  bgClass="bg-amber-50/60 dark:bg-amber-950/30"
+                  cta={skippedCta}
+                  items={skippedFiles}
+                  onDownload={
+                    hasDownloadableSkipped ? handleDownloadSkipped : undefined
+                  }
+                />
+              ) : null}
+
+              {failedFiles.length > 0 ? (
+                <CollapsibleSection
+                  icon={
+                    <XCircleIcon className="h-3.5 w-3.5 text-destructive" />
+                  }
+                  label="failed"
+                  count={failedFiles.length}
+                  colorClass="text-destructive"
+                  bgClass="bg-red-50/60 dark:bg-red-950/30"
+                  items={failedFiles}
+                />
+              ) : null}
             </>
-          )}
+          ) : null}
         </DrawerContent>
       </Drawer>
     </div>
