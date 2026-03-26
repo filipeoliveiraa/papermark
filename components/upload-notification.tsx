@@ -80,18 +80,25 @@ const ItemRow = memo(
 
     if (done) {
       if (hovered) {
-        return (
+        const icon =
+          item.type === "folder" ? (
+            <FolderIcon className="h-4 w-4 text-foreground" />
+          ) : (
+            <FileIcon className="h-4 w-4 text-foreground" />
+          );
+
+        return item.folderHref ? (
           <a
             href={item.folderHref}
             className="flex h-5 w-5 items-center justify-center"
             title={`Open ${item.name}`}
           >
-            {item.type === "folder" ? (
-              <FolderIcon className="h-4 w-4 text-foreground" />
-            ) : (
-              <FileIcon className="h-4 w-4 text-foreground" />
-            )}
+            {icon}
           </a>
+        ) : (
+          <span className="flex h-5 w-5 items-center justify-center">
+            {icon}
+          </span>
         );
       }
       return (
