@@ -1,4 +1,4 @@
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, task } from "@trigger.dev/sdk";
 
 import { sendDownloadReadyEmail } from "@/lib/emails/send-download-ready-email";
 import prisma from "@/lib/prisma";

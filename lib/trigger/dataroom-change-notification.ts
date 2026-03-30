@@ -1,4 +1,4 @@
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, task } from "@trigger.dev/sdk";
 
 import prisma from "@/lib/prisma";
 import { queueNotification } from "@/lib/redis/dataroom-notification-queue";

@@ -7,7 +7,7 @@ import {
 } from "@/ee/features/ai/lib/trigger";
 import { isTeamPausedById } from "@/ee/features/billing/cancellation/lib/is-team-paused";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
-import { runs } from "@trigger.dev/sdk/v3";
+import { runs } from "@trigger.dev/sdk";
 import { waitUntil } from "@vercel/functions";
 import { getServerSession } from "next-auth/next";
 

@@ -1,4 +1,4 @@
-import { AbortTaskRunError, logger, task } from "@trigger.dev/sdk/v3";
+import { AbortTaskRunError, logger, task } from "@trigger.dev/sdk";
 
 import { ONE_HOUR } from "@/lib/constants";
 import { isTrustedTeam } from "@/lib/edge-config/trusted-teams";
