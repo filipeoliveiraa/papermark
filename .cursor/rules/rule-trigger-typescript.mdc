@@ -15,7 +15,7 @@ alwaysApply: false
 
 ## Essential requirements when generating task code
 
-1. You MUST use `@trigger.dev/sdk` (NOT `@trigger.dev/sdk` which is deprecated)
+1. You MUST use `@trigger.dev/sdk`
 2. You MUST NEVER use `client.defineJob`
 3. YOU MUST `export` every task, including subtasks
 4. If you are able to generate an example payload for a task, do so.
