@@ -1,7 +1,15 @@
+import DigestBlockedAccess from "@/components/emails/digest-blocked-access";
+import DigestConversationMessages from "@/components/emails/digest-conversation-messages";
+import DigestDataroomUploads from "@/components/emails/digest-dataroom-uploads";
+import DigestDataroomViews from "@/components/emails/digest-dataroom-views";
+import DigestDocumentViews from "@/components/emails/digest-document-views";
 import { limiter } from "@/lib/cron";
 import prisma from "@/lib/prisma";
+import { sendEmail } from "@/lib/resend";
 import { log } from "@/lib/utils";
 import type { TeamNotificationType } from "@/lib/zod/schemas/notifications";
+
+const MAX_ITEMS = 5;
 
 type DigestGroup = {
   userId: string;
@@ -28,11 +36,9 @@ export async function processNotificationDigest(
     return { processed: 0, sent: 0 };
   }
 
-  const prefGroups = new Map<string, typeof preferences>();
-  for (const pref of preferences) {
-    const key = `${pref.userId}:${pref.teamId}:${pref.type}`;
-    prefGroups.set(key, [...(prefGroups.get(key) || []), pref]);
-  }
+  const prefKeys = new Set(
+    preferences.map((p) => `${p.userId}:${p.teamId}:${p.type}`),
+  );
 
   const digestItems = await prisma.notificationDigest.findMany({
     where: {
@@ -49,7 +55,7 @@ export async function processNotificationDigest(
 
   for (const item of digestItems) {
     const key = `${item.userId}:${item.teamId}:${item.type}`;
-    if (!prefGroups.has(key)) continue;
+    if (!prefKeys.has(key)) continue;
 
     if (!groups.has(key)) {
       groups.set(key, {
@@ -92,18 +98,20 @@ export async function processNotificationDigest(
 
   let sent = 0;
   const digestItemIds = digestItems.map((i) => i.id);
+  const frequencyLabel: "daily" | "weekly" =
+    frequency === "DAILY" ? "daily" : "weekly";
 
   for (const group of groups.values()) {
     if (!group.email || group.items.length === 0) continue;
 
     try {
       await limiter.schedule(() =>
-        sendDigestEmail(group, frequency),
+        sendDigestEmail(group, frequencyLabel),
       );
       sent++;
     } catch (error) {
       await log({
-        message: `Failed to send ${frequency.toLowerCase()} ${group.type} digest to ${group.email}. Error: ${(error as Error).message}`,
+        message: `Failed to send ${frequencyLabel} ${group.type} digest to ${group.email}. Error: ${(error as Error).message}`,
         type: "error",
       });
     }
@@ -119,146 +127,170 @@ export async function processNotificationDigest(
 
 async function sendDigestEmail(
   group: DigestGroup,
-  frequency: "DAILY" | "WEEKLY",
+  frequency: "daily" | "weekly",
 ) {
-  const { sendEmail } = await import("@/lib/resend");
-
-  const frequencyLabel = frequency === "DAILY" ? "yesterday" : "this week";
-  const totalCount = group.items.length;
-
-  const { subject, body } = buildDigestContent(
-    group.type,
-    group.items,
-    group.teamName,
-    frequencyLabel,
-    totalCount,
-  );
+  const { subject, react } = buildDigestEmail(group, frequency);
 
   await sendEmail({
     to: group.email,
     subject,
-    text: body,
+    react,
     system: true,
     test: process.env.NODE_ENV === "development",
   });
 }
 
-function buildDigestContent(
-  type: TeamNotificationType,
-  items: Record<string, unknown>[],
-  teamName: string,
-  frequencyLabel: string,
-  totalCount: number,
-): { subject: string; body: string } {
-  const MAX_ITEMS = 5;
+function buildDigestEmail(
+  group: DigestGroup,
+  frequency: "daily" | "weekly",
+): { subject: string; react: React.ReactElement } {
+  const periodLabel = frequency === "daily" ? "yesterday" : "this week";
+  const totalCount = group.items.length;
 
-  switch (type) {
+  switch (group.type) {
     case "DOCUMENT_VIEW": {
-      const docCounts = new Map<string, number>();
-      for (const item of items) {
+      const docCounts = new Map<string, { count: number; linkName?: string }>();
+      for (const item of group.items) {
         const name = (item.documentName as string) || "Unknown Document";
-        docCounts.set(name, (docCounts.get(name) || 0) + 1);
+        const existing = docCounts.get(name);
+        docCounts.set(name, {
+          count: (existing?.count || 0) + 1,
+          linkName: (item.linkName as string) || existing?.linkName,
+        });
       }
-      const sorted = [...docCounts.entries()].sort((a, b) => b[1] - a[1]);
+      const sorted = [...docCounts.entries()].sort(
+        (a, b) => b[1].count - a[1].count,
+      );
       const top = sorted.slice(0, MAX_ITEMS);
-      const remaining = sorted.length - MAX_ITEMS;
-
-      let body = `Here's what happened on ${teamName} ${frequencyLabel}:\n\n`;
-      body += `Document Views (${totalCount})\n`;
-      for (const [name, count] of top) {
-        body += `  - ${name}: ${count} view${count > 1 ? "s" : ""}\n`;
-      }
-      if (remaining > 0) {
-        body += `  + ${remaining} more document${remaining > 1 ? "s" : ""}\n`;
-      }
+      const remaining = Math.max(0, sorted.length - MAX_ITEMS);
 
       return {
-        subject: `${totalCount} document view${totalCount > 1 ? "s" : ""} ${frequencyLabel} on ${teamName}`,
-        body,
+        subject: `${totalCount} document view${totalCount > 1 ? "s" : ""} ${periodLabel} on ${group.teamName}`,
+        react: DigestDocumentViews({
+          teamName: group.teamName,
+          documents: top.map(([name, data]) => ({
+            documentName: name,
+            viewCount: data.count,
+            linkName: data.linkName,
+          })),
+          totalViews: totalCount,
+          frequency,
+          remainingCount: remaining,
+        }),
       };
     }
 
     case "DATAROOM_VIEW": {
-      const drCounts = new Map<string, number>();
-      for (const item of items) {
+      const drCounts = new Map<string, { count: number; linkName?: string }>();
+      for (const item of group.items) {
         const name = (item.dataroomName as string) || "Unknown Data Room";
-        drCounts.set(name, (drCounts.get(name) || 0) + 1);
+        const existing = drCounts.get(name);
+        drCounts.set(name, {
+          count: (existing?.count || 0) + 1,
+          linkName: (item.linkName as string) || existing?.linkName,
+        });
       }
-      const sorted = [...drCounts.entries()].sort((a, b) => b[1] - a[1]);
+      const sorted = [...drCounts.entries()].sort(
+        (a, b) => b[1].count - a[1].count,
+      );
       const top = sorted.slice(0, MAX_ITEMS);
-      const remaining = sorted.length - MAX_ITEMS;
-
-      let body = `Here's what happened on ${teamName} ${frequencyLabel}:\n\n`;
-      body += `Data Room Views (${totalCount})\n`;
-      for (const [name, count] of top) {
-        body += `  - ${name}: ${count} visit${count > 1 ? "s" : ""}\n`;
-      }
-      if (remaining > 0) {
-        body += `  + ${remaining} more data room${remaining > 1 ? "s" : ""}\n`;
-      }
+      const remaining = Math.max(0, sorted.length - MAX_ITEMS);
 
       return {
-        subject: `${totalCount} data room visit${totalCount > 1 ? "s" : ""} ${frequencyLabel} on ${teamName}`,
-        body,
+        subject: `${totalCount} data room visit${totalCount > 1 ? "s" : ""} ${periodLabel} on ${group.teamName}`,
+        react: DigestDataroomViews({
+          teamName: group.teamName,
+          datarooms: top.map(([name, data]) => ({
+            dataroomName: name,
+            viewCount: data.count,
+            linkName: data.linkName,
+          })),
+          totalViews: totalCount,
+          frequency,
+          remainingCount: remaining,
+        }),
       };
     }
 
     case "BLOCKED_ACCESS": {
-      let body = `Here's what happened on ${teamName} ${frequencyLabel}:\n\n`;
-      body += `Blocked Access Attempts (${totalCount})\n`;
-      const top = items.slice(0, MAX_ITEMS);
-      for (const item of top) {
-        body += `  - ${item.blockedEmail || "Unknown"} tried to access "${item.resourceName || "a resource"}"\n`;
-      }
-      if (totalCount > MAX_ITEMS) {
-        body += `  + ${totalCount - MAX_ITEMS} more attempt${totalCount - MAX_ITEMS > 1 ? "s" : ""}\n`;
-      }
+      const top = group.items.slice(0, MAX_ITEMS);
+      const remaining = Math.max(0, totalCount - MAX_ITEMS);
 
       return {
-        subject: `${totalCount} blocked access attempt${totalCount > 1 ? "s" : ""} ${frequencyLabel} on ${teamName}`,
-        body,
+        subject: `${totalCount} blocked access attempt${totalCount > 1 ? "s" : ""} ${periodLabel} on ${group.teamName}`,
+        react: DigestBlockedAccess({
+          teamName: group.teamName,
+          attempts: top.map((item) => ({
+            blockedEmail: (item.blockedEmail as string) || "Unknown",
+            resourceName: (item.resourceName as string) || "a resource",
+            resourceType:
+              (item.resourceType as "document" | "dataroom") || "document",
+          })),
+          totalAttempts: totalCount,
+          frequency,
+          remainingCount: remaining,
+        }),
       };
     }
 
     case "DATAROOM_UPLOAD": {
-      const drCounts = new Map<string, string[]>();
-      for (const item of items) {
+      const drUploads = new Map<
+        string,
+        { fileCount: number; uploaderEmail?: string }
+      >();
+      for (const item of group.items) {
         const name = (item.dataroomName as string) || "Unknown Data Room";
         const docs = (item.documentNames as string[]) || [];
-        drCounts.set(name, [...(drCounts.get(name) || []), ...docs]);
+        const existing = drUploads.get(name);
+        drUploads.set(name, {
+          fileCount: (existing?.fileCount || 0) + docs.length,
+          uploaderEmail:
+            (item.uploaderEmail as string) || existing?.uploaderEmail,
+        });
       }
-      const sorted = [...drCounts.entries()].sort(
-        (a, b) => b[1].length - a[1].length,
+      const sorted = [...drUploads.entries()].sort(
+        (a, b) => b[1].fileCount - a[1].fileCount,
       );
       const top = sorted.slice(0, MAX_ITEMS);
-
-      let body = `Here's what happened on ${teamName} ${frequencyLabel}:\n\n`;
-      body += `Data Room Uploads (${totalCount})\n`;
-      for (const [name, docs] of top) {
-        body += `  - ${name}: ${docs.length} file${docs.length > 1 ? "s" : ""} uploaded\n`;
-      }
+      const remaining = Math.max(0, sorted.length - MAX_ITEMS);
 
       return {
-        subject: `${totalCount} data room upload${totalCount > 1 ? "s" : ""} ${frequencyLabel} on ${teamName}`,
-        body,
+        subject: `${totalCount} data room upload${totalCount > 1 ? "s" : ""} ${periodLabel} on ${group.teamName}`,
+        react: DigestDataroomUploads({
+          teamName: group.teamName,
+          uploads: top.map(([name, data]) => ({
+            dataroomName: name,
+            fileCount: data.fileCount,
+            uploaderEmail: data.uploaderEmail,
+          })),
+          totalUploads: totalCount,
+          frequency,
+          remainingCount: remaining,
+        }),
       };
     }
 
     case "CONVERSATION_MESSAGE": {
-      let body = `Here's what happened on ${teamName} ${frequencyLabel}:\n\n`;
-      body += `New Conversation Messages (${totalCount})\n`;
-      body += `  You have ${totalCount} new message${totalCount > 1 ? "s" : ""} across your conversations.\n`;
-
       return {
-        subject: `${totalCount} new conversation message${totalCount > 1 ? "s" : ""} ${frequencyLabel} on ${teamName}`,
-        body,
+        subject: `${totalCount} new conversation message${totalCount > 1 ? "s" : ""} ${periodLabel} on ${group.teamName}`,
+        react: DigestConversationMessages({
+          teamName: group.teamName,
+          totalMessages: totalCount,
+          frequency,
+        }),
       };
     }
 
     default: {
       return {
-        subject: `Activity digest ${frequencyLabel} on ${teamName}`,
-        body: `You have ${totalCount} new notification${totalCount > 1 ? "s" : ""} on ${teamName}.`,
+        subject: `Activity digest ${periodLabel} on ${group.teamName}`,
+        react: DigestDocumentViews({
+          teamName: group.teamName,
+          documents: [],
+          totalViews: 0,
+          frequency,
+          remainingCount: 0,
+        }),
       };
     }
   }
