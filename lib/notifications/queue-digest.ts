@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import prisma from "@/lib/prisma";
 import type { TeamNotificationType } from "@/lib/zod/schemas/notifications";
 
@@ -17,7 +19,7 @@ export async function queueDigestNotification({
       userId,
       teamId,
       type,
-      payload,
+      payload: payload as Prisma.InputJsonValue,
     },
   });
 }
@@ -37,7 +39,7 @@ export async function queueDigestNotifications(
       userId: item.userId,
       teamId: item.teamId,
       type: item.type,
-      payload: item.payload,
+      payload: item.payload as Prisma.InputJsonValue,
     })),
   });
 }
