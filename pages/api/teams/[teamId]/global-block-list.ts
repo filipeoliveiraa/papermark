@@ -47,7 +47,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (req.method === "PUT") {
     if (teamAccess.role !== "ADMIN" && teamAccess.role !== "MANAGER") {
-      return res.status(403).json({ error: "Forbidden" });
+      return res.status(403).json({
+        error: "Only admins and managers can manage the block list.",
+      });
     }
 
     try {
