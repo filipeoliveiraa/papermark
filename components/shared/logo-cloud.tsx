@@ -56,11 +56,12 @@ export const LogoCloud = () => {
   return (
     <div>
       <div className="overflow-hidden">
-        <div className="grid grid-cols-2 grid-rows-[50px] gap-x-1 gap-y-3 md:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2">
           {/* Mistral AI */}
           <div
-            className="group col-span-1 flex items-center justify-center bg-white p-1 transition-colors"
+            className="group col-span-1 flex h-16 items-center justify-center rounded-[6px] px-4 transition-colors"
             style={{
+              backgroundColor: "#f9fafb",
               opacity: visibleCount >= 1 ? 1 : 0,
               transform: visibleCount >= 1 ? "translateY(0)" : "translateY(8px)",
               transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
@@ -73,10 +74,11 @@ export const LogoCloud = () => {
             />
           </div>
 
-          {/* BCG — smaller */}
+          {/* BCG */}
           <div
-            className="group col-span-1 flex items-center justify-center bg-white p-1 text-green-700 transition-colors"
+            className="group col-span-1 flex h-16 items-center justify-center rounded-[4px] px-4 text-black transition-colors"
             style={{
+              backgroundColor: "#f9fafb",
               opacity: visibleCount >= 2 ? 1 : 0,
               transform: visibleCount >= 2 ? "translateY(0)" : "translateY(8px)",
               transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
@@ -123,8 +125,9 @@ export const LogoCloud = () => {
 
           {/* Foundamental */}
           <div
-            className="group col-span-1 flex items-center justify-center bg-white p-1 transition-colors"
+            className="group col-span-1 flex h-16 items-center justify-center rounded-[6px] px-4 transition-colors"
             style={{
+              backgroundColor: "#f9fafb",
               opacity: visibleCount >= 3 ? 1 : 0,
               transform: visibleCount >= 3 ? "translateY(0)" : "translateY(8px)",
               transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
@@ -157,8 +160,9 @@ export const LogoCloud = () => {
 
           {/* DoorDash */}
           <div
-            className="group col-span-1 flex items-center justify-center bg-white p-1 text-black transition-colors"
+            className="group col-span-1 flex h-16 items-center justify-center rounded-[6px] px-4 text-black transition-colors"
             style={{
+              backgroundColor: "#f9fafb",
               opacity: visibleCount >= 4 ? 1 : 0,
               transform: visibleCount >= 4 ? "translateY(0)" : "translateY(8px)",
               transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
@@ -178,8 +182,9 @@ export const LogoCloud = () => {
 
           {/* DP World */}
           <div
-            className="group col-span-1 flex items-center justify-center bg-white p-1 transition-colors"
+            className="group col-span-1 flex h-16 items-center justify-center rounded-[6px] px-4 transition-colors"
             style={{
+              backgroundColor: "#f9fafb",
               opacity: visibleCount >= 5 ? 1 : 0,
               transform: visibleCount >= 5 ? "translateY(0)" : "translateY(8px)",
               transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
@@ -194,8 +199,9 @@ export const LogoCloud = () => {
 
           {/* Brevo */}
           <div
-            className="group col-span-1 flex items-center justify-center bg-white p-1 transition-colors"
+            className="group col-span-1 flex h-16 items-center justify-center rounded-[6px] px-4 transition-colors"
             style={{
+              backgroundColor: "#f9fafb",
               opacity: visibleCount >= 6 ? 1 : 0,
               transform: visibleCount >= 6 ? "translateY(0)" : "translateY(8px)",
               transition: "opacity 0.4s ease-out, transform 0.4s ease-out",

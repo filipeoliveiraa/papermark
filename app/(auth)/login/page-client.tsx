@@ -54,12 +54,8 @@ export default function Login() {
   return (
     <div className="flex h-screen w-full flex-wrap">
       {/* Left part */}
-      <div className="flex w-full justify-center bg-gray-50 md:w-[55%] lg:w-[55%]">
-        <div
-          className="absolute inset-x-0 top-10 -z-10 flex transform-gpu justify-center overflow-hidden blur-3xl"
-          aria-hidden="true"
-        ></div>
-        <div className="z-10 mx-5 mt-0 h-fit w-full max-w-md overflow-hidden rounded-lg sm:mx-0 sm:mt-[calc(0.5vh)] md:mt-[calc(1vh)]">
+      <div className="flex w-full justify-center bg-white md:w-[55%] lg:w-[55%]">
+        <div className="z-10 mx-5 mt-0 h-fit w-full max-w-md overflow-hidden sm:mx-0 sm:mt-[calc(0.5vh)] md:mt-[calc(1vh)]">
           <div className="items-left flex flex-col space-y-3 px-4 py-6 pt-5 sm:px-12 sm:pt-6">
             <Link href="https://www.papermark.com" target="_blank">
               <img
@@ -68,32 +64,6 @@ export default function Login() {
                 className="mb-24 h-7 w-auto self-start sm:mb-20"
               />
             </Link>
-            <div className="flex items-center gap-4 pb-1">
-              <img
-                src="/_static/security-icons/soc2-dark-new3.png?v=2"
-                alt="SOC2 Compliant"
-                className="h-14 w-auto object-contain opacity-80"
-              />
-              <img
-                src="/_static/security-icons/GDPR.svg"
-                alt="GDPR Compliant"
-                className="h-10 w-auto object-contain opacity-80"
-              />
-              <img
-                src="/_static/security-icons/HIPAA.svg"
-                alt="HIPAA Compliant"
-                className="h-10 w-auto object-contain opacity-80"
-              />
-              <img
-                src="/_static/security-icons/CCPA.svg"
-                alt="CCPA Compliant"
-                className="h-10 w-auto object-contain opacity-80"
-              />
-            </div>
-            <p className="flex items-center gap-1.5 text-xs text-gray-600">
-              <span className="text-orange-400">★★★★★</span>
-              <span>trusted by 55,000+ companies to secure deals</span>
-            </p>
             <Link href="/">
               <span className="text-balance text-3xl font-semibold text-gray-900">
                 Welcome to Papermark
@@ -104,7 +74,7 @@ export default function Login() {
             </h3>
           </div>
           {isSSORequired && (
-            <div className="mx-4 mb-2 flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 sm:mx-12">
+            <div className="mx-4 mb-2 flex items-start gap-3 rounded-[4px] border border-orange-200 bg-orange-50 px-4 py-3 sm:mx-12">
               <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
               <div>
                 <p className="text-sm font-medium text-orange-900">
@@ -167,7 +137,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className={cn(
-                "flex h-10 w-full rounded-md border-0 bg-background bg-white px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white",
+                "flex h-10 w-full rounded-[4px] border-0 bg-background bg-white px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white",
                 email.length > 0 && !emailValidation.success
                   ? "ring-red-500"
                   : "ring-gray-200",
@@ -179,7 +149,7 @@ export default function Login() {
                 loading={clickedMethod === "email"}
                 disabled={!emailValidation.success || !!clickedMethod}
                 className={cn(
-                  "focus:shadow-outline w-full transform rounded px-4 py-2 text-white transition-colors duration-300 ease-in-out focus:outline-none disabled:opacity-100",
+                  "focus:shadow-outline w-full transform rounded-[4px] px-4 py-2 text-white transition-colors duration-300 ease-in-out focus:outline-none disabled:opacity-100",
                   "bg-black hover:bg-gray-900",
                 )}
               >
@@ -262,7 +232,7 @@ export default function Login() {
           <p className="mt-10 w-full max-w-md px-4 text-xs text-muted-foreground sm:px-12">
             By continuing, you agree to Papermark&apos;s{" "}
             <a
-              href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://www.papermark.com"}/terms`}
+              href="https://www.papermark.com/terms"
               target="_blank"
               rel="noopener noreferrer"
               className="underline"
@@ -271,7 +241,7 @@ export default function Login() {
             </a>{" "}
             and{" "}
             <a
-              href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://www.papermark.com"}/privacy`}
+              href="https://www.papermark.com/privacy"
               target="_blank"
               rel="noopener noreferrer"
               className="underline"
@@ -282,18 +252,27 @@ export default function Login() {
           </p>
         </div>
       </div>
-      <div className="relative hidden w-full justify-center overflow-hidden bg-white md:flex md:w-[45%] lg:w-[45%]">
+      <div
+        className="relative hidden w-full justify-center overflow-hidden md:flex md:w-[45%] lg:w-[45%]"
+        style={{ backgroundColor: "#f9fafb" }}
+      >
         <div className="flex h-full w-full flex-col items-center justify-center px-4 py-10">
           <div className="flex w-full max-w-xl flex-col items-center">
-            <div className="mb-5 w-full max-w-md">
+            <div className="mb-6 w-full max-w-md">
               <img
-                className="h-auto w-full rounded-2xl object-cover shadow-lg"
+                className="h-auto w-full rounded-[4px] object-cover "
                 src="/_static/testimonials/backtrace.jpeg"
                 alt="Backtrace Capital"
               />
             </div>
             <div className="w-full max-w-3xl text-center">
-              <blockquote className="font-semibold leading-8 text-gray-900 sm:text-xl sm:leading-9">
+              <blockquote
+                className="leading-8 text-gray-900 sm:text-xl sm:leading-9"
+                style={{
+                  fontFamily:
+                    "system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif",
+                }}
+              >
                 <p>
                   &quot;We raised €50M Fund with Papermark Data Rooms.
                   <br />
