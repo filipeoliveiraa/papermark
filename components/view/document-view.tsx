@@ -32,7 +32,7 @@ export type DEFAULT_DOCUMENT_VIEW_TYPE = {
   file?: string | null;
   pages?:
     | {
-        file: string;
+        file: string | null;
         pageNumber: string;
         embeddedLinks: string[];
         pageLinks: {
@@ -142,6 +142,7 @@ export default function DocumentView({
         userId: userId ?? null,
         documentVersionId: document.versions[0].id,
         hasPages: document.versions[0].hasPages,
+        startPage: router.query.p ? Number(router.query.p) : undefined,
         useAdvancedExcelViewer,
         previewToken,
         code: code ?? undefined,
@@ -154,6 +155,14 @@ export default function DocumentView({
       const fetchData = await response.json();
 
       if (fetchData.type === "email-verification") {
+        analytics.capture("Email Verification Requested", {
+          linkId: link.id,
+          documentId: document.id,
+          documentName: document.name,
+          linkType: "DOCUMENT_LINK",
+          viewerEmail: data.email ?? verifiedEmail ?? userEmail,
+          teamId: link.teamId,
+        });
         setVerificationRequested(true);
         setIsLoading(false);
       } else {

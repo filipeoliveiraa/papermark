@@ -37,7 +37,7 @@ export type DEFAULT_DATAROOM_DOCUMENT_VIEW_TYPE = {
   file?: string | null;
   pages?:
     | {
-        file: string;
+        file: string | null;
         pageNumber: string;
         embeddedLinks: string[];
         pageLinks: {
@@ -152,6 +152,7 @@ export default function DataroomDocumentView({
         userId: userId ?? null,
         documentVersionId: link.dataroomDocument.document.versions[0].id,
         hasPages: link.dataroomDocument.document.versions[0].hasPages,
+        startPage: router.query.p ? Number(router.query.p) : undefined,
         dataroomId: link.dataroomId,
         linkType: "DATAROOM_LINK",
         dataroomViewId: viewData.dataroomViewId ?? null,
@@ -168,6 +169,15 @@ export default function DataroomDocumentView({
       const fetchData = await response.json();
 
       if (fetchData.type === "email-verification") {
+        analytics.capture("Email Verification Requested", {
+          linkId: link.id,
+          documentId: link.dataroomDocument.document.id,
+          documentName: link.dataroomDocument.document.name,
+          dataroomId: link.dataroomId,
+          linkType: "DATAROOM_LINK",
+          viewerEmail: data.email ?? verifiedEmail ?? userEmail,
+          teamId: link.teamId,
+        });
         setVerificationRequested(true);
         setIsLoading(false);
       } else {

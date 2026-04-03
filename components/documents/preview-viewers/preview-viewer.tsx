@@ -1,5 +1,8 @@
+import { useTeam } from "@/context/team-context";
+
 import { DocumentPreviewData } from "@/lib/types/document-preview";
 
+import { PreviewExcelViewer } from "./preview-excel-viewer";
 import { PreviewImageViewer } from "./preview-image-viewer";
 import { PreviewPagesViewer } from "./preview-pages-viewer";
 
@@ -9,11 +12,21 @@ interface PreviewViewerProps {
 }
 
 export function PreviewViewer({ documentData, onClose }: PreviewViewerProps) {
+  const { currentTeamId } = useTeam();
+
+  const previewPagesEndpoint = currentTeamId
+    ? `/api/teams/${currentTeamId}/documents/${documentData.documentId}/preview-pages`
+    : undefined;
+
   const renderViewer = () => {
     // Documents with pages (PDFs, docs, slides)
     if (documentData.pages && documentData.pages.length > 0) {
       return (
-        <PreviewPagesViewer documentData={documentData} onClose={onClose} />
+        <PreviewPagesViewer
+          documentData={documentData}
+          onClose={onClose}
+          pagesApiEndpoint={previewPagesEndpoint}
+        />
       );
     }
 
@@ -24,13 +37,24 @@ export function PreviewViewer({ documentData, onClose }: PreviewViewerProps) {
       );
     }
 
-    // Excel/CSV files
-    if (documentData.fileType === "sheet" && documentData.sheetData) {
+    // Excel/CSV files with advanced mode
+    if (
+      documentData.fileType === "sheet" &&
+      documentData.advancedExcelEnabled &&
+      documentData.file
+    ) {
+      return (
+        <PreviewExcelViewer documentData={documentData} onClose={onClose} />
+      );
+    }
+
+    // Excel/CSV files without advanced mode
+    if (documentData.fileType === "sheet") {
       return (
         <div className="flex h-full w-full items-center justify-center">
           <div className="text-center">
             <p className="text-gray-400">
-              Sheet preview coming soon. Please preview via a shared link.
+              Enable advanced Excel mode to preview this document.
             </p>
           </div>
         </div>

@@ -46,6 +46,7 @@ export const configSchema = z.object({
   watermarkOnBusiness: z.boolean().nullish(),
   agreementOnBusiness: z.boolean().nullish(),
   conversationsInDataroom: z.boolean().nullish(),
+  linkCustomFields: z.number().nullish(),
   fileSizeLimits: z
     .object({
       video: z.number().optional(), // in MB
@@ -114,6 +115,7 @@ export async function getLimits({
         usage: { documents: documentCount, links: linkCount, users: userCount },
         ...(isTrial && {
           users: 3,
+          datarooms: Math.max(parsedData.datarooms ?? defaultLimits?.datarooms ?? 0, 1),
         }),
       };
     } else {
@@ -138,6 +140,7 @@ export async function getLimits({
       usage: { documents: documentCount, links: linkCount, users: userCount },
       ...(isTrial && {
         users: 3,
+        datarooms: Math.max(defaultLimits?.datarooms ?? 0, 1),
       }),
     };
   }

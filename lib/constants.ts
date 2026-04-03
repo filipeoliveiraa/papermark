@@ -43,6 +43,7 @@ export const REACTIONS = [
 // time in milliseconds
 export const ONE_SECOND = 1000;
 export const ONE_MINUTE = ONE_SECOND * 60;
+export const TWO_MINUTES = ONE_MINUTE * 2;
 export const ONE_HOUR = ONE_MINUTE * 60;
 export const ONE_DAY = ONE_HOUR * 24;
 export const ONE_WEEK = ONE_DAY * 7;
@@ -162,13 +163,28 @@ export const VIEWER_ACCEPTED_FILE_TYPES = {
   "application/pdf": [], // ".pdf"
   "application/vnd.ms-excel": [], // ".xls"
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [], // ".xlsx"
+  "application/vnd.ms-excel.sheet.macroEnabled.12": [".xlsm"], // ".xlsm"
   "text/csv": [], // ".csv"
+  "text/tab-separated-values": [".tsv"], // ".tsv"
   "application/vnd.oasis.opendocument.spreadsheet": [], // ".ods"
+  "application/vnd.ms-powerpoint": [], // ".ppt"
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    [], // ".pptx"
+  "application/vnd.oasis.opendocument.presentation": [], // ".odp"
+  "application/vnd.apple.keynote": [".key"], // ".key"
+  "application/x-iwork-keynote-sffkey": [".key"], // ".key"
   "application/msword": [], // ".doc"
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [], // ".docx"
-  "image/jpeg": [], // ".jpg"
+  "application/vnd.oasis.opendocument.text": [], // ".odt"
+  "application/rtf": [], // ".rtf"
+  "text/rtf": [], // ".rtf"
+  "text/plain": [], // ".txt"
   "image/png": [], // ".png"
+  "image/jpeg": [], // ".jpeg"
   "image/jpg": [], // ".jpg"
+  "application/zip": [], // ".zip"
+  "application/x-zip-compressed": [], // ".zip"
+  "application/vnd.ms-outlook": [".msg"], // ".msg"
 };
 
 export const SUPPORTED_DOCUMENT_SIMPLE_TYPES = [

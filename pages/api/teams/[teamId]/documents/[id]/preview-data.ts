@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { getServerSession } from "next-auth/next";
 
+import { getTeamStorageConfigById } from "@/ee/features/storage/config";
+
 import { getFile } from "@/lib/files/get-file";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
@@ -99,20 +101,28 @@ export default async function handle(
       fileType: primaryVersion.type,
       isVertical: primaryVersion.isVertical,
       numPages: primaryVersion.numPages,
+      advancedExcelEnabled: document.advancedExcelEnabled,
       pages: undefined as any,
       file: undefined as string | undefined,
       sheetData: undefined as any,
     };
 
+    const INITIAL_PAGES_TO_LOAD = 10;
+
     // Handle different file types
     if (primaryVersion.hasPages && primaryVersion.pages.length > 0) {
       // Documents with pages (PDFs, docs, slides)
+      // Only sign URLs for the first batch of pages to avoid timeouts on large documents.
+      // Remaining page URLs are fetched on-demand by the client via preview-pages endpoint.
       returnData.pages = await Promise.all(
-        primaryVersion.pages.map(async (page) => {
+        primaryVersion.pages.map(async (page, index) => {
           const { storageType, ...otherPageData } = page;
           return {
             ...otherPageData,
-            file: await getFile({ data: page.file, type: storageType }),
+            file:
+              index < INITIAL_PAGES_TO_LOAD
+                ? await getFile({ data: page.file, type: storageType })
+                : null,
           };
         }),
       );
@@ -124,11 +134,18 @@ export default async function handle(
       });
       returnData.numPages = 1;
     } else if (primaryVersion.type === "sheet") {
-      // Excel/CSV files - preview not supported
-      return res.status(400).json({
-        message:
-          "Sheet preview not available. Please preview via a shared link.",
-      });
+      if (document.advancedExcelEnabled) {
+        // Advanced Excel mode: use Office Online viewer URL
+        if (!primaryVersion.file.includes("https://")) {
+          const storageConfig = await getTeamStorageConfigById(document.teamId);
+          returnData.file = `https://${storageConfig.advancedDistributionHost}/${primaryVersion.file}`;
+        } else {
+          returnData.file = primaryVersion.file;
+        }
+        returnData.numPages = 1;
+      }
+      // Non-advanced sheets: return 200 with advancedExcelEnabled=false so
+      // PreviewViewer renders its inline fallback instead of showing an error.
     } else if (primaryVersion.type === "notion") {
       // Notion documents - preview not supported
       return res.status(400).json({

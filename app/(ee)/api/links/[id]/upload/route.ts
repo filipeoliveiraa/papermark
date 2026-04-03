@@ -7,7 +7,7 @@ import prisma from "@/lib/prisma";
 import { sendDataroomUploadNotificationTask } from "@/lib/trigger/dataroom-upload-notification";
 import { sanitizePlainText } from "@/lib/utils/sanitize-html";
 import { supportsAdvancedExcelMode } from "@/lib/utils/get-content-type";
-import { runs } from "@trigger.dev/sdk/v3";
+import { runs } from "@trigger.dev/sdk";
 import { waitUntil } from "@vercel/functions";
 
 /**
