@@ -61,6 +61,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     isDatarooms,
     isDataroomsPlus,
     isDataroomsPremium,
+    isDataroomsUnlimited,
     isFree,
     isTrial,
     isPaused,
@@ -274,9 +275,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               ) : null}
             </span>
           ) : null}
-          {isDataroomsPremium ? (
+          {isDataroomsPremium && !isDataroomsUnlimited ? (
             <span className="relative ml-4 inline-flex items-center rounded-full bg-background px-2.5 py-1 text-xs tracking-normal text-foreground ring-1 ring-gray-800">
               Premium
+              {isPaused ? (
+                <BadgeTooltip content="Subscription paused">
+                  <PauseCircleIcon className="absolute -right-1.5 -top-1.5 h-5 w-5 rounded-full bg-background text-amber-500" />
+                </BadgeTooltip>
+              ) : null}
+            </span>
+          ) : null}
+          {isDataroomsUnlimited ? (
+            <span className="relative ml-4 inline-flex items-center rounded-full bg-background px-2.5 py-1 text-xs tracking-normal text-foreground ring-1 ring-gray-800">
+              Unlimited
               {isPaused ? (
                 <BadgeTooltip content="Subscription paused">
                   <PauseCircleIcon className="absolute -right-1.5 -top-1.5 h-5 w-5 rounded-full bg-background text-amber-500" />

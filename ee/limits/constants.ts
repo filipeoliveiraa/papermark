@@ -1,7 +1,7 @@
 // INFO: for numeric values,`null` means unlimited
 
 export type TPlanLimits = {
-  users: number;
+  users: number | null;
   links: number | null;
   documents: number | null;
   domains: number;
@@ -99,6 +99,23 @@ export const DATAROOMS_PREMIUM_PLAN_LIMITS = {
   fileSizeLimits: {
     maxFiles: 5000,
     maxPages: 1000,
+  },
+};
+
+export const DATAROOMS_UNLIMITED_PLAN_LIMITS = {
+  users: null,
+  links: null,
+  documents: null,
+  domains: 1000,
+  datarooms: 1000,
+  customDomainOnPro: true,
+  customDomainInDataroom: true,
+  conversationsInDataroom: true,
+  advancedLinkControlsOnPro: false,
+  linkCustomFields: 5,
+  fileSizeLimits: {
+    maxFiles: null,
+    maxPages: null,
   },
 };
 

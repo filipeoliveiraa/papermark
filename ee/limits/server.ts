@@ -7,6 +7,7 @@ import {
   DATAROOMS_PLAN_LIMITS,
   DATAROOMS_PLUS_PLAN_LIMITS,
   DATAROOMS_PREMIUM_PLAN_LIMITS,
+  DATAROOMS_UNLIMITED_PLAN_LIMITS,
   FREE_PLAN_LIMITS,
   PRO_PLAN_LIMITS,
   TPlanLimits,
@@ -26,6 +27,7 @@ const planLimitsMap: Record<string, TPlanLimits> = {
   datarooms: DATAROOMS_PLAN_LIMITS,
   "datarooms-plus": DATAROOMS_PLUS_PLAN_LIMITS,
   "datarooms-premium": DATAROOMS_PREMIUM_PLAN_LIMITS,
+  "datarooms-unlimited": DATAROOMS_UNLIMITED_PLAN_LIMITS,
 };
 
 export const configSchema = z.object({
@@ -38,7 +40,9 @@ export const configSchema = z.object({
     .preprocess((v) => (v === null ? Infinity : Number(v)), z.number())
     .optional()
     .default(50),
-  users: z.number().optional(),
+  users: z
+    .preprocess((v) => (v === null ? Infinity : v !== undefined ? Number(v) : undefined), z.number())
+    .optional(),
   domains: z.number().optional(),
   customDomainOnPro: z.boolean().optional(),
   customDomainInDataroom: z.boolean().optional(),
