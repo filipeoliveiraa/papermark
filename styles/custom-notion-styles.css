@@ -78,9 +78,45 @@
   width: max-content;
 }
 
-/* Match Notion's cell padding */
+/* Match Notion's cell padding with visible borders */
 .notion-simple-table td {
-  padding: 7px 9px;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid rgb(210, 210, 208);
+  border-right: 1px solid rgb(210, 210, 208);
+}
+
+.notion-simple-table tr:first-child td {
+  border-top: 1px solid rgb(210, 210, 208);
+}
+
+.notion-simple-table td:first-child {
+  border-left: 1px solid rgb(210, 210, 208);
+}
+
+.notion-simple-table-header-row td,
+.notion-simple-table-header-cell {
+  background: rgb(247, 246, 243);
+  font-weight: 500;
+}
+
+/* Dark mode: visible borders for simple tables */
+.dark .notion-simple-table td {
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+  border-right-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .notion-simple-table tr:first-child td {
+  border-top-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .notion-simple-table td:first-child {
+  border-left-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .notion-simple-table-header-row td,
+.dark .notion-simple-table-header-cell {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* On mobile, shrink margins and let react-notion-x handle table sizing natively */
