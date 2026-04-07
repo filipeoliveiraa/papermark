@@ -282,8 +282,9 @@ export const NotionPage = ({
           setRecordMapState(currentRecordMap);
           const firstBlockId = Object.keys(currentRecordMap.block)[0];
           const firstBlock = currentRecordMap.block[firstBlockId];
+          const blockValue = firstBlock?.value as Record<string, any>;
           setSubTitle(
-            firstBlock?.value?.properties?.title?.[0]?.[0] || "Untitled",
+            blockValue?.properties?.title?.[0]?.[0] || "Untitled",
           );
           window.scrollTo({ top: 0, behavior: "smooth" });
           return;
@@ -303,8 +304,9 @@ export const NotionPage = ({
           setRecordMapState(newRecordMap);
           const firstBlockId = Object.keys(newRecordMap.block)[0];
           const firstBlock = newRecordMap.block[firstBlockId];
+          const blockValue = firstBlock?.value as Record<string, any>;
           setSubTitle(
-            firstBlock?.value?.properties?.title?.[0]?.[0] || "Untitled",
+            blockValue?.properties?.title?.[0]?.[0] || "Untitled",
           );
           window.scrollTo({ top: 0, behavior: "smooth" });
         } catch (error) {
@@ -316,7 +318,8 @@ export const NotionPage = ({
         setRecordMapState(recordMap);
         const firstBlockId = Object.keys(recordMap.block)[0];
         const firstBlock = recordMap.block[firstBlockId];
-        setTitle(firstBlock?.value?.properties?.title?.[0]?.[0] || "Untitled");
+        const blockValue = firstBlock?.value as Record<string, any>;
+        setTitle(blockValue?.properties?.title?.[0]?.[0] || "Untitled");
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     },

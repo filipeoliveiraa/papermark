@@ -1,5 +1,5 @@
 import { NotionAPI } from "notion-client";
-import { ExtendedRecordMap } from "notion-types";
+import { Block, ExtendedRecordMap } from "notion-types";
 import { getPageContentBlockIds, parsePageId } from "notion-utils";
 
 import notion from "./index";
@@ -165,7 +165,7 @@ export const addSignedUrls: NotionAPI["addSignedUrls"] = async ({
   }
 
   const allFileInstances = contentBlockIds.flatMap((blockId) => {
-    const block = recordMap.block[blockId]?.value;
+    const block = recordMap.block[blockId]?.value as Block | undefined;
 
     if (
       block &&
