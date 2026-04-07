@@ -8,9 +8,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useNotificationPreferences } from "@/lib/swr/use-notification-preferences";
+import {
+  useNotificationPreferences,
+} from "@/lib/swr/use-notification-preferences";
 import type {
-  TeamNotificationFrequency,
+  TeamNotificationScope,
   TeamNotificationType,
 } from "@/lib/zod/schemas/notifications";
 
@@ -24,19 +26,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
-const FREQUENCY_LABELS: Record<TeamNotificationFrequency, string> = {
-  IMMEDIATE: "Immediate",
-  DAILY: "Daily digest",
-  WEEKLY: "Weekly digest",
-  NEVER: "Off",
+const SCOPE_LABELS: Record<TeamNotificationScope, string> = {
+  ALL: "All activity",
+  MINE_ONLY: "My links only",
 };
 
 type NotificationConfig = {
   type: TeamNotificationType;
   title: string;
-  descriptionAdmin: string;
-  descriptionMember: string;
+  description: string;
   icon: React.ElementType;
 };
 
@@ -52,8 +52,7 @@ const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
       {
         type: "DOCUMENT_VIEW",
         title: "Document viewed",
-        descriptionAdmin: "When someone views any document link",
-        descriptionMember: "When someone views a document link you own",
+        description: "When someone views a document link",
         icon: EyeIcon,
       },
     ],
@@ -64,18 +63,20 @@ const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
       {
         type: "DATAROOM_VIEW",
         title: "Data room visited",
-        descriptionAdmin: "When someone visits any data room link",
-        descriptionMember: "When someone visits a data room link you own",
+        description: "When someone visits a data room link",
         icon: ServerIcon,
       },
       {
         type: "DATAROOM_UPLOAD",
         title: "File uploaded",
-        descriptionAdmin:
-          "When a viewer uploads files to any data room",
-        descriptionMember:
-          "When a viewer uploads files to a data room you own",
+        description: "When a viewer uploads files to a data room",
         icon: FileUpIcon,
+      },
+      {
+        type: "CONVERSATION_MESSAGE",
+        title: "New question",
+        description: "When a new question is posted in a data room",
+        icon: MessageSquareIcon,
       },
     ],
   },
@@ -85,24 +86,8 @@ const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
       {
         type: "BLOCKED_ACCESS",
         title: "Blocked access attempt",
-        descriptionAdmin: "When a viewer is denied access to any link",
-        descriptionMember:
-          "When a viewer is denied access to a link you own",
+        description: "When a viewer is denied access to a link",
         icon: ShieldAlertIcon,
-      },
-    ],
-  },
-  {
-    label: "Conversations",
-    items: [
-      {
-        type: "CONVERSATION_MESSAGE",
-        title: "New message",
-        descriptionAdmin:
-          "When a new message is posted in any conversation",
-        descriptionMember:
-          "When a new message is posted in your conversations",
-        icon: MessageSquareIcon,
       },
     ],
   },
@@ -113,16 +98,31 @@ export default function NotificationsSettings() {
     useNotificationPreferences();
 
   const isMember = role === "MEMBER";
+  const isAdminOrManager = role === "ADMIN" || role === "MANAGER";
 
-  const handleFrequencyChange = async (
+  const handleToggle = async (
     type: TeamNotificationType,
-    frequency: TeamNotificationFrequency,
+    enabled: boolean,
   ) => {
     try {
-      await updatePreferences([{ type, frequency }]);
+      await updatePreferences([
+        { type, frequency: enabled ? "IMMEDIATE" : "NEVER" },
+      ]);
       toast.success("Notification preference updated");
     } catch {
       toast.error("Failed to update notification preference");
+    }
+  };
+
+  const handleScopeChange = async (
+    type: TeamNotificationType,
+    scope: TeamNotificationScope,
+  ) => {
+    try {
+      await updatePreferences([{ type, frequency: "IMMEDIATE", scope }]);
+      toast.success("Notification scope updated");
+    } catch {
+      toast.error("Failed to update notification scope");
     }
   };
 
@@ -136,8 +136,7 @@ export default function NotificationsSettings() {
             Notifications
           </h3>
           <p className="text-sm text-muted-foreground">
-            Choose how and when you want to be notified about activity in this
-            team.
+            Choose which email notifications you want to receive for this team.
           </p>
         </div>
 
@@ -146,8 +145,7 @@ export default function NotificationsSettings() {
             <InfoIcon className="h-4 w-4" />
             <AlertDescription>
               As a team member, you&apos;ll only receive notifications for
-              documents and links you own. Admins and managers receive
-              notifications for all team activity.
+              documents and links you own.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -169,17 +167,26 @@ export default function NotificationsSettings() {
                   {category.label}
                 </h4>
                 <div className="divide-y rounded-lg border">
-                  {category.items.map((item) => (
-                    <NotificationRow
-                      key={item.type}
-                      item={item}
-                      isMember={isMember}
-                      frequency={preferences?.[item.type] ?? "IMMEDIATE"}
-                      onFrequencyChange={(frequency) =>
-                        handleFrequencyChange(item.type, frequency)
-                      }
-                    />
-                  ))}
+                  {category.items.map((item) => {
+                    const pref = preferences?.[item.type];
+                    const enabled =
+                      (pref?.frequency ?? "IMMEDIATE") !== "NEVER";
+                    const scope = pref?.scope ?? "ALL";
+
+                    return (
+                      <NotificationRow
+                        key={item.type}
+                        item={item}
+                        isAdminOrManager={isAdminOrManager}
+                        enabled={enabled}
+                        scope={scope}
+                        onToggle={(val) => handleToggle(item.type, val)}
+                        onScopeChange={(s) =>
+                          handleScopeChange(item.type, s)
+                        }
+                      />
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -192,19 +199,20 @@ export default function NotificationsSettings() {
 
 function NotificationRow({
   item,
-  isMember,
-  frequency,
-  onFrequencyChange,
+  isAdminOrManager,
+  enabled,
+  scope,
+  onToggle,
+  onScopeChange,
 }: {
   item: NotificationConfig;
-  isMember: boolean;
-  frequency: TeamNotificationFrequency;
-  onFrequencyChange: (frequency: TeamNotificationFrequency) => void;
+  isAdminOrManager: boolean;
+  enabled: boolean;
+  scope: TeamNotificationScope;
+  onToggle: (enabled: boolean) => void;
+  onScopeChange: (scope: TeamNotificationScope) => void;
 }) {
   const Icon = item.icon;
-  const description = isMember
-    ? item.descriptionMember
-    : item.descriptionAdmin;
 
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-3">
@@ -214,26 +222,31 @@ function NotificationRow({
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{item.title}</p>
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className="text-xs text-muted-foreground">{item.description}</p>
         </div>
       </div>
-      <Select
-        value={frequency}
-        onValueChange={(value) =>
-          onFrequencyChange(value as TeamNotificationFrequency)
-        }
-      >
-        <SelectTrigger className="w-[150px] shrink-0">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(FREQUENCY_LABELS).map(([value, label]) => (
-            <SelectItem key={value} value={value}>
-              {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-3">
+        {isAdminOrManager && enabled ? (
+          <Select
+            value={scope}
+            onValueChange={(value) =>
+              onScopeChange(value as TeamNotificationScope)
+            }
+          >
+            <SelectTrigger className="w-[140px] shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(SCOPE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        <Switch checked={enabled} onCheckedChange={onToggle} />
+      </div>
     </div>
   );
 }

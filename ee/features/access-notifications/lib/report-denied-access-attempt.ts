@@ -35,23 +35,15 @@ export async function reportDeniedAccessAttempt(
   const linkName = link.name || `Link #${link.id?.slice(-5)}`;
   const timestamp = new Date().toLocaleString();
 
-  const { immediate } = await dispatchNotification({
+  const recipients = await dispatchNotification({
     teamId: link.teamId,
     notificationType: "BLOCKED_ACCESS",
     linkOwnerId: link.ownerId,
     documentOwnerId,
-    digestPayload: {
-      blockedEmail: email,
-      linkName,
-      resourceName,
-      resourceType,
-      timestamp,
-      accessType,
-    },
   });
 
-  if (immediate.length > 0) {
-    const [to, ...cc] = immediate.map((r) => r.email);
+  if (recipients.length > 0) {
+    const [to, ...cc] = recipients.map((r) => r.email);
     await sendBlockedEmailAttemptNotification({
       to,
       cc: cc.length > 0 ? cc : undefined,

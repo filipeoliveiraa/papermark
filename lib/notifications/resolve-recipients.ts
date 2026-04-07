@@ -4,14 +4,14 @@ import prisma from "@/lib/prisma";
 import {
   DEFAULT_ADMIN_PREFERENCES,
   DEFAULT_MEMBER_PREFERENCES,
-  type TeamNotificationFrequency,
+  type TeamNotificationScope,
   type TeamNotificationType,
 } from "@/lib/zod/schemas/notifications";
 
 export type NotificationRecipient = {
   userId: string;
   email: string;
-  frequency: TeamNotificationFrequency;
+  scope: TeamNotificationScope;
   role: Role;
 };
 
@@ -62,24 +62,37 @@ export async function resolveRecipients({
     },
   });
 
-  const prefMap = new Map(preferences.map((p) => [p.userId, p.frequency]));
+  const prefMap = new Map(
+    preferences.map((p) => [
+      p.userId,
+      { frequency: p.frequency, scope: p.scope },
+    ]),
+  );
 
   return eligibleMembers
     .map((member) => {
-      const storedFrequency = prefMap.get(member.userId);
+      const stored = prefMap.get(member.userId);
       const defaultPrefs =
         member.role === "MEMBER"
           ? DEFAULT_MEMBER_PREFERENCES
           : DEFAULT_ADMIN_PREFERENCES;
-      const frequency = (storedFrequency ??
-        defaultPrefs[notificationType]) as TeamNotificationFrequency;
+      const defaults = defaultPrefs[notificationType];
+
+      const frequency = stored?.frequency ?? defaults.frequency;
+      const scope = (stored?.scope ??
+        defaults.scope) as TeamNotificationScope;
 
       return {
         userId: member.userId,
         email: member.user.email!,
-        frequency,
+        enabled: frequency !== "NEVER",
+        scope,
         role: member.role,
       };
     })
-    .filter((r) => r.email && r.frequency !== "NEVER");
+    .filter((r) => {
+      if (!r.email || !r.enabled) return false;
+      if (r.scope === "MINE_ONLY" && !ownerIds.has(r.userId)) return false;
+      return true;
+    });
 }

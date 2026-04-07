@@ -134,34 +134,22 @@ export default async function handle(
       : `${locationData.city}, ${locationData.country}`;
 
   try {
-    const { immediate } = await dispatchNotification({
+    const recipients = await dispatchNotification({
       teamId,
       notificationType,
       linkOwnerId: view.link?.ownerId,
       documentOwnerId: view.document?.ownerId,
-      digestPayload: {
-        viewId,
-        viewType: view.viewType,
-        viewerEmail: view.viewerEmail,
-        linkId: view.linkId,
-        linkName,
-        documentId: view.document?.id,
-        documentName: view.document?.name,
-        dataroomId: view.dataroom?.id,
-        dataroomName: view.dataroom?.name,
-        locationString: includeLocation ? locationString : undefined,
-      },
     });
 
-    if (immediate.length === 0) {
+    if (recipients.length === 0) {
       return res
         .status(200)
-        .json({ message: "No immediate recipients", viewId });
+        .json({ message: "No recipients", viewId });
     }
 
     const teamIsPaused = await isTeamPausedById(teamId);
-    const primaryRecipient = immediate[0];
-    const ccRecipients = immediate
+    const primaryRecipient = recipients[0];
+    const ccRecipients = recipients
       .slice(1)
       .map((r) => r.email);
 

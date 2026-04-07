@@ -70,28 +70,21 @@ export const sendDataroomUploadNotificationTask = task({
     const uploaderEmail = recentUploads[0]?.viewer?.email || null;
     const linkName = link?.name || `Link #${payload.linkId.slice(-5)}`;
 
-    const { immediate } = await dispatchNotification({
+    const recipients = await dispatchNotification({
       teamId: payload.teamId,
       notificationType: "DATAROOM_UPLOAD",
       linkOwnerId: link?.ownerId,
-      digestPayload: {
-        dataroomId: payload.dataroomId,
-        dataroomName: dataroom.name,
-        uploaderEmail,
-        documentNames,
-        linkName,
-      },
     });
 
-    if (immediate.length === 0) {
-      logger.info("No immediate recipients for upload notification", {
+    if (recipients.length === 0) {
+      logger.info("No recipients for upload notification", {
         dataroomId: payload.dataroomId,
       });
       return;
     }
 
-    const primaryRecipient = immediate[0];
-    const ccRecipients = immediate.slice(1).map((r) => r.email);
+    const primaryRecipient = recipients[0];
+    const ccRecipients = recipients.slice(1).map((r) => r.email);
 
     try {
       const response = await fetch(

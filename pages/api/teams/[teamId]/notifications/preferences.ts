@@ -12,8 +12,28 @@ import {
   TEAM_NOTIFICATION_TYPES,
   ZUpdateNotificationPreferencesSchema,
   type TeamNotificationFrequency,
+  type TeamNotificationScope,
   type TeamNotificationType,
 } from "@/lib/zod/schemas/notifications";
+
+type PreferenceEntry = {
+  frequency: TeamNotificationFrequency;
+  scope: TeamNotificationScope;
+};
+
+function buildPreferencesMap(
+  rows: { type: string; frequency: string; scope: string }[],
+): Record<string, PreferenceEntry> {
+  return Object.fromEntries(
+    rows.map((p) => [
+      p.type,
+      {
+        frequency: p.frequency as TeamNotificationFrequency,
+        scope: p.scope as TeamNotificationScope,
+      },
+    ]),
+  );
+}
 
 export default async function handle(
   req: NextApiRequest,
@@ -45,7 +65,7 @@ export default async function handle(
     }
 
     if (req.method === "PUT") {
-      return handlePut(req, res, userId, teamId);
+      return handlePut(req, res, userId, teamId, userTeam.role);
     }
 
     return res.status(405).json({ message: "Method Not Allowed" });
@@ -63,7 +83,7 @@ async function handleGet(
 ) {
   let preferences = await prisma.notificationPreference.findMany({
     where: { userId, teamId },
-    select: { type: true, frequency: true },
+    select: { type: true, frequency: true, scope: true },
   });
 
   if (preferences.length < TEAM_NOTIFICATION_TYPES.length) {
@@ -77,7 +97,8 @@ async function handleGet(
       userId,
       teamId,
       type,
-      frequency: defaults[type as TeamNotificationType],
+      frequency: defaults[type as TeamNotificationType].frequency,
+      scope: defaults[type as TeamNotificationType].scope,
     }));
 
     if (missing.length > 0) {
@@ -88,17 +109,13 @@ async function handleGet(
 
       preferences = await prisma.notificationPreference.findMany({
         where: { userId, teamId },
-        select: { type: true, frequency: true },
+        select: { type: true, frequency: true, scope: true },
       });
     }
   }
 
-  const preferencesMap = Object.fromEntries(
-    preferences.map((p) => [p.type, p.frequency as TeamNotificationFrequency]),
-  );
-
   return res.status(200).json({
-    preferences: preferencesMap,
+    preferences: buildPreferencesMap(preferences),
     role,
   });
 }
@@ -108,6 +125,7 @@ async function handlePut(
   res: NextApiResponse,
   userId: string,
   teamId: string,
+  role: string,
 ) {
   const validation = ZUpdateNotificationPreferencesSchema.safeParse(req.body);
   if (!validation.success) {
@@ -117,10 +135,13 @@ async function handlePut(
   }
 
   const { preferences } = validation.data;
+  const isMember = role === "MEMBER";
 
   await prisma.$transaction(
-    preferences.map((pref) =>
-      prisma.notificationPreference.upsert({
+    preferences.map((pref) => {
+      const scope = isMember ? "MINE_ONLY" : (pref.scope ?? "ALL");
+
+      return prisma.notificationPreference.upsert({
         where: {
           userId_teamId_type: {
             userId,
@@ -128,25 +149,25 @@ async function handlePut(
             type: pref.type,
           },
         },
-        update: { frequency: pref.frequency },
+        update: {
+          frequency: pref.frequency,
+          scope,
+        },
         create: {
           userId,
           teamId,
           type: pref.type,
           frequency: pref.frequency,
+          scope,
         },
-      }),
-    ),
+      });
+    }),
   );
 
   const updated = await prisma.notificationPreference.findMany({
     where: { userId, teamId },
-    select: { type: true, frequency: true },
+    select: { type: true, frequency: true, scope: true },
   });
 
-  const preferencesMap = Object.fromEntries(
-    updated.map((p) => [p.type, p.frequency as TeamNotificationFrequency]),
-  );
-
-  return res.status(200).json({ preferences: preferencesMap });
+  return res.status(200).json({ preferences: buildPreferencesMap(updated) });
 }

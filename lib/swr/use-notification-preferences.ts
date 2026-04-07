@@ -3,12 +3,18 @@ import useSWR from "swr";
 
 import type {
   TeamNotificationFrequency,
+  TeamNotificationScope,
   TeamNotificationType,
 } from "@/lib/zod/schemas/notifications";
 import { fetcher } from "@/lib/utils";
 
+export type PreferenceEntry = {
+  frequency: TeamNotificationFrequency;
+  scope: TeamNotificationScope;
+};
+
 interface NotificationPreferencesResponse {
-  preferences: Record<TeamNotificationType, TeamNotificationFrequency>;
+  preferences: Record<TeamNotificationType, PreferenceEntry>;
   role: string;
 }
 
@@ -17,17 +23,17 @@ export function useNotificationPreferences() {
   const teamId = teamInfo?.currentTeam?.id;
 
   const { data, error, mutate } = useSWR<NotificationPreferencesResponse>(
-    teamId
-      ? `/api/teams/${teamId}/notifications/preferences`
-      : null,
+    teamId ? `/api/teams/${teamId}/notifications/preferences` : null,
     fetcher,
-    {
-      dedupingInterval: 10000,
-    },
+    { dedupingInterval: 10000 },
   );
 
   const updatePreferences = async (
-    preferences: { type: TeamNotificationType; frequency: TeamNotificationFrequency }[],
+    preferences: {
+      type: TeamNotificationType;
+      frequency: TeamNotificationFrequency;
+      scope?: TeamNotificationScope;
+    }[],
   ) => {
     if (!teamId) return;
 
@@ -45,7 +51,13 @@ export function useNotificationPreferences() {
     }
 
     const result = await response.json();
-    mutate({ ...data, preferences: result.preferences } as NotificationPreferencesResponse, false);
+    mutate(
+      {
+        ...data,
+        preferences: result.preferences,
+      } as NotificationPreferencesResponse,
+      false,
+    );
     return result;
   };
 
