@@ -125,7 +125,8 @@ export const processDocument = async ({
     type === "zip" ||
     type === "map" ||
     type === "email" ||
-    contentType === "text/tab-separated-values";
+    contentType === "text/tab-separated-values" ||
+    contentType === "image/vnd.dwg";
 
   // Save data to the database
   const document = await prisma.document.create({
@@ -215,7 +216,7 @@ export const processDocument = async ({
     );
   }
 
-  if (type === "cad") {
+  if (type === "cad" && contentType !== "image/vnd.dwg") {
     await convertCadToPdfTask.trigger(
       {
         documentId: document.id,
