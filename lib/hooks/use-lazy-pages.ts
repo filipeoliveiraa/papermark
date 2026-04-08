@@ -20,6 +20,8 @@ type FetchPagesResponse = {
 type UseLazyPagesOptions = {
   initialPages: PageData[];
   viewId?: string;
+  previewToken?: string;
+  linkId?: string;
   documentVersionId: string;
   preloadRadius?: number;
   apiEndpoint?: string;
@@ -30,6 +32,8 @@ const DEFAULT_PRELOAD_RADIUS = 5;
 export function useLazyPages({
   initialPages,
   viewId,
+  previewToken,
+  linkId,
   documentVersionId,
   preloadRadius = DEFAULT_PRELOAD_RADIUS,
   apiEndpoint = "/api/views/pages",
@@ -63,14 +67,15 @@ export function useLazyPages({
       needed.forEach((pn) => pendingRef.current.add(pn));
 
       try {
+        const payload =
+          viewId
+            ? { viewId, documentVersionId, pageNumbers: needed }
+            : { previewToken, linkId, documentVersionId, pageNumbers: needed };
+
         const response = await fetch(apiEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            viewId,
-            documentVersionId,
-            pageNumbers: needed,
-          }),
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
@@ -99,7 +104,7 @@ export function useLazyPages({
         needed.forEach((pn) => pendingRef.current.delete(pn));
       }
     },
-    [viewId, documentVersionId, apiEndpoint],
+    [viewId, previewToken, linkId, documentVersionId, apiEndpoint],
   );
 
   const ensurePagesLoaded = useCallback(

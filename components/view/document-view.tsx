@@ -326,6 +326,7 @@ export default function DocumentView({
           viewerEmail={data.email ?? verifiedEmail ?? userEmail ?? undefined}
           annotationsEnabled={annotationsEnabled}
           textSelectionEnabled={textSelectionEnabled}
+          previewToken={previewToken}
         />
       ) : (
         <div className="flex h-screen items-center justify-center">

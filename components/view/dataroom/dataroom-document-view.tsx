@@ -375,6 +375,7 @@ export default function DataroomDocumentView({
           }
           canDownload={viewData.canDownload}
           textSelectionEnabled={textSelectionEnabled}
+          previewToken={previewToken}
         />
       ) : (
         <div className="flex h-screen items-center justify-center">
