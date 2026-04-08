@@ -4,8 +4,8 @@ export type TPlanLimits = {
   users: number | null;
   links: number | null;
   documents: number | null;
-  domains: number;
-  datarooms: number;
+  domains: number | null;
+  datarooms: number | null;
   customDomainOnPro: boolean;
   customDomainInDataroom: boolean;
   advancedLinkControlsOnPro: boolean | null;
@@ -106,8 +106,8 @@ export const DATAROOMS_UNLIMITED_PLAN_LIMITS = {
   users: null,
   links: null,
   documents: null,
-  domains: 1000,
-  datarooms: 1000,
+  domains: null,
+  datarooms: null,
   customDomainOnPro: true,
   customDomainInDataroom: true,
   conversationsInDataroom: true,

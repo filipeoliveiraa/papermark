@@ -248,41 +248,6 @@ export const PLANS = [
     },
   },
   {
-    name: "Data Rooms Unlimited",
-    slug: "datarooms-unlimited",
-    minQuantity: 1,
-    price: {
-      monthly: {
-        amount: 1499,
-        unitPrice: 9993,
-        priceIds: {
-          test: {
-            old: "price_placeholder_unlimited_test_old",
-            new: "price_1TIFKSBYvhH6u7U7vbbGedM9",
-          },
-          production: {
-            old: "price_placeholder_unlimited_prod_old",
-            new: "price_1TIFFyBYvhH6u7U7uxXeNrNW",
-          },
-        },
-      },
-      yearly: {
-        amount: 999,
-        unitPrice: 6660,
-        priceIds: {
-          test: {
-            old: "price_placeholder_unlimited_test_yearly_old",
-            new: "price_1TIFLWBYvhH6u7U7w3zk7667",
-          },
-          production: {
-            old: "price_placeholder_unlimited_prod_yearly_old",
-            new: "price_1TIFHjBYvhH6u7U7AsUhYKjC",
-          },
-        },
-      },
-    },
-  },
-  {
     name: "Data Rooms Premium",
     slug: "datarooms-premium",
     minQuantity: 10,
@@ -312,6 +277,41 @@ export const PLANS = [
           production: {
             old: "price_placeholder_prod_yearly_old",
             new: "price_1SUWWqBYvhH6u7U7I5MpZ43K",
+          },
+        },
+      },
+    },
+  },
+  {
+    name: "Data Rooms Unlimited",
+    slug: "datarooms-unlimited",
+    minQuantity: 1,
+    price: {
+      monthly: {
+        amount: 1499,
+        unitPrice: 1499,
+        priceIds: {
+          test: {
+            old: "price_placeholder_unlimited_test_old",
+            new: "price_1TIFKSBYvhH6u7U7vbbGedM9",
+          },
+          production: {
+            old: "price_placeholder_unlimited_prod_old",
+            new: "price_1TIFFyBYvhH6u7U7uxXeNrNW",
+          },
+        },
+      },
+      yearly: {
+        amount: 999,
+        unitPrice: 999,
+        priceIds: {
+          test: {
+            old: "price_placeholder_unlimited_test_yearly_old",
+            new: "price_1TIFLWBYvhH6u7U7w3zk7667",
+          },
+          production: {
+            old: "price_placeholder_unlimited_prod_yearly_old",
+            new: "price_1TIFHjBYvhH6u7U7AsUhYKjC",
           },
         },
       },

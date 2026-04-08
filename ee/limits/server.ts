@@ -31,7 +31,9 @@ const planLimitsMap: Record<string, TPlanLimits> = {
 };
 
 export const configSchema = z.object({
-  datarooms: z.number().optional(),
+  datarooms: z
+    .preprocess((v) => (v === null ? Infinity : v !== undefined ? Number(v) : undefined), z.number())
+    .optional(),
   links: z
     .preprocess((v) => (v === null ? Infinity : Number(v)), z.number())
     .optional()
@@ -43,7 +45,9 @@ export const configSchema = z.object({
   users: z
     .preprocess((v) => (v === null ? Infinity : v !== undefined ? Number(v) : undefined), z.number())
     .optional(),
-  domains: z.number().optional(),
+  domains: z
+    .preprocess((v) => (v === null ? Infinity : v !== undefined ? Number(v) : undefined), z.number())
+    .optional(),
   customDomainOnPro: z.boolean().optional(),
   customDomainInDataroom: z.boolean().optional(),
   advancedLinkControlsOnPro: z.boolean().nullish(),
@@ -130,6 +134,9 @@ export async function getLimits({
         links: parsedData.links === 50 ? Infinity : parsedData.links,
         documents:
           parsedData.documents === 50 ? Infinity : parsedData.documents,
+        users: parsedData.users ?? (defaultLimits?.users === null ? Infinity : defaultLimits?.users),
+        domains: parsedData.domains ?? (defaultLimits?.domains === null ? Infinity : defaultLimits?.domains),
+        datarooms: parsedData.datarooms ?? (defaultLimits?.datarooms === null ? Infinity : defaultLimits?.datarooms),
         usage: { documents: documentCount, links: linkCount, users: userCount },
       };
     }
@@ -140,6 +147,9 @@ export async function getLimits({
     const defaultLimits = planLimitsMap[basePlan] || FREE_PLAN_LIMITS;
     return {
       ...defaultLimits,
+      users: defaultLimits.users === null ? Infinity : defaultLimits.users,
+      domains: defaultLimits.domains === null ? Infinity : defaultLimits.domains,
+      datarooms: defaultLimits.datarooms === null ? Infinity : defaultLimits.datarooms,
       conversationsInDataroom: false,
       usage: { documents: documentCount, links: linkCount, users: userCount },
       ...(isTrial && {
