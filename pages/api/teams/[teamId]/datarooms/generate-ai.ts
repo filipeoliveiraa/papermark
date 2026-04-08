@@ -156,6 +156,7 @@ export default async function handle(
 
       if (
         limits &&
+        limits.datarooms !== null &&
         !(isFreePlan && isFirstDataroom) &&
         dataroomCount >= limits.datarooms
       ) {

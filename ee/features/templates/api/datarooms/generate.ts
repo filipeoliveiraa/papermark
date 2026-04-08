@@ -98,7 +98,7 @@ export default async function handle(
 
       const limits = await getLimits({ teamId, userId });
 
-      if (limits && dataroomCount >= limits.datarooms) {
+      if (limits && limits.datarooms !== null && dataroomCount >= limits.datarooms) {
         return res
           .status(403)
           .json({ message: "You have reached the limit of datarooms" });
