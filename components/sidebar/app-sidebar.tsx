@@ -197,6 +197,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             current: router.pathname.includes("settings/domains"),
           },
           {
+            title: "Notifications",
+            url: "/settings/notifications",
+            current: router.pathname.includes("settings/notifications"),
+          },
+          {
             title: "Webhooks",
             url: "/settings/webhooks",
             current: router.pathname.includes("settings/webhooks"),
