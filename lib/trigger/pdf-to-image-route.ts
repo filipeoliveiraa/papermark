@@ -1,5 +1,6 @@
-import { AbortTaskRunError, logger, task } from "@trigger.dev/sdk/v3";
+import { AbortTaskRunError, logger, task } from "@trigger.dev/sdk";
 
+import { ONE_HOUR } from "@/lib/constants";
 import { isTrustedTeam } from "@/lib/edge-config/trusted-teams";
 import { getFile } from "@/lib/files/get-file";
 import prisma from "@/lib/prisma";
@@ -41,10 +42,11 @@ export const convertPdfToImageRoute = task({
     logger.info("Document version", { documentVersion });
     updateStatus({ progress: 10, text: "Retrieving file..." });
 
-    // 2. get signed url from file
+    // 2. get signed url from file with 1-hour expiration for long-running conversions
     const signedUrl = await getFile({
       type: documentVersion.storageType,
       data: documentVersion.file,
+      expiresIn: ONE_HOUR,
     });
 
     logger.info("Retrieved signed url", { signedUrl });

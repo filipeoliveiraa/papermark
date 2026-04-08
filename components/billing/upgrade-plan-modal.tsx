@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import React from "react";
 
+import { UnlimitedPlanModal } from "@/components/billing/unlimited-plan-modal";
 import { useTeam } from "@/context/team-context";
 import { getStripe } from "@/ee/stripe/client";
 import { Feature, PlanEnum, getPlanFeatures } from "@/ee/stripe/constants";
@@ -39,13 +40,19 @@ const StartDataRoomTrialButton = ({ teamId }: { teamId?: string }) => {
       onClick={handleStartTrial}
       className="cursor-pointer underline underline-offset-4 hover:text-foreground"
     >
-      Start free data room trial
+      Start free data room plan trial
     </span>
   );
 };
 
 // Feature rendering component
-const FeatureItem = ({ feature }: { feature: Feature }) => {
+const FeatureItem = ({
+  feature,
+  onUnlimitedClick,
+}: {
+  feature: Feature;
+  onUnlimitedClick?: () => void;
+}) => {
   const baseClasses = `flex items-center ${feature.isHighlighted ? "bg-orange-50 -mx-6 px-6 py-2 -my-1 font-bold rounded-md dark:bg-orange-900/20" : ""}`;
 
   if (feature.isUsers) {
@@ -67,8 +74,19 @@ const FeatureItem = ({ feature }: { feature: Feature }) => {
                   <Users2Icon className="h-4 w-4 text-gray-500" />
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
+              <TooltipContent side="left" className="max-w-xs">
                 <p>{feature.tooltip}</p>
+                {onUnlimitedClick && (
+                  <p className="mt-1">
+                    or{" "}
+                    <span
+                      className="cursor-pointer underline underline-offset-2"
+                      onClick={onUnlimitedClick}
+                    >
+                      get unlimited
+                    </span>
+                  </p>
+                )}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -168,6 +186,7 @@ export function UpgradePlanModal({
   const [dataRoomsPlanSelection, setDataRoomsPlanSelection] = useState<
     "base" | "plus" | "premium"
   >("base");
+  const [unlimitedModalOpen, setUnlimitedModalOpen] = useState(false);
 
   const plansToShow = useMemo(() => {
     switch (clickedPlan) {
@@ -181,6 +200,8 @@ export function UpgradePlanModal({
         return [PlanEnum.DataRoomsPlus, PlanEnum.DataRoomsPremium];
       case PlanEnum.DataRoomsPremium:
         return [PlanEnum.DataRoomsPlus, PlanEnum.DataRoomsPremium];
+      case PlanEnum.DataRoomsUnlimited:
+        return [PlanEnum.DataRoomsPremium, PlanEnum.DataRoomsUnlimited];
       default:
         return [PlanEnum.Pro, PlanEnum.Business];
     }
@@ -222,6 +243,18 @@ export function UpgradePlanModal({
           maxWidth: "900px",
         }}
       >
+        {trigger === "invite_team_members" && (
+          <p
+            className="cursor-pointer text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setUnlimitedModalOpen(true)}
+          >
+            Interested in unlimited seats?{" "}
+            <span className="font-light underline underline-offset-4">
+              Get unlimited
+            </span>
+          </p>
+        )}
+
         <div className="flex items-center justify-center">
           <span className="mr-2 text-sm">Monthly</span>
           <Switch
@@ -235,6 +268,23 @@ export function UpgradePlanModal({
           </span>
         </div>
 
+        {plansToShow.some(
+          (p) =>
+            p === PlanEnum.DataRooms ||
+            p === PlanEnum.DataRoomsPlus ||
+            p === PlanEnum.DataRoomsPremium,
+        ) && (
+          <p
+            className="cursor-pointer text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setUnlimitedModalOpen(true)}
+          >
+            Deals with everything unlimited?{" "}
+            <span className="font-light underline underline-offset-4">
+              Get unlimited members, storage, and data rooms in one plan.
+            </span>
+          </p>
+        )}
+
         <div className="isolate grid grid-cols-1 gap-4 overflow-hidden rounded-xl p-4 md:grid-cols-2">
           {plansToShow.map((planOption) => {
             const isDataRoomsUpgrade = plansToShow.includes(PlanEnum.DataRooms);
@@ -243,11 +293,20 @@ export function UpgradePlanModal({
             let effectivePlan = planOption;
             let displayPlanName = planOption;
 
-            if (planOption === PlanEnum.DataRooms && isDataRoomsUpgrade) {
+            const isDataRoomsPlusUpgrade = plansToShow.includes(PlanEnum.DataRooms) && plansToShow.includes(PlanEnum.DataRoomsPlus);
+
+            if (planOption === PlanEnum.DataRooms && isDataRoomsUpgrade && !isDataRoomsPlusUpgrade) {
               if (dataRoomsPlanSelection === "plus") {
                 effectivePlan = PlanEnum.DataRoomsPlus;
                 displayPlanName = PlanEnum.DataRoomsPlus;
               } else if (dataRoomsPlanSelection === "premium") {
+                effectivePlan = PlanEnum.DataRoomsPremium;
+                displayPlanName = PlanEnum.DataRoomsPremium;
+              }
+            }
+
+            if (planOption === PlanEnum.DataRoomsPlus && isDataRoomsPlusUpgrade) {
+              if (dataRoomsPlanSelection === "premium") {
                 effectivePlan = PlanEnum.DataRoomsPremium;
                 displayPlanName = PlanEnum.DataRoomsPremium;
               }
@@ -310,22 +369,60 @@ export function UpgradePlanModal({
                       onChange={setDataRoomsPlanSelection}
                     />
                   )}
+                {planOption === PlanEnum.DataRoomsPlus &&
+                  isDataRoomsPlusUpgrade && (
+                    <div className="mt-1 flex w-full rounded-lg border border-gray-200 p-1">
+                      <button
+                        className={cn(
+                          "flex-1 rounded-md px-3 py-1 text-sm transition-colors",
+                          dataRoomsPlanSelection !== "premium"
+                            ? "bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900"
+                            : "text-gray-600 hover:text-gray-900 dark:text-muted-foreground dark:hover:text-white",
+                        )}
+                        onClick={() => setDataRoomsPlanSelection("plus")}
+                      >
+                        Plus
+                      </button>
+                      <button
+                        className={cn(
+                          "flex-1 rounded-md px-3 py-1 text-sm transition-colors",
+                          dataRoomsPlanSelection === "premium"
+                            ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                            : "text-gray-600 hover:text-gray-900 dark:text-muted-foreground dark:hover:text-white",
+                        )}
+                        onClick={() => setDataRoomsPlanSelection("premium")}
+                      >
+                        Premium
+                      </button>
+                    </div>
+                  )}
 
                 <p className="mt-4 text-sm text-gray-600 dark:text-white">
                   {planFeatures.featureIntro}
                 </p>
 
                 <ul className="mb-6 mt-2 space-y-2 text-sm leading-6 text-gray-600 dark:text-muted-foreground">
-                  {planFeatures.features.map((feature, i) => (
-                    <li key={i}>
-                      <FeatureItem
-                        feature={{
-                          ...feature,
-                          isHighlighted: highlightItem?.includes(feature.id),
-                        }}
-                      />
-                    </li>
-                  ))}
+                  {planFeatures.features.map((feature, i) => {
+                    const isDataRoomPlan =
+                      effectivePlan === PlanEnum.DataRooms ||
+                      effectivePlan === PlanEnum.DataRoomsPlus ||
+                      effectivePlan === PlanEnum.DataRoomsPremium;
+                    return (
+                      <li key={i}>
+                        <FeatureItem
+                          feature={{
+                            ...feature,
+                            isHighlighted: highlightItem?.includes(feature.id),
+                          }}
+                          onUnlimitedClick={
+                            feature.isUsers && isDataRoomPlan
+                              ? () => setUnlimitedModalOpen(true)
+                              : undefined
+                          }
+                        />
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 <div className="mt-auto">
@@ -401,31 +498,35 @@ export function UpgradePlanModal({
             );
           })}
         </div>
-        <div className="flex flex-col items-center text-center text-sm text-muted-foreground">
+        <div className="text-center text-sm text-muted-foreground">
           All plans include unlimited visitors and page by page document
-          analytics.
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/settings/upgrade${
-                clickedPlan === PlanEnum.Pro
-                  ? "?view=documents"
-                  : clickedPlan === PlanEnum.Business
-                    ? "?view=business-datarooms"
-                    : ""
-              }`}
-              className="underline underline-offset-4 hover:text-foreground"
-            >
-              See all plans
-            </Link>
-            {((teamPlan === "free" && !isTrial) ||
-              (teamPlan === "pro" && !isTrial)) && (
-              <>
-                <span>|</span>
-                <StartDataRoomTrialButton teamId={teamId} />
-              </>
-            )}
-          </div>
+          analytics.{" "}
+          <Link
+            href={`/settings/upgrade${
+              clickedPlan === PlanEnum.Pro
+                ? "?view=documents"
+                : clickedPlan === PlanEnum.Business
+                  ? "?view=business-datarooms"
+                  : ""
+            }`}
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            See all plans
+          </Link>
+          {((teamPlan === "free" && !isTrial) ||
+            (teamPlan === "pro" && !isTrial)) && (
+            <>
+              {" | "}
+              <StartDataRoomTrialButton teamId={teamId} />
+            </>
+          )}
         </div>
+
+        <UnlimitedPlanModal
+          period={period}
+          open={unlimitedModalOpen}
+          setOpen={setUnlimitedModalOpen}
+        />
       </DialogContent>
     </Dialog>
   );

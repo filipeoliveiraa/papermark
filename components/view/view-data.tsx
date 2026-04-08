@@ -1,5 +1,7 @@
 import dynamic from "next/dynamic";
 
+import { useMemo } from "react";
+
 import { ViewerChatPanel } from "@/ee/features/ai/components/viewer-chat-panel";
 import {
   ViewerChatLayout,
@@ -45,6 +47,8 @@ const ExcelViewer = dynamic(
 export type TViewDocumentData = Document & {
   versions: DocumentVersion[];
 };
+
+const EMPTY_PAGES: never[] = [];
 
 const isDownloadAllowed = (
   canDownload: boolean | undefined,
@@ -94,34 +98,54 @@ export default function ViewData({
   const documentVersionId = document.versions[0]?.id;
 
   const { pages: lazyPages, ensurePagesLoaded } = useLazyPages({
-    initialPages: viewData.pages ?? [],
+    initialPages: viewData.pages ?? EMPTY_PAGES,
     viewId: viewData.viewId,
     previewToken: viewData.isPreview ? previewToken : undefined,
     linkId: viewData.isPreview ? link.id : undefined,
     documentVersionId: documentVersionId,
   });
 
-  const navData: TNavData = {
-    viewId: viewData.viewId,
-    isPreview: viewData.isPreview,
-    linkId: link.id,
-    brand: brand,
-    viewerId: "viewerId" in viewData ? viewData.viewerId : undefined,
-    isMobile: isMobile,
-    isDataroom: !!dataroomId,
-    documentId: document.id,
-    dataroomId: dataroomId,
-    conversationsEnabled:
-      !!dataroomId &&
-      ("conversationsEnabled" in viewData
-        ? viewData.conversationsEnabled
-        : false),
-    allowDownload:
-      document.downloadOnly ||
-      isDownloadAllowed(canDownload, link.allowDownload ?? false),
-    isTeamMember: viewData.isTeamMember,
-    annotationsFeatureEnabled: annotationsEnabled,
-  };
+  const viewerId = "viewerId" in viewData ? viewData.viewerId : undefined;
+  const conversationsEnabled =
+    !!dataroomId &&
+    ("conversationsEnabled" in viewData
+      ? viewData.conversationsEnabled
+      : false);
+  const allowDownload =
+    document.downloadOnly ||
+    isDownloadAllowed(canDownload, link.allowDownload ?? false);
+
+  const navData: TNavData = useMemo(
+    () => ({
+      viewId: viewData.viewId,
+      isPreview: viewData.isPreview,
+      linkId: link.id,
+      brand: brand,
+      viewerId,
+      isMobile: isMobile,
+      isDataroom: !!dataroomId,
+      documentId: document.id,
+      dataroomId: dataroomId,
+      conversationsEnabled,
+      allowDownload,
+      isTeamMember: viewData.isTeamMember,
+      annotationsFeatureEnabled: annotationsEnabled,
+    }),
+    [
+      viewData.viewId,
+      viewData.isPreview,
+      viewData.isTeamMember,
+      link.id,
+      brand,
+      viewerId,
+      isMobile,
+      dataroomId,
+      document.id,
+      conversationsEnabled,
+      allowDownload,
+      annotationsEnabled,
+    ],
+  );
 
   // Check if agents are enabled (returned from views API after access is granted)
   const agentsEnabled =
