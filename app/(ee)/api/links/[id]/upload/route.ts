@@ -4,6 +4,7 @@ import { processDocument } from "@/lib/api/documents/process-document";
 import { verifyDataroomSession } from "@/lib/auth/dataroom-auth";
 import { DocumentData } from "@/lib/documents/create-document";
 import prisma from "@/lib/prisma";
+import { sendDataroomChangeNotificationTask } from "@/lib/trigger/dataroom-change-notification";
 import { sendDataroomUploadNotificationTask } from "@/lib/trigger/dataroom-upload-notification";
 import { sanitizePlainText } from "@/lib/utils/sanitize-html";
 import { supportsAdvancedExcelMode } from "@/lib/utils/get-content-type";
@@ -160,6 +161,11 @@ export async function POST(
           select: {
             plan: true,
             enableExcelAdvancedMode: true,
+          },
+        },
+        dataroom: {
+          select: {
+            enableVisitorUploadChangeNotifications: true,
           },
         },
       },
@@ -324,6 +330,56 @@ export async function POST(
         );
       } catch (error) {
         console.error("Error triggering upload notification:", error);
+      }
+    }
+
+    // 5. Notify other dataroom visitors about the new upload (each visitor gets their own email)
+    if (link.dataroom?.enableVisitorUploadChangeNotifications) {
+      try {
+        const changeNotifTag = `dataroom_${dataroomId}`;
+        const existingChangeRuns = await runs.list({
+          taskIdentifier: ["send-dataroom-change-notification"],
+          tag: [changeNotifTag, `visitor_upload_${viewerId}`],
+          status: ["DELAYED", "QUEUED"],
+          period: "10m",
+        });
+
+        const matchingChangeRuns = existingChangeRuns.data.filter(
+          (run) =>
+            run.tags?.includes(changeNotifTag) &&
+            run.tags?.includes(`visitor_upload_${viewerId}`),
+        );
+
+        await Promise.all(
+          matchingChangeRuns.map((run) => runs.cancel(run.id)),
+        );
+
+        waitUntil(
+          sendDataroomChangeNotificationTask.trigger(
+            {
+              dataroomId,
+              dataroomDocumentId: newDataroomDocument.id,
+              senderUserId: null,
+              teamId: link.teamId,
+              excludeViewerId: viewerId,
+            },
+            {
+              idempotencyKey: `visitor-change-notification-${link.teamId}-${dataroomId}-${newDataroomDocument.id}`,
+              tags: [
+                `team_${link.teamId}`,
+                changeNotifTag,
+                `document_${newDataroomDocument.id}`,
+                `visitor_upload_${viewerId}`,
+              ],
+              delay: new Date(Date.now() + 10 * 60 * 1000), // 10 minute delay (same as admin)
+            },
+          ),
+        );
+      } catch (error) {
+        console.error(
+          "Error triggering visitor upload change notification:",
+          error,
+        );
       }
     }
 

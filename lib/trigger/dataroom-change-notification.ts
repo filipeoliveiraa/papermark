@@ -7,8 +7,9 @@ import { ZViewerNotificationPreferencesSchema } from "@/lib/zod/schemas/notifica
 type NotificationPayload = {
   dataroomId: string;
   dataroomDocumentId: string;
-  senderUserId: string;
+  senderUserId: string | null;
   teamId: string;
+  excludeViewerId?: string;
 };
 
 export const sendDataroomChangeNotificationTask = task({
@@ -18,6 +19,9 @@ export const sendDataroomChangeNotificationTask = task({
     const viewers = await prisma.viewer.findMany({
       where: {
         teamId: payload.teamId,
+        ...(payload.excludeViewerId && {
+          id: { not: payload.excludeViewerId },
+        }),
         views: {
           some: {
             dataroomId: payload.dataroomId,

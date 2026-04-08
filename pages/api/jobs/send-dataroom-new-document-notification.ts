@@ -41,7 +41,7 @@ export default async function handle(
     dataroomId: string;
     dataroomDocumentId: string;
     viewerId: string;
-    senderUserId: string;
+    senderUserId: string | null;
     teamId: string;
   };
 
@@ -95,14 +95,18 @@ export default async function handle(
       },
     });
 
-    const user = await prisma.user.findUnique({
-      where: { id: senderUserId },
-      select: { email: true },
-    });
+    let senderEmail = "noreply@papermark.com";
+    if (senderUserId) {
+      const user = await prisma.user.findUnique({
+        where: { id: senderUserId },
+        select: { email: true },
+      });
 
-    if (!user) {
-      res.status(404).json({ message: "Sender not found." });
-      return;
+      if (!user) {
+        res.status(404).json({ message: "Sender not found." });
+        return;
+      }
+      senderEmail = user.email!;
     }
 
     const unsubscribeUrl = generateUnsubscribeUrl({
@@ -114,7 +118,7 @@ export default async function handle(
     await sendDataroomNotification({
       dataroomName: document?.dataroom?.name || "",
       documentName: document?.document?.name || "",
-      senderEmail: user.email!,
+      senderEmail,
       to: viewer.email!,
       url: linkUrl,
       unsubscribeUrl,
