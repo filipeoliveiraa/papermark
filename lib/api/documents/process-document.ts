@@ -8,7 +8,6 @@ import notion from "@/lib/notion";
 import { getNotionPageIdFromSlug } from "@/lib/notion/utils";
 import prisma from "@/lib/prisma";
 import {
-  convertCadToPdfTask,
   convertFilesToPdfTask,
   convertKeynoteToPdfTask,
 } from "@/lib/trigger/convert-files";
@@ -125,7 +124,8 @@ export const processDocument = async ({
     type === "zip" ||
     type === "map" ||
     type === "email" ||
-    contentType === "text/tab-separated-values";
+    contentType === "text/tab-separated-values" ||
+    type === "cad";
 
   // Save data to the database
   const document = await prisma.document.create({
@@ -204,26 +204,6 @@ export const processDocument = async ({
       },
       {
         idempotencyKey: `${teamId}-${document.versions[0].id}-docs`,
-        tags: [
-          `team_${teamId}`,
-          `document_${document.id}`,
-          `version:${document.versions[0].id}`,
-        ],
-        queue: conversionQueueName(teamPlan),
-        concurrencyKey: teamId,
-      },
-    );
-  }
-
-  if (type === "cad") {
-    await convertCadToPdfTask.trigger(
-      {
-        documentId: document.id,
-        documentVersionId: document.versions[0].id,
-        teamId,
-      },
-      {
-        idempotencyKey: `${teamId}-${document.versions[0].id}-cad`,
         tags: [
           `team_${teamId}`,
           `document_${document.id}`,
