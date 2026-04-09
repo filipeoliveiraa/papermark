@@ -5,70 +5,31 @@ import prisma from "@/lib/prisma";
 import { queueNotification } from "@/lib/redis/dataroom-notification-queue";
 import { ZViewerNotificationPreferencesSchema } from "@/lib/zod/schemas/notifications";
 
-const NotificationPayloadSchema = z
-  .object({
-    dataroomId: z.string().cuid(),
-    dataroomDocumentId: z.string().cuid().optional(),
-    uploaderViewerId: z.string().cuid().optional(),
-    senderUserId: z.string().cuid().nullable(),
-    teamId: z.string().cuid(),
-    excludeViewerId: z.string().cuid().optional(),
-  })
-  .refine(
-    (data) =>
-      Boolean(data.dataroomDocumentId) !== Boolean(data.uploaderViewerId),
-    {
-      message:
-        "Exactly one of dataroomDocumentId or uploaderViewerId must be provided",
-    },
-  );
+const NotificationPayloadSchema = z.object({
+  dataroomId: z.string().cuid(),
+  dataroomDocumentIds: z.array(z.string().cuid()).min(1),
+  senderUserId: z.string().cuid().nullable(),
+  teamId: z.string().cuid(),
+  excludeViewerId: z.string().cuid().optional(),
+});
 
 export const sendDataroomChangeNotificationTask = schemaTask({
   id: "send-dataroom-change-notification",
   schema: NotificationPayloadSchema,
   retry: { maxAttempts: 3 },
   run: async (payload) => {
-    // --- Resolve document IDs ---
-    let dataroomDocumentIds: string[];
-
-    if (payload.uploaderViewerId) {
-      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-      const recentUploads = await prisma.documentUpload.findMany({
-        where: {
-          dataroomId: payload.dataroomId,
-          viewerId: payload.uploaderViewerId,
-          uploadedAt: { gte: fifteenMinutesAgo },
-        },
-        select: { dataroomDocumentId: true },
-        orderBy: { uploadedAt: "desc" },
-      });
-      dataroomDocumentIds = recentUploads
-        .map((u) => u.dataroomDocumentId)
-        .filter((id): id is string => id !== null);
-    } else if (payload.dataroomDocumentId) {
-      dataroomDocumentIds = [payload.dataroomDocumentId];
-    } else {
-      logger.error("Either dataroomDocumentId or uploaderViewerId is required");
-      return;
-    }
-
-    if (dataroomDocumentIds.length === 0) {
-      logger.info("No documents to notify about", {
-        dataroomId: payload.dataroomId,
-      });
-      return;
-    }
-
     const dataroomDocuments = await prisma.dataroomDocument.findMany({
       where: {
-        id: { in: dataroomDocumentIds },
+        id: { in: payload.dataroomDocumentIds },
         dataroomId: payload.dataroomId,
       },
       select: { id: true, folderId: true },
     });
 
     if (dataroomDocuments.length === 0) {
-      logger.error("Dataroom documents not found", { dataroomDocumentIds });
+      logger.error("Dataroom documents not found", {
+        dataroomDocumentIds: payload.dataroomDocumentIds,
+      });
       return;
     }
 

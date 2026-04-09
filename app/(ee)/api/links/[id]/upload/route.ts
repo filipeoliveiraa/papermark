@@ -333,8 +333,8 @@ export async function POST(
     }
 
     // 5. Notify other dataroom visitors about the new upload (each visitor gets their own email)
-    //    Uses cancel-and-retrigger as a debounce: the delayed task queries
-    //    DocumentUpload at runtime to batch all recent uploads into one notification.
+    //    Uses cancel-and-retrigger as a debounce: cancelled runs' document IDs
+    //    are accumulated into the new run so no uploads are lost.
     if (link.dataroom?.enableVisitorUploadChangeNotifications) {
       try {
         const existingChangeRuns = await runs.list({
@@ -350,13 +350,25 @@ export async function POST(
             run.tags?.includes(`visitor_upload_${viewerId}`),
         );
 
+        let accumulatedDocIds: string[] = [newDataroomDocument.id];
+        for (const run of matchingChangeRuns) {
+          const fullRun = await runs.retrieve(run.id);
+          const existingIds = (
+            fullRun.payload as { dataroomDocumentIds?: string[] } | undefined
+          )?.dataroomDocumentIds;
+          if (Array.isArray(existingIds)) {
+            accumulatedDocIds.push(...existingIds);
+          }
+        }
+        accumulatedDocIds = [...new Set(accumulatedDocIds)];
+
         await Promise.all(matchingChangeRuns.map((run) => runs.cancel(run.id)));
 
         waitUntil(
           sendDataroomChangeNotificationTask.trigger(
             {
               dataroomId,
-              uploaderViewerId: viewerId,
+              dataroomDocumentIds: accumulatedDocIds,
               senderUserId: null,
               teamId: link.teamId,
               excludeViewerId: viewerId,
