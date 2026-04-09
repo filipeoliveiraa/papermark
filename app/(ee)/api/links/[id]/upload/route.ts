@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { runs } from "@trigger.dev/sdk";
+import { waitUntil } from "@vercel/functions";
+
 import { processDocument } from "@/lib/api/documents/process-document";
 import { verifyDataroomSession } from "@/lib/auth/dataroom-auth";
 import { DocumentData } from "@/lib/documents/create-document";
 import prisma from "@/lib/prisma";
 import { sendDataroomChangeNotificationTask } from "@/lib/trigger/dataroom-change-notification";
 import { sendDataroomUploadNotificationTask } from "@/lib/trigger/dataroom-upload-notification";
-import { sanitizePlainText } from "@/lib/utils/sanitize-html";
 import { supportsAdvancedExcelMode } from "@/lib/utils/get-content-type";
-import { runs } from "@trigger.dev/sdk";
-import { waitUntil } from "@vercel/functions";
+import { sanitizePlainText } from "@/lib/utils/sanitize-html";
 
 /**
  * GET /api/links/[id]/upload?dataroomId=xxx
@@ -38,10 +39,7 @@ export async function GET(
     );
 
     if (!dataroomSession || !dataroomSession.viewerId) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 },
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const { viewerId } = dataroomSession;
@@ -227,7 +225,8 @@ export async function POST(
     const updatedDocumentData = {
       ...documentData,
       name: sanitizedDocumentName,
-      enableExcelAdvancedMode: documentData.supportedFileType === "sheet" &&
+      enableExcelAdvancedMode:
+        documentData.supportedFileType === "sheet" &&
         link.team?.enableExcelAdvancedMode &&
         supportsAdvancedExcelMode(documentData.contentType),
     };
@@ -350,9 +349,7 @@ export async function POST(
             run.tags?.includes(`visitor_upload_${viewerId}`),
         );
 
-        await Promise.all(
-          matchingChangeRuns.map((run) => runs.cancel(run.id)),
-        );
+        await Promise.all(matchingChangeRuns.map((run) => runs.cancel(run.id)));
 
         waitUntil(
           sendDataroomChangeNotificationTask.trigger(
