@@ -1,30 +1,62 @@
-import { logger, task } from "@trigger.dev/sdk";
+import { logger, schemaTask } from "@trigger.dev/sdk";
+import { z } from "zod";
 
 import prisma from "@/lib/prisma";
 import { queueNotification } from "@/lib/redis/dataroom-notification-queue";
 import { ZViewerNotificationPreferencesSchema } from "@/lib/zod/schemas/notifications";
 
-type NotificationPayload = {
-  dataroomId: string;
-  dataroomDocumentId: string;
-  senderUserId: string | null;
-  teamId: string;
-  excludeViewerId?: string;
-};
+const NotificationPayloadSchema = z.object({
+  dataroomId: z.string().cuid(),
+  dataroomDocumentId: z.string().cuid().optional(),
+  uploaderViewerId: z.string().cuid().optional(),
+  senderUserId: z.string().cuid().nullable(),
+  teamId: z.string().cuid(),
+  excludeViewerId: z.string().cuid().optional(),
+});
 
-export const sendDataroomChangeNotificationTask = task({
+export const sendDataroomChangeNotificationTask = schemaTask({
   id: "send-dataroom-change-notification",
+  schema: NotificationPayloadSchema,
   retry: { maxAttempts: 3 },
-  run: async (payload: NotificationPayload) => {
-    const dataroomDocument = await prisma.dataroomDocument.findUnique({
-      where: { id: payload.dataroomDocumentId },
+  run: async (payload) => {
+    // --- Resolve document IDs ---
+    let dataroomDocumentIds: string[];
+
+    if (payload.uploaderViewerId) {
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      const recentUploads = await prisma.documentUpload.findMany({
+        where: {
+          dataroomId: payload.dataroomId,
+          viewerId: payload.uploaderViewerId,
+          uploadedAt: { gte: fifteenMinutesAgo },
+        },
+        select: { dataroomDocumentId: true },
+        orderBy: { uploadedAt: "desc" },
+      });
+      dataroomDocumentIds = recentUploads
+        .map((u) => u.dataroomDocumentId)
+        .filter((id): id is string => id !== null);
+    } else if (payload.dataroomDocumentId) {
+      dataroomDocumentIds = [payload.dataroomDocumentId];
+    } else {
+      logger.error("Either dataroomDocumentId or uploaderViewerId is required");
+      return;
+    }
+
+    if (dataroomDocumentIds.length === 0) {
+      logger.info("No documents to notify about", {
+        dataroomId: payload.dataroomId,
+      });
+      return;
+    }
+
+    const dataroomDocuments = await prisma.dataroomDocument.findMany({
+      where: { id: { in: dataroomDocumentIds } },
       select: { id: true, folderId: true },
     });
 
-    if (!dataroomDocument) {
-      logger.error("Dataroom document not found", {
-        dataroomDocumentId: payload.dataroomDocumentId,
-      });
+    if (dataroomDocuments.length === 0) {
+      logger.error("Dataroom documents not found", { dataroomDocumentIds });
       return;
     }
 
@@ -80,28 +112,23 @@ export const sendDataroomChangeNotificationTask = task({
       return;
     }
 
-    // Cache folder-access results per group to avoid duplicate queries
     const folderAccessCache = new Map<string, boolean>();
 
     const canViewFolder = async (
       groupId: string | null | undefined,
       permissionGroupId: string | null | undefined,
+      folderId: string | null,
     ): Promise<boolean> => {
-      // No group restriction → unrestricted access
       if (!groupId && !permissionGroupId) {
         return true;
       }
 
-      // Document is in the root (no folder) → always notify
-      if (!dataroomDocument.folderId) {
+      if (!folderId) {
         return true;
       }
 
-      const folderId = dataroomDocument.folderId;
-
-      // groupId
       if (groupId) {
-        const cacheKey = `viewer-group:${groupId}`;
+        const cacheKey = `viewer-group:${groupId}:${folderId}`;
         if (folderAccessCache.has(cacheKey)) {
           return folderAccessCache.get(cacheKey)!;
         }
@@ -116,9 +143,8 @@ export const sendDataroomChangeNotificationTask = task({
         return result;
       }
 
-      // permissionGroupId
       if (permissionGroupId) {
-        const cacheKey = `permission-group:${permissionGroupId}`;
+        const cacheKey = `permission-group:${permissionGroupId}:${folderId}`;
         if (folderAccessCache.has(cacheKey)) {
           return folderAccessCache.get(cacheKey)!;
         }
@@ -138,6 +164,13 @@ export const sendDataroomChangeNotificationTask = task({
 
     const viewerResults = await Promise.all(
       viewers.map(async (viewer) => {
+        // TODO: KNOWN LIMITATION: Only the most recent view (views[0]) is checked for
+        // folder access. A viewer with multiple verified links may be
+        // incorrectly skipped if views[0]'s link lacks access but another
+        // link in viewer.views does grant it via canViewFolder(). The fix is
+        // to iterate over all viewer.views and pick any link where
+        // canViewFolder(link.groupId, link.permissionGroupId) returns true
+        // for dataroomDocument.folderId before deciding to skip.
         const view = viewer.views[0];
         const link = view?.link;
 
@@ -149,23 +182,29 @@ export const sendDataroomChangeNotificationTask = task({
           return null;
         }
 
-        const hasAccess = await canViewFolder(
-          link.groupId,
-          link.permissionGroupId,
-        );
-
-        if (!hasAccess) {
-          logger.info(
-            "Skipping viewer notification: link group does not have access to the document folder",
-            {
-              viewerId: viewer.id,
-              linkId: link.id,
-              groupId: link.groupId,
-              permissionGroupId: link.permissionGroupId,
-              folderId: dataroomDocument.folderId,
-              dataroomDocumentId: payload.dataroomDocumentId,
-            },
+        const accessibleDocIds: string[] = [];
+        for (const doc of dataroomDocuments) {
+          const hasAccess = await canViewFolder(
+            link.groupId,
+            link.permissionGroupId,
+            doc.folderId,
           );
+          if (hasAccess) {
+            accessibleDocIds.push(doc.id);
+          } else {
+            logger.info(
+              "Skipping document for viewer: link group lacks folder access",
+              {
+                viewerId: viewer.id,
+                linkId: link.id,
+                dataroomDocumentId: doc.id,
+                folderId: doc.folderId,
+              },
+            );
+          }
+        }
+
+        if (accessibleDocIds.length === 0) {
           return null;
         }
 
@@ -197,6 +236,7 @@ export const sendDataroomChangeNotificationTask = task({
           id: viewer.id,
           linkUrl,
           frequency,
+          accessibleDocIds,
         };
       }),
     );
@@ -208,28 +248,33 @@ export const sendDataroomChangeNotificationTask = task({
         id: string;
         linkUrl: string;
         frequency: "instant" | "daily" | "weekly";
+        accessibleDocIds: string[];
       } => viewer !== null,
     );
 
     logger.info("Processed viewer links", {
       viewerCount: viewersWithLinks.length,
+      documentCount: dataroomDocuments.length,
     });
 
     for (const viewer of viewersWithLinks) {
       try {
         if (viewer.frequency === "daily" || viewer.frequency === "weekly") {
-          await queueNotification({
-            frequency: viewer.frequency,
-            viewerId: viewer.id,
-            dataroomId: payload.dataroomId,
-            teamId: payload.teamId,
-            dataroomDocumentId: payload.dataroomDocumentId,
-            senderUserId: payload.senderUserId,
-          });
+          for (const docId of viewer.accessibleDocIds) {
+            await queueNotification({
+              frequency: viewer.frequency,
+              viewerId: viewer.id,
+              dataroomId: payload.dataroomId,
+              teamId: payload.teamId,
+              dataroomDocumentId: docId,
+              senderUserId: payload.senderUserId,
+            });
+          }
 
-          logger.info("Queued notification for digest", {
+          logger.info("Queued notifications for digest", {
             viewerId: viewer.id,
             frequency: viewer.frequency,
+            documentCount: viewer.accessibleDocIds.length,
           });
           continue;
         }
@@ -241,7 +286,7 @@ export const sendDataroomChangeNotificationTask = task({
             body: JSON.stringify({
               dataroomId: payload.dataroomId,
               linkUrl: viewer.linkUrl,
-              dataroomDocumentId: payload.dataroomDocumentId,
+              dataroomDocumentIds: viewer.accessibleDocIds,
               viewerId: viewer.id,
               senderUserId: payload.senderUserId,
               teamId: payload.teamId,
@@ -266,6 +311,7 @@ export const sendDataroomChangeNotificationTask = task({
         logger.info("Notification sent successfully", {
           viewerId: viewer.id,
           message,
+          documentCount: viewer.accessibleDocIds.length,
         });
       } catch (error) {
         logger.error("Error sending notification", {
@@ -278,6 +324,7 @@ export const sendDataroomChangeNotificationTask = task({
     logger.info("Completed sending notifications", {
       dataroomId: payload.dataroomId,
       viewerCount: viewers.length,
+      documentCount: dataroomDocuments.length,
     });
     return;
   },

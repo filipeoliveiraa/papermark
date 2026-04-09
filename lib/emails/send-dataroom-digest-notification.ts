@@ -17,10 +17,15 @@ export const sendDataroomDigestNotification = async ({
   to: string;
   url: string;
   preferencesUrl: string;
-  frequency: "daily" | "weekly";
+  frequency: "daily" | "weekly" | "instant";
 }) => {
   const count = documents.length;
-  const periodLabel = frequency === "daily" ? "today" : "this week";
+  const periodLabel =
+    frequency === "instant"
+      ? "recently"
+      : frequency === "daily"
+        ? "today"
+        : "this week";
 
   try {
     await sendEmail({

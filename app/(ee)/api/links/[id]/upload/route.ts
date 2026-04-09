@@ -333,6 +333,8 @@ export async function POST(
     }
 
     // 5. Notify other dataroom visitors about the new upload (each visitor gets their own email)
+    //    Uses cancel-and-retrigger as a debounce: the delayed task queries
+    //    DocumentUpload at runtime to batch all recent uploads into one notification.
     if (link.dataroom?.enableVisitorUploadChangeNotifications) {
       try {
         const changeNotifTag = `dataroom_${dataroomId}`;
@@ -340,7 +342,7 @@ export async function POST(
           taskIdentifier: ["send-dataroom-change-notification"],
           tag: [changeNotifTag, `visitor_upload_${viewerId}`],
           status: ["DELAYED", "QUEUED"],
-          period: "10m",
+          period: "15m",
         });
 
         const matchingChangeRuns = existingChangeRuns.data.filter(
@@ -355,20 +357,19 @@ export async function POST(
           sendDataroomChangeNotificationTask.trigger(
             {
               dataroomId,
-              dataroomDocumentId: newDataroomDocument.id,
+              uploaderViewerId: viewerId,
               senderUserId: null,
               teamId: link.teamId,
               excludeViewerId: viewerId,
             },
             {
-              idempotencyKey: `visitor-change-notification-${link.teamId}-${dataroomId}-${newDataroomDocument.id}`,
+              idempotencyKey: `visitor-change-notification-${link.teamId}-${dataroomId}-${viewerId}-${Date.now()}`,
               tags: [
                 `team_${link.teamId}`,
                 changeNotifTag,
-                `document_${newDataroomDocument.id}`,
                 `visitor_upload_${viewerId}`,
               ],
-              delay: new Date(Date.now() + 10 * 60 * 1000), // 10 minute delay (same as admin)
+              delay: new Date(Date.now() + 10 * 60 * 1000),
             },
           ),
         );
