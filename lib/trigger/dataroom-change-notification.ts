@@ -60,7 +60,10 @@ export const sendDataroomChangeNotificationTask = schemaTask({
     }
 
     const dataroomDocuments = await prisma.dataroomDocument.findMany({
-      where: { id: { in: dataroomDocumentIds } },
+      where: {
+        id: { in: dataroomDocumentIds },
+        dataroomId: payload.dataroomId,
+      },
       select: { id: true, folderId: true },
     });
 
