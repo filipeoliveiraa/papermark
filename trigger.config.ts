@@ -18,6 +18,7 @@ export default defineConfig({
     },
   },
   build: {
+    external: ["mupdf"],
     extensions: [
       prismaExtension({
         mode: "legacy",

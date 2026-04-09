@@ -74,6 +74,9 @@ export interface UploadItemState {
   cancelled?: boolean;
   /** Pre-computed link for completed folder items */
   folderHref?: string;
+  /** Byte-level upload progress for granular tracking (especially single large files) */
+  bytesUploaded?: number;
+  bytesTotal?: number;
 }
 
 export interface UploadBatchState {
@@ -85,6 +88,9 @@ export interface UploadBatchState {
   completedEntries: number;
   failedEntries: number;
   cancelled?: boolean;
+  /** Aggregate byte-level progress across all items */
+  bytesUploaded?: number;
+  bytesTotal?: number;
 }
 
 const UPLOAD_CONCURRENCY = 5;
@@ -460,6 +466,8 @@ export default function UploadZone({
               : `/documents/tree/${group.folderSlugPath}`;
           }
 
+          const groupBytesTotal = group.files.reduce((sum, f) => sum + f.size, 0);
+
           return {
             itemId: crypto.randomUUID(),
             name: group.name,
@@ -468,6 +476,8 @@ export default function UploadZone({
             completedEntries: folderCount,
             failedEntries: 0,
             folderHref,
+            bytesUploaded: 0,
+            bytesTotal: groupBytesTotal,
           };
         },
       );
@@ -480,6 +490,8 @@ export default function UploadZone({
         // Folders created during traversal count as completed entries
         completedEntries: items.reduce((s, it) => s + it.completedEntries, 0),
         failedEntries: 0,
+        bytesUploaded: 0,
+        bytesTotal: items.reduce((s, it) => s + (it.bytesTotal ?? 0), 0),
       };
 
       const dropCancelled = { current: false };
@@ -500,9 +512,26 @@ export default function UploadZone({
       let completedCount = batch.completedEntries;
       let failedCount = 0;
 
+      // Per-file byte tracking for granular progress
+      const fileBytesUploaded = new Map<FileWithPaths, number>();
+      const itemFilesMap = new Map<UploadItemState, FileWithPaths[]>();
+      for (const [file, item] of fileToItem) {
+        fileBytesUploaded.set(file, 0);
+        const files = itemFilesMap.get(item) ?? [];
+        files.push(file);
+        itemFilesMap.set(item, files);
+      }
+
       const emitUpdate = () => {
         onUploadBatchUpdate(batchId, {
-          items: items.map((it) => ({ ...it })),
+          items: items.map((it) => {
+            const filesInItem = itemFilesMap.get(it) ?? [];
+            let uploaded = 0;
+            for (const f of filesInItem) {
+              uploaded += fileBytesUploaded.get(f) ?? 0;
+            }
+            return { ...it, bytesUploaded: uploaded };
+          }),
           completedEntries: completedCount,
           failedEntries: failedCount,
         });
@@ -542,11 +571,8 @@ export default function UploadZone({
 
           const { complete } = await resumableUpload({
             file,
-            onProgress: (bytesUploaded, bytesTotal) => {
-              const _progress = Math.min(
-                Math.round((bytesUploaded / bytesTotal) * 100),
-                99,
-              );
+            onProgress: (bytesUploaded, _bytesTotal) => {
+              fileBytesUploaded.set(file, bytesUploaded);
               emitUpdate();
             },
             onError: () => {
@@ -660,6 +686,10 @@ export default function UploadZone({
 
           completedCount++;
           parentItem.completedEntries++;
+          fileBytesUploaded.set(file, file.size);
+          if (!parentItem.folderHref && document.id) {
+            parentItem.folderHref = `/documents/${document.id}`;
+          }
           emitUpdate();
 
           analytics.capture("Document Added", {

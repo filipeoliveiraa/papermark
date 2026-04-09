@@ -61,13 +61,20 @@ const ItemRow = memo(
   const [hovered, setHovered] = useState(false);
   const done =
     item.completedEntries + item.failedEntries >= item.totalEntries;
-  const progress =
-    item.totalEntries > 0
-      ? Math.round(
-          ((item.completedEntries + item.failedEntries) / item.totalEntries) *
-            100,
+  const progress = done
+    ? 100
+    : item.bytesTotal && item.bytesTotal > 0
+      ? Math.min(
+          Math.round(((item.bytesUploaded ?? 0) / item.bytesTotal) * 100),
+          99,
         )
-      : 0;
+      : item.totalEntries > 0
+        ? Math.round(
+            ((item.completedEntries + item.failedEntries) /
+              item.totalEntries) *
+              100,
+          )
+        : 0;
 
   const indicator = () => {
     if (item.cancelled) {
@@ -140,7 +147,17 @@ const ItemRow = memo(
         ) : (
           <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
         )}
-        <span className="truncate text-sm">{item.name}</span>
+        {done && item.folderHref ? (
+          <a
+            href={item.folderHref}
+            className="truncate text-sm hover:underline"
+            title={`Open ${item.name}`}
+          >
+            {item.name}
+          </a>
+        ) : (
+          <span className="truncate text-sm">{item.name}</span>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2.5">
         {!item.cancelled &&
@@ -173,6 +190,8 @@ const ItemRow = memo(
       a.failedEntries === b.failedEntries &&
       a.totalEntries === b.totalEntries &&
       a.cancelled === b.cancelled &&
+      a.bytesUploaded === b.bytesUploaded &&
+      a.folderHref === b.folderHref &&
       prev.isBatchDone === next.isBatchDone &&
       prev.onCancelItem === next.onCancelItem
     );
@@ -352,6 +371,19 @@ export function UploadNotificationDrawer({
   const timeLeftLabel = useMemo(() => {
     if (!batch || isDone) return null;
     const elapsed = Date.now() - batch.startedAt;
+
+    // Prefer byte-level progress for accurate time estimation (critical for single large files)
+    const batchBytesTotal = batch.bytesTotal ?? 0;
+    const batchBytesUploaded = batch.bytesUploaded ?? 0;
+    if (batchBytesTotal > 0 && batchBytesUploaded > 0) {
+      if (elapsed < 2000) return "Calculating...";
+      const rate = batchBytesUploaded / elapsed;
+      const remaining = batchBytesTotal - batchBytesUploaded;
+      const msLeft = remaining / rate;
+      return formatTimeLeft(msLeft);
+    }
+
+    // Fallback to entry-based estimation
     const processed = completedEntries + batchFailedEntries;
     if (processed === 0 || elapsed < 2000) return "Calculating...";
     const rate = processed / elapsed;
