@@ -5,14 +5,23 @@ import prisma from "@/lib/prisma";
 import { queueNotification } from "@/lib/redis/dataroom-notification-queue";
 import { ZViewerNotificationPreferencesSchema } from "@/lib/zod/schemas/notifications";
 
-const NotificationPayloadSchema = z.object({
-  dataroomId: z.string().cuid(),
-  dataroomDocumentId: z.string().cuid().optional(),
-  uploaderViewerId: z.string().cuid().optional(),
-  senderUserId: z.string().cuid().nullable(),
-  teamId: z.string().cuid(),
-  excludeViewerId: z.string().cuid().optional(),
-});
+const NotificationPayloadSchema = z
+  .object({
+    dataroomId: z.string().cuid(),
+    dataroomDocumentId: z.string().cuid().optional(),
+    uploaderViewerId: z.string().cuid().optional(),
+    senderUserId: z.string().cuid().nullable(),
+    teamId: z.string().cuid(),
+    excludeViewerId: z.string().cuid().optional(),
+  })
+  .refine(
+    (data) =>
+      Boolean(data.dataroomDocumentId) !== Boolean(data.uploaderViewerId),
+    {
+      message:
+        "Exactly one of dataroomDocumentId or uploaderViewerId must be provided",
+    },
+  );
 
 export const sendDataroomChangeNotificationTask = schemaTask({
   id: "send-dataroom-change-notification",
