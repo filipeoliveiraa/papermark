@@ -1,6 +1,5 @@
 import { AbortTaskRunError, logger, metadata, task } from "@trigger.dev/sdk";
 import { get } from "@vercel/edge-config";
-import * as mupdf from "mupdf";
 
 import { putFileServer } from "@/lib/files/put-file-server";
 import prisma from "@/lib/prisma";
@@ -55,6 +54,8 @@ export const convertPdfDirectTask = task({
   machine: { preset: "large-1x" },
   retry: { maxAttempts: 2 },
   run: async (payload: ConvertPdfDirectPayload) => {
+    const mupdf = await import("mupdf");
+
     const {
       documentVersionId,
       teamId,
