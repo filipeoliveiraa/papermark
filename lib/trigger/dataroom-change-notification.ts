@@ -16,6 +16,18 @@ export const sendDataroomChangeNotificationTask = task({
   id: "send-dataroom-change-notification",
   retry: { maxAttempts: 3 },
   run: async (payload: NotificationPayload) => {
+    const dataroomDocument = await prisma.dataroomDocument.findUnique({
+      where: { id: payload.dataroomDocumentId },
+      select: { id: true, folderId: true },
+    });
+
+    if (!dataroomDocument) {
+      logger.error("Dataroom document not found", {
+        dataroomDocumentId: payload.dataroomDocumentId,
+      });
+      return;
+    }
+
     const viewers = await prisma.viewer.findMany({
       where: {
         teamId: payload.teamId,
@@ -52,6 +64,8 @@ export const sendDataroomChangeNotificationTask = task({
                 domainId: true,
                 isArchived: true,
                 expiresAt: true,
+                groupId: true,
+                permissionGroupId: true,
               },
             },
           },
@@ -66,8 +80,64 @@ export const sendDataroomChangeNotificationTask = task({
       return;
     }
 
-    const viewersWithLinks = viewers
-      .map((viewer) => {
+    // Cache folder-access results per group to avoid duplicate queries
+    const folderAccessCache = new Map<string, boolean>();
+
+    const canViewFolder = async (
+      groupId: string | null | undefined,
+      permissionGroupId: string | null | undefined,
+    ): Promise<boolean> => {
+      // No group restriction → unrestricted access
+      if (!groupId && !permissionGroupId) {
+        return true;
+      }
+
+      // Document is in the root (no folder) → always notify
+      if (!dataroomDocument.folderId) {
+        return true;
+      }
+
+      const folderId = dataroomDocument.folderId;
+
+      // groupId
+      if (groupId) {
+        const cacheKey = `viewer-group:${groupId}`;
+        if (folderAccessCache.has(cacheKey)) {
+          return folderAccessCache.get(cacheKey)!;
+        }
+        const ac = await prisma.viewerGroupAccessControls.findUnique({
+          where: {
+            groupId_itemId: { groupId, itemId: folderId },
+          },
+          select: { canView: true },
+        });
+        const result = ac?.canView === true;
+        folderAccessCache.set(cacheKey, result);
+        return result;
+      }
+
+      // permissionGroupId
+      if (permissionGroupId) {
+        const cacheKey = `permission-group:${permissionGroupId}`;
+        if (folderAccessCache.has(cacheKey)) {
+          return folderAccessCache.get(cacheKey)!;
+        }
+        const ac = await prisma.permissionGroupAccessControls.findUnique({
+          where: {
+            groupId_itemId: { groupId: permissionGroupId, itemId: folderId },
+          },
+          select: { canView: true },
+        });
+        const result = ac?.canView === true;
+        folderAccessCache.set(cacheKey, result);
+        return result;
+      }
+
+      return false;
+    };
+
+    const viewerResults = await Promise.all(
+      viewers.map(async (viewer) => {
         const view = viewer.views[0];
         const link = view?.link;
 
@@ -76,6 +146,26 @@ export const sendDataroomChangeNotificationTask = task({
           link.isArchived ||
           (link.expiresAt && new Date(link.expiresAt) < new Date())
         ) {
+          return null;
+        }
+
+        const hasAccess = await canViewFolder(
+          link.groupId,
+          link.permissionGroupId,
+        );
+
+        if (!hasAccess) {
+          logger.info(
+            "Skipping viewer notification: link group does not have access to the document folder",
+            {
+              viewerId: viewer.id,
+              linkId: link.id,
+              groupId: link.groupId,
+              permissionGroupId: link.permissionGroupId,
+              folderId: dataroomDocument.folderId,
+              dataroomDocumentId: payload.dataroomDocumentId,
+            },
+          );
           return null;
         }
 
@@ -91,11 +181,10 @@ export const sendDataroomChangeNotificationTask = task({
           return null;
         }
 
-        const frequency =
-          parsedPreferences.success
-            ? (parsedPreferences.data.dataroom[payload.dataroomId]?.frequency ??
-              "instant")
-            : "instant";
+        const frequency = parsedPreferences.success
+          ? (parsedPreferences.data.dataroom[payload.dataroomId]?.frequency ??
+            "instant")
+          : "instant";
 
         let linkUrl = "";
         if (link.domainId && link.domainSlug && link.slug) {
@@ -109,16 +198,18 @@ export const sendDataroomChangeNotificationTask = task({
           linkUrl,
           frequency,
         };
-      })
-      .filter(
-        (
-          viewer,
-        ): viewer is {
-          id: string;
-          linkUrl: string;
-          frequency: "instant" | "daily" | "weekly";
-        } => viewer !== null,
-      );
+      }),
+    );
+
+    const viewersWithLinks = viewerResults.filter(
+      (
+        viewer,
+      ): viewer is {
+        id: string;
+        linkUrl: string;
+        frequency: "instant" | "daily" | "weekly";
+      } => viewer !== null,
+    );
 
     logger.info("Processed viewer links", {
       viewerCount: viewersWithLinks.length,
