@@ -112,6 +112,7 @@ export default async function handle(
         name,
         internalName,
         enableChangeNotifications,
+        enableVisitorUploadChangeNotifications,
         defaultPermissionStrategy,
         allowBulkDownload,
         showLastUpdated,
@@ -123,6 +124,7 @@ export default async function handle(
         name?: string;
         internalName?: string | null;
         enableChangeNotifications?: boolean;
+        enableVisitorUploadChangeNotifications?: boolean;
         defaultPermissionStrategy?: DefaultPermissionStrategy;
         allowBulkDownload?: boolean;
         showLastUpdated?: boolean;
@@ -137,7 +139,8 @@ export default async function handle(
       const isTrial = team.plan.includes("drtrial");
 
       if (
-        enableChangeNotifications !== undefined &&
+        (enableChangeNotifications !== undefined ||
+          enableVisitorUploadChangeNotifications !== undefined) &&
         !isDataroomsPlus &&
         !isTrial &&
         !featureFlags.roomChangeNotifications
@@ -165,6 +168,9 @@ export default async function handle(
             }),
             ...(typeof enableChangeNotifications === "boolean" && {
               enableChangeNotifications,
+            }),
+            ...(typeof enableVisitorUploadChangeNotifications === "boolean" && {
+              enableVisitorUploadChangeNotifications,
             }),
             ...(defaultPermissionStrategy && { defaultPermissionStrategy }),
             ...(typeof allowBulkDownload === "boolean" && {

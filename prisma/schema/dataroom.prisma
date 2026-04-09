@@ -35,7 +35,8 @@ model Dataroom {
   tags TagItem[]
 
   // notification settings
-  enableChangeNotifications Boolean @default(false)
+  enableChangeNotifications              Boolean @default(false)
+  enableVisitorUploadChangeNotifications Boolean @default(false)
 
   // unified permission strategy
   defaultPermissionStrategy DefaultPermissionStrategy @default(INHERIT_FROM_PARENT)
