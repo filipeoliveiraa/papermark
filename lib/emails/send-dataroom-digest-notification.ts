@@ -13,7 +13,7 @@ export const sendDataroomDigestNotification = async ({
 }: {
   dataroomName: string;
   documents: { documentName: string }[];
-  senderEmail: string;
+  senderEmail: string | null;
   to: string;
   url: string;
   preferencesUrl: string;

@@ -95,7 +95,7 @@ export default async function handle(
       },
     });
 
-    let senderEmail = "noreply@papermark.com";
+    let senderEmail: string | null = null;
     if (senderUserId) {
       const user = await prisma.user.findUnique({
         where: { id: senderUserId },
