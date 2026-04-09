@@ -337,17 +337,16 @@ export async function POST(
     //    DocumentUpload at runtime to batch all recent uploads into one notification.
     if (link.dataroom?.enableVisitorUploadChangeNotifications) {
       try {
-        const changeNotifTag = `dataroom_${dataroomId}`;
         const existingChangeRuns = await runs.list({
           taskIdentifier: ["send-dataroom-change-notification"],
-          tag: [changeNotifTag, `visitor_upload_${viewerId}`],
+          tag: [`dataroom_${dataroomId}`, `visitor_upload_${viewerId}`],
           status: ["DELAYED", "QUEUED"],
           period: "15m",
         });
 
         const matchingChangeRuns = existingChangeRuns.data.filter(
           (run) =>
-            run.tags?.includes(changeNotifTag) &&
+            run.tags?.includes(`dataroom_${dataroomId}`) &&
             run.tags?.includes(`visitor_upload_${viewerId}`),
         );
 
@@ -366,7 +365,7 @@ export async function POST(
               idempotencyKey: `visitor-change-notification-${link.teamId}-${dataroomId}-${viewerId}-${Date.now()}`,
               tags: [
                 `team_${link.teamId}`,
-                changeNotifTag,
+                `dataroom_${dataroomId}`,
                 `visitor_upload_${viewerId}`,
               ],
               delay: new Date(Date.now() + 10 * 60 * 1000),
