@@ -154,7 +154,9 @@ export default async function handle(
         },
       });
 
-      if (type === "docs" || type === "slides") {
+      const isLogFile = url.toLowerCase().endsWith(".log");
+
+      if ((type === "docs" || type === "slides") && !isLogFile) {
         await convertFilesToPdfTask.trigger(
           {
             documentVersionId: version.id,

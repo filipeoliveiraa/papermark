@@ -130,7 +130,9 @@ export default async function handle(
         },
       });
 
-      if (type === "docs") {
+      const isLogFile = name.toLowerCase().endsWith(".log");
+
+      if (type === "docs" && !isLogFile) {
         await convertFilesToPdfTask.trigger(
           {
             documentId: document.id,
