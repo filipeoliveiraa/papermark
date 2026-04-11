@@ -8,7 +8,7 @@ import { useTeam } from "@/context/team-context";
 import { getStripe } from "@/ee/stripe/client";
 import { Feature, PlanEnum, getPlanFeatures } from "@/ee/stripe/constants";
 import { PLANS } from "@/ee/stripe/utils";
-import { CheckIcon, InfinityIcon, Users2Icon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, InfinityIcon, Users2Icon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAnalytics } from "@/lib/analytics";
@@ -164,8 +164,15 @@ export default function UpgradePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8 dark:bg-gray-900">
-      <h1 className="mb-8 text-center text-3xl font-bold">
+    <div className="min-h-screen bg-gray-50 px-4 py-6 dark:bg-gray-900 sm:p-8">
+      <button
+        onClick={() => router.back()}
+        className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground sm:mb-6"
+      >
+        <ArrowLeftIcon className="h-4 w-4" />
+        Back
+      </button>
+      <h1 className="mb-6 text-center text-2xl font-bold sm:mb-8 sm:text-3xl">
         Select best plan for your business
       </h1>
 
@@ -660,14 +667,14 @@ export default function UpgradePage() {
 
         {/* Unlimited Plan Banner */}
         <UnlimitedPlanModal period={period}>
-          <div className="mt-6 cursor-pointer rounded-xl border-2 border-gray-900 bg-white px-8 py-20 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-5">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-900 dark:bg-gray-100">
-                  <InfinityIcon className="h-7 w-7 text-white dark:text-gray-900" />
+          <div className="mt-6 cursor-pointer rounded-xl border-2 border-gray-900 bg-white px-4 py-8 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 sm:px-8 sm:py-20">
+            <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4 sm:gap-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-900 dark:bg-gray-100 sm:h-14 sm:w-14">
+                  <InfinityIcon className="h-5 w-5 text-white dark:text-gray-900 sm:h-7 sm:w-7" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white sm:text-xl">
                     Data Rooms Unlimited
                   </h3>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -675,16 +682,16 @@ export default function UpgradePage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-8">
-                <div className="text-right">
-                  <span className="text-4xl font-semibold tabular-nums text-gray-900 dark:text-white">
+              <div className="flex w-full flex-col items-start gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-8">
+                <div>
+                  <span className="text-3xl font-semibold tabular-nums text-gray-900 dark:text-white sm:text-4xl">
                     €{PLANS.find((p) => p.name === PlanEnum.DataRoomsUnlimited)!.price[period].amount}
                   </span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     /month{period === "yearly" && ", billed annually"}
                   </span>
                 </div>
-                <Button size="lg" className="bg-gray-900 text-white hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200">
+                <Button size="lg" className="w-full bg-gray-900 text-white hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200 sm:w-auto">
                   Get Unlimited
                 </Button>
               </div>

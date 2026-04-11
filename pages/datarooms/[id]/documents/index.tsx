@@ -68,11 +68,11 @@ export default function Documents() {
             >
               <Button
                 size="sm"
-                className="group flex items-center justify-start gap-x-3 px-3 text-left"
+                className="group flex items-center justify-start gap-x-1 whitespace-nowrap px-2 text-left sm:gap-x-3 sm:px-3"
                 title="Add Document"
               >
-                <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <span>Add Document</span>
+                <PlusIcon className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden="true" />
+                <span className="text-xs sm:text-sm">Add Document</span>
               </Button>
             </AddDocumentModal>
 
