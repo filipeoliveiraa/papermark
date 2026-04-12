@@ -33,9 +33,9 @@ export default function DataroomAnalyticsPage() {
     <AppLayout>
       <div className="relative mx-2 mb-10 mt-4 space-y-8 overflow-hidden px-1 sm:mx-3 md:mx-5 md:mt-5 lg:mx-7 lg:mt-8 xl:mx-10">
         <div className="space-y-1">
-          <h3 className="text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Data Room Analytics
-          </h3>
+          </h1>
           <p className="flex flex-row items-center gap-2 text-sm text-muted-foreground">
             Track document engagement and viewer behavior.
             <BadgeTooltip
