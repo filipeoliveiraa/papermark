@@ -179,6 +179,7 @@ export default async function handler(
                 originalFile: true,
                 numPages: true,
                 contentType: true,
+                fileSize: true,
               },
               take: 1,
             },
@@ -247,6 +248,7 @@ export default async function handler(
           type?: string;
           numPages?: number;
           needsWatermark?: boolean;
+          size?: number;
         }[];
       };
     } = {};
@@ -260,6 +262,7 @@ export default async function handler(
       fileKey: string,
       fileType?: string,
       numPages?: number,
+      fileSize?: number,
     ) => {
       let relativePath = "";
       if (computedFolderPath !== rootFolderInfo.computedPath) {
@@ -300,6 +303,7 @@ export default async function handler(
           type: fileType,
           numPages: numPages,
           needsWatermark: needsWatermark ?? undefined,
+          size: fileSize,
         });
         fileKeys.push(fileKey);
       }
@@ -353,6 +357,7 @@ export default async function handler(
           fileKey,
           version.type ?? undefined,
           version.numPages ?? undefined,
+          version.fileSize ? Number(version.fileSize) : undefined,
         );
       }
     }

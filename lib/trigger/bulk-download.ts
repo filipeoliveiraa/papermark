@@ -123,11 +123,25 @@ export const bulkDownloadTask = task({
         progress: 0,
       });
 
-      // For small datarooms, process in a single batch
-      if (fileKeys.length <= MAX_FILES_PER_BATCH) {
+      // Calculate total size from folder structure for batch decisions
+      const totalPayloadSize = Object.values(folderStructure).reduce(
+        (sum, folder) =>
+          sum +
+          folder.files.reduce((fSum, file) => fSum + (file.size || 0), 0),
+        0,
+      );
+      const hasReliableSizeInfo = totalPayloadSize > 0;
+
+      // For small datarooms, process in a single batch (check both count AND size)
+      const fitsInSingleBatch =
+        fileKeys.length <= MAX_FILES_PER_BATCH &&
+        (!hasReliableSizeInfo || totalPayloadSize <= MAX_ZIP_SIZE_BYTES);
+
+      if (fitsInSingleBatch) {
         logger.info("Processing as single batch", {
           jobId,
           fileCount: fileKeys.length,
+          totalSizeMB: Math.round(totalPayloadSize / (1024 * 1024)),
         });
 
         const result = await processDownloadBatch({
@@ -188,6 +202,7 @@ export const bulkDownloadTask = task({
       logger.info("Processing as multiple batches", {
         jobId,
         fileCount: fileKeys.length,
+        totalSizeMB: Math.round(totalPayloadSize / (1024 * 1024)),
         maxFilesPerBatch: MAX_FILES_PER_BATCH,
         maxSizePerBatch: `${MAX_ZIP_SIZE_BYTES / (1024 * 1024)}MB`,
       });
