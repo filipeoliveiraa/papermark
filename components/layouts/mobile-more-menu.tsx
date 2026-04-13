@@ -74,10 +74,11 @@ export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background md:hidden">
-      <div className="flex h-14 items-center justify-between border-b border-border px-4">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] [-webkit-tap-highlight-color:transparent] touch-manipulation md:hidden">
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
         <span className="text-lg font-semibold">More</span>
         <button
+          type="button"
           onClick={onClose}
           className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
         >
@@ -85,7 +86,7 @@ export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
         <div className="space-y-1">
           {isFree && !isTrial ? (
             <UpgradePlanModal
