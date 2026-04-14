@@ -120,7 +120,7 @@ export function DataroomSidebarContent() {
   const router = useRouter();
   const { dataroom } = useDataroom();
   const { limits } = useLimits();
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const dataroomId = dataroom?.id ?? (router.query.id as string);
   const [isLinkSheetOpen, setIsLinkSheetOpen] = useState(false);
 
@@ -256,30 +256,6 @@ export function DataroomSidebarContent() {
 
       <SidebarContent>
         <SidebarGroup>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className="w-full group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2"
-                size="sm"
-                onClick={() => setIsLinkSheetOpen(true)}
-              >
-                <span className="group-data-[collapsible=icon]:hidden">
-                  Share dataroom
-                </span>
-                <SendIcon className="hidden !size-4 shrink-0 group-data-[collapsible=icon]:block" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              align="center"
-              hidden={state !== "collapsed"}
-            >
-              Share dataroom
-            </TooltipContent>
-          </Tooltip>
-        </SidebarGroup>
-
-        <SidebarGroup>
           <SidebarMenu className="space-y-0.5 text-foreground">
             {navItems.map((item) => {
               const active = isItemActive(item);
@@ -380,6 +356,30 @@ export function DataroomSidebarContent() {
               );
             })}
           </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className="w-full group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2"
+                size="sm"
+                onClick={() => setIsLinkSheetOpen(true)}
+              >
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Share dataroom
+                </span>
+                <SendIcon className="hidden !size-4 shrink-0 group-data-[collapsible=icon]:block" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="right"
+              align="center"
+              hidden={state !== "collapsed" || isMobile}
+            >
+              Share dataroom
+            </TooltipContent>
+          </Tooltip>
         </SidebarGroup>
       </SidebarContent>
 
