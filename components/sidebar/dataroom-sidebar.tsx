@@ -19,6 +19,7 @@ import {
   LinkIcon,
   LogsIcon,
   MessageSquareIcon,
+  SendIcon,
   ShieldCheckIcon,
   ShieldIcon,
   TableIcon,
@@ -48,7 +49,13 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 function ScrollingText({
   children,
@@ -113,6 +120,7 @@ export function DataroomSidebarContent() {
   const router = useRouter();
   const { dataroom } = useDataroom();
   const { limits } = useLimits();
+  const { state, isMobile } = useSidebar();
   const dataroomId = dataroom?.id ?? (router.query.id as string);
   const [isLinkSheetOpen, setIsLinkSheetOpen] = useState(false);
 
@@ -351,13 +359,27 @@ export function DataroomSidebarContent() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <Button
-            className="w-full"
-            size="sm"
-            onClick={() => setIsLinkSheetOpen(true)}
-          >
-            Share dataroom
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className="w-full group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2"
+                size="sm"
+                onClick={() => setIsLinkSheetOpen(true)}
+              >
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Share dataroom
+                </span>
+                <SendIcon className="hidden !size-4 shrink-0 group-data-[collapsible=icon]:block" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="right"
+              align="center"
+              hidden={state !== "collapsed" || isMobile}
+            >
+              Share dataroom
+            </TooltipContent>
+          </Tooltip>
         </SidebarGroup>
       </SidebarContent>
 
