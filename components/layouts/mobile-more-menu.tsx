@@ -232,6 +232,17 @@ export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
           </div>
         )}
 
+        {isTrial && (
+          <div className="mt-4">
+            <Link
+              href="/settings/upgrade?view=business-datarooms"
+              onClick={onClose}
+              className="flex w-full items-center justify-center rounded-lg bg-foreground px-4 py-3 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
+            >
+              Upgrade Plan
+            </Link>
+          </div>
+        )}
         {isFree && !isTrial && (
           <div className="mt-4">
             <Link

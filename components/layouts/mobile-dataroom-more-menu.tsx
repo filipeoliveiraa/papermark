@@ -22,6 +22,7 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { usePlan } from "@/lib/swr/use-billing";
 import useLimits from "@/lib/swr/use-limits";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ export function MobileDataroomMoreMenu({
   dataroomId,
 }: MobileDataroomMoreMenuProps) {
   const router = useRouter();
+  const { isTrial } = usePlan();
   const { limits } = useLimits();
   const [settingsExpanded, setSettingsExpanded] = useState(() =>
     router.pathname.includes("/settings"),
@@ -315,6 +317,18 @@ export function MobileDataroomMoreMenu({
                   </div>
                 )}
               </div>
+
+              {isTrial && (
+                <div className="mt-4">
+                  <Link
+                    href="/settings/upgrade?view=datarooms"
+                    onClick={onClose}
+                    className="flex w-full items-center justify-center rounded-lg bg-foreground px-4 py-3 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
+                  >
+                    Upgrade Plan
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
