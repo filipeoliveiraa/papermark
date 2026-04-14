@@ -463,6 +463,8 @@ export default async function handler(
         folderStructure,
         fileKeys,
         sourceBucket: storageConfig.bucket,
+        lambdaFunctionName: storageConfig.lambdaFunctionName!,
+        storageRegion: storageConfig.region,
         watermarkConfig: view.link.enableWatermark
           ? {
               enabled: true,
