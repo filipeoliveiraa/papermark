@@ -1,11 +1,8 @@
 import { logger, task } from "@trigger.dev/sdk";
 
-import { getStorageConfig } from "@/ee/features/storage/config";
-import {
-  InvocationType,
-  InvokeCommand,
-  LambdaClient,
-} from "@aws-sdk/client-lambda";
+import { getTeamStorageConfigById } from "@/ee/features/storage/config";
+import { InvocationType, InvokeCommand } from "@aws-sdk/client-lambda";
+import { getLambdaClientForTeam } from "@/lib/files/aws-client";
 import { sendDownloadReadyEmail } from "@/lib/emails/send-download-ready-email";
 import { parseS3PresignedUrl } from "@/lib/files/bulk-download-presign";
 import prisma from "@/lib/prisma";
@@ -69,8 +66,6 @@ export type BulkDownloadPayload = {
   };
   fileKeys: string[];
   sourceBucket: string;
-  lambdaFunctionName: string;
-  storageRegion: string;
   watermarkConfig?: {
     enabled: boolean;
     config?: any;
@@ -105,8 +100,6 @@ export const bulkDownloadTask = task({
       folderStructure,
       fileKeys,
       sourceBucket,
-      lambdaFunctionName,
-      storageRegion,
       watermarkConfig,
       viewId,
       viewerEmail,
@@ -155,11 +148,10 @@ export const bulkDownloadTask = task({
         });
 
         const result = await processDownloadBatch({
+          teamId,
           folderStructure,
           fileKeys,
           sourceBucket,
-          lambdaFunctionName,
-          storageRegion,
           watermarkConfig,
           dataroomName,
           zipPartNumber: 1,
@@ -249,11 +241,10 @@ export const bulkDownloadTask = task({
 
         try {
           const result = await processDownloadBatch({
+            teamId,
             folderStructure: batch.folderStructure,
             fileKeys: batch.fileKeys,
             sourceBucket,
-            lambdaFunctionName,
-            storageRegion,
             watermarkConfig,
             dataroomName,
             zipPartNumber: batchNumber,
@@ -354,11 +345,10 @@ export const bulkDownloadTask = task({
 });
 
 interface ProcessDownloadBatchParams {
+  teamId: string;
   folderStructure: BulkDownloadPayload["folderStructure"];
   fileKeys: string[];
   sourceBucket: string;
-  lambdaFunctionName: string;
-  storageRegion: string;
   watermarkConfig?: BulkDownloadPayload["watermarkConfig"];
   dataroomName: string;
   zipPartNumber: number;
@@ -373,11 +363,10 @@ interface ProcessDownloadBatchResult {
 }
 
 async function processDownloadBatch({
+  teamId,
   folderStructure,
   fileKeys,
   sourceBucket,
-  lambdaFunctionName,
-  storageRegion,
   watermarkConfig,
   dataroomName,
   zipPartNumber,
@@ -385,17 +374,13 @@ async function processDownloadBatch({
   zipFileName,
   expirationHours = 72,
 }: ProcessDownloadBatchParams): Promise<ProcessDownloadBatchResult> {
-  const storageConfig = getStorageConfig(storageRegion);
-  const client = new LambdaClient({
-    region: storageConfig.region,
-    credentials: {
-      accessKeyId: storageConfig.accessKeyId,
-      secretAccessKey: storageConfig.secretAccessKey,
-    },
-  });
+  const [client, storageConfig] = await Promise.all([
+    getLambdaClientForTeam(teamId),
+    getTeamStorageConfigById(teamId),
+  ]);
 
   const command = new InvokeCommand({
-    FunctionName: lambdaFunctionName,
+    FunctionName: storageConfig.lambdaFunctionName,
     InvocationType: InvocationType.RequestResponse,
     Payload: JSON.stringify({
       sourceBucket,
