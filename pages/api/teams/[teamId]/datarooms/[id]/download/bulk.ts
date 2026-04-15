@@ -248,8 +248,6 @@ export default async function handler(
           folderStructure: folderStructure,
           fileKeys: fileKeys,
           sourceBucket: storageConfig.bucket,
-          lambdaFunctionName: storageConfig.lambdaFunctionName!,
-          storageRegion: storageConfig.region,
           watermarkConfig: { enabled: false },
           userId: userId,
           emailNotification: !!user?.email,
