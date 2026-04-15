@@ -1,15 +1,21 @@
 import { logger, task } from "@trigger.dev/sdk";
 
+import { getStorageConfig } from "@/ee/features/storage/config";
+import {
+  InvocationType,
+  InvokeCommand,
+  LambdaClient,
+} from "@aws-sdk/client-lambda";
 import { sendDownloadReadyEmail } from "@/lib/emails/send-download-ready-email";
+import { parseS3PresignedUrl } from "@/lib/files/bulk-download-presign";
 import prisma from "@/lib/prisma";
 import { downloadJobStore } from "@/lib/redis-download-job-store";
 import { constructLinkUrl } from "@/lib/utils/link-url";
 
 // Maximum files per batch (Lambda payload limit)
 const MAX_FILES_PER_BATCH = 500;
-// Maximum size for a single ZIP file (500MB to stay within Vercel's 5min timeout)
-// Lambda needs time to: read from S3 + create ZIP + upload to S3
-// Conservative estimate: ~500MB can be processed in ~2-3 minutes
+// Maximum size for a single ZIP file (500MB to stay within Lambda's 15min timeout)
+// Lambda needs time to: read from S3 + apply watermarks + create ZIP + upload to S3
 const MAX_ZIP_SIZE_BYTES = 500 * 1024 * 1024;
 
 /**
@@ -63,6 +69,8 @@ export type BulkDownloadPayload = {
   };
   fileKeys: string[];
   sourceBucket: string;
+  lambdaFunctionName: string;
+  storageRegion: string;
   watermarkConfig?: {
     enabled: boolean;
     config?: any;
@@ -87,7 +95,7 @@ export type BulkDownloadPayload = {
 export const bulkDownloadTask = task({
   id: "bulk-download",
   retry: { maxAttempts: 2 },
-  machine: { preset: "large-1x" }, // 4 vCPU, 8GB RAM for orchestration
+  machine: { preset: "small-1x" },
   run: async (payload: BulkDownloadPayload) => {
     const {
       jobId,
@@ -97,6 +105,8 @@ export const bulkDownloadTask = task({
       folderStructure,
       fileKeys,
       sourceBucket,
+      lambdaFunctionName,
+      storageRegion,
       watermarkConfig,
       viewId,
       viewerEmail,
@@ -145,10 +155,11 @@ export const bulkDownloadTask = task({
         });
 
         const result = await processDownloadBatch({
-          teamId,
           folderStructure,
           fileKeys,
           sourceBucket,
+          lambdaFunctionName,
+          storageRegion,
           watermarkConfig,
           dataroomName,
           zipPartNumber: 1,
@@ -238,10 +249,11 @@ export const bulkDownloadTask = task({
 
         try {
           const result = await processDownloadBatch({
-            teamId,
             folderStructure: batch.folderStructure,
             fileKeys: batch.fileKeys,
             sourceBucket,
+            lambdaFunctionName,
+            storageRegion,
             watermarkConfig,
             dataroomName,
             zipPartNumber: batchNumber,
@@ -342,10 +354,11 @@ export const bulkDownloadTask = task({
 });
 
 interface ProcessDownloadBatchParams {
-  teamId: string;
   folderStructure: BulkDownloadPayload["folderStructure"];
   fileKeys: string[];
   sourceBucket: string;
+  lambdaFunctionName: string;
+  storageRegion: string;
   watermarkConfig?: BulkDownloadPayload["watermarkConfig"];
   dataroomName: string;
   zipPartNumber: number;
@@ -360,10 +373,11 @@ interface ProcessDownloadBatchResult {
 }
 
 async function processDownloadBatch({
-  teamId,
   folderStructure,
   fileKeys,
   sourceBucket,
+  lambdaFunctionName,
+  storageRegion,
   watermarkConfig,
   dataroomName,
   zipPartNumber,
@@ -371,21 +385,19 @@ async function processDownloadBatch({
   zipFileName,
   expirationHours = 72,
 }: ProcessDownloadBatchParams): Promise<ProcessDownloadBatchResult> {
-  const baseUrl = process.env.NEXTAUTH_URL || "https://app.papermark.com";
-  const internalApiKey = process.env.INTERNAL_API_KEY;
-
-  if (!internalApiKey) {
-    throw new Error("INTERNAL_API_KEY is not configured");
-  }
-
-  const response = await fetch(`${baseUrl}/api/jobs/process-download-batch`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${internalApiKey}`,
+  const storageConfig = getStorageConfig(storageRegion);
+  const client = new LambdaClient({
+    region: storageConfig.region,
+    credentials: {
+      accessKeyId: storageConfig.accessKeyId,
+      secretAccessKey: storageConfig.secretAccessKey,
     },
-    body: JSON.stringify({
-      teamId,
+  });
+
+  const command = new InvokeCommand({
+    FunctionName: lambdaFunctionName,
+    InvocationType: InvocationType.RequestResponse,
+    Payload: JSON.stringify({
       sourceBucket,
       fileKeys,
       folderStructure,
@@ -398,13 +410,29 @@ async function processDownloadBatch({
     }),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(`API error: ${errorData.error || response.statusText}`);
+  const response = await client.send(command);
+
+  if (!response.Payload) {
+    throw new Error("Lambda response payload is undefined or empty");
   }
 
-  const data = await response.json();
-  return { downloadUrl: data.downloadUrl, s3KeyInfo: data.s3KeyInfo };
+  const decodedPayload = new TextDecoder().decode(response.Payload);
+  const payload = JSON.parse(decodedPayload);
+
+  if (payload.errorMessage) {
+    throw new Error(`Lambda error: ${payload.errorMessage}`);
+  }
+
+  const body = JSON.parse(payload.body);
+
+  let s3KeyInfo: { bucket: string; key: string; region: string } | undefined;
+  try {
+    s3KeyInfo = parseS3PresignedUrl(body.downloadUrl);
+  } catch {
+    // Non-fatal: fall back to stored presigned URL
+  }
+
+  return { downloadUrl: body.downloadUrl, s3KeyInfo };
 }
 
 interface FileBatch {
