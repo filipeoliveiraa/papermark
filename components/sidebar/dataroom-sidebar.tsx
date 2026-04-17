@@ -21,7 +21,9 @@ import {
   SendIcon,
   ShieldCheckIcon,
   ShieldIcon,
+  SnowflakeIcon,
   TableIcon,
+  TriangleAlertIcon,
   UsersIcon,
 } from "lucide-react";
 
@@ -35,6 +37,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   SidebarContent,
   SidebarGroup,
@@ -207,6 +210,11 @@ export function DataroomSidebarContent() {
           href: `/datarooms/${dataroomId}/settings/file-permissions`,
           icon: ShieldIcon,
         },
+        {
+          title: "Danger Zone",
+          href: `/datarooms/${dataroomId}/settings/danger`,
+          icon: TriangleAlertIcon,
+        },
       ],
     },
   ];
@@ -237,9 +245,14 @@ export function DataroomSidebarContent() {
             <ChevronLeftIcon className="h-4 w-4" />
           </span>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <ScrollingText className="text-lg font-semibold leading-tight">
-              {dataroom?.internalName || dataroom?.name || "Loading..."}
-            </ScrollingText>
+            <div className="flex items-center gap-1.5">
+              <ScrollingText className="text-lg font-semibold leading-tight">
+                {dataroom?.internalName || dataroom?.name || "Loading..."}
+              </ScrollingText>
+              {dataroom?.isFrozen && (
+                <SnowflakeIcon className="h-4 w-4 shrink-0 text-blue-500" />
+              )}
+            </div>
             {dataroom?.internalName && dataroom?.name ? (
               <p className="truncate text-xs text-muted-foreground">
                 {dataroom.name}
@@ -335,27 +348,56 @@ export function DataroomSidebarContent() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className="w-full group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2"
-                size="sm"
-                onClick={() => setIsLinkSheetOpen(true)}
+          {!dataroom ? (
+            <Skeleton className="h-8 w-full group-data-[collapsible=icon]:!size-8" />
+          ) : dataroom.isFrozen ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2"
+                  size="sm"
+                >
+                  <Link href={`/datarooms/${dataroomId}/settings/danger`}>
+                    <SnowflakeIcon className="!size-4 shrink-0 text-blue-500 group-data-[collapsible=icon]:block" />
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      View archive
+                    </span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                align="center"
+                hidden={state !== "collapsed" || isMobile}
               >
-                <span className="group-data-[collapsible=icon]:hidden">
-                  Share dataroom
-                </span>
-                <SendIcon className="hidden !size-4 shrink-0 group-data-[collapsible=icon]:block" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              align="center"
-              hidden={state !== "collapsed" || isMobile}
-            >
-              Share dataroom
-            </TooltipContent>
-          </Tooltip>
+                View freeze archive
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  className="w-full group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2"
+                  size="sm"
+                  onClick={() => setIsLinkSheetOpen(true)}
+                >
+                  <span className="group-data-[collapsible=icon]:hidden">
+                    Share dataroom
+                  </span>
+                  <SendIcon className="hidden !size-4 shrink-0 group-data-[collapsible=icon]:block" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                align="center"
+                hidden={state !== "collapsed" || isMobile}
+              >
+                Share dataroom
+              </TooltipContent>
+            </Tooltip>
+          )}
         </SidebarGroup>
       </SidebarContent>
 

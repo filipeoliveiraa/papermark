@@ -148,6 +148,7 @@ export async function POST(request: NextRequest) {
         dataroom: {
           select: {
             agentsEnabled: true,
+            isFrozen: true,
             name: true,
           },
         },
@@ -178,6 +179,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { message: "Link has been deleted." },
         { status: 404 },
+      );
+    }
+
+    if (link.dataroom?.isFrozen) {
+      return NextResponse.json(
+        { message: "This data room has been closed." },
+        { status: 403 },
       );
     }
 

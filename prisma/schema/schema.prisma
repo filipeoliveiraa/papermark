@@ -71,6 +71,8 @@ model User {
 
   links Link[] @relation("LinkOwner")
 
+  frozenDatarooms Dataroom[] @relation("frozenDatarooms")
+
   notificationPreferences NotificationPreference[]
 }
 
