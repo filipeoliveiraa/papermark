@@ -26,6 +26,43 @@ export interface DomainObject {
   slug: string;
 }
 
+/**
+ * Normalize the list of allowed upload folder ids from the incoming payload.
+ * Accepts the new `uploadFolderIds` array as well as the legacy single
+ * `uploadFolderId` field, and deduplicates the result while dropping falsy
+ * entries. An empty array represents "visitor may upload anywhere".
+ */
+function normalizeUploadFolderIds(linkData: {
+  uploadFolderIds?: unknown;
+  uploadFolderId?: unknown;
+}): string[] {
+  const ids: string[] = [];
+  if (Array.isArray(linkData.uploadFolderIds)) {
+    for (const id of linkData.uploadFolderIds) {
+      if (typeof id === "string" && id.length > 0) ids.push(id);
+    }
+  }
+  if (
+    typeof linkData.uploadFolderId === "string" &&
+    linkData.uploadFolderId.length > 0
+  ) {
+    ids.push(linkData.uploadFolderId);
+  }
+  return Array.from(new Set(ids));
+}
+
+/**
+ * Legacy single-folder column mirrors the first entry of the allow-list so
+ * callers still reading the old column keep working.
+ */
+function primaryUploadFolderId(linkData: {
+  uploadFolderIds?: unknown;
+  uploadFolderId?: unknown;
+}): string | null {
+  const ids = normalizeUploadFolderIds(linkData);
+  return ids[0] ?? null;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -192,6 +229,46 @@ export default async function handler(
         }
       }
 
+      // Validate upload folder IDs belong to the target dataroom. Without this
+      // check, a tampered payload could persist arbitrary folder cuids
+      // (including ones from other datarooms/teams) into the link.
+      let validatedUploadFolderIds: string[] = [];
+      let validatedPrimaryUploadFolderId: string | null = null;
+      if (linkData.enableUpload) {
+        const normalizedIds = normalizeUploadFolderIds(linkData);
+        const primaryId = primaryUploadFolderId(linkData);
+
+        if (normalizedIds.length > 0) {
+          if (!dataroomLink || !targetId) {
+            return res.status(400).json({
+              error: "Upload folders can only be assigned to dataroom links.",
+            });
+          }
+
+          const validFolders = await prisma.dataroomFolder.findMany({
+            where: {
+              id: { in: normalizedIds },
+              dataroomId: targetId,
+            },
+            select: { id: true },
+          });
+          const validIdSet = new Set(validFolders.map((f) => f.id));
+
+          if (validIdSet.size !== normalizedIds.length) {
+            return res.status(400).json({
+              error:
+                "One or more upload folders do not belong to this data room.",
+            });
+          }
+
+          validatedUploadFolderIds = normalizedIds.filter((id) =>
+            validIdSet.has(id),
+          );
+          validatedPrimaryUploadFolderId =
+            primaryId && validIdSet.has(primaryId) ? primaryId : null;
+        }
+      }
+
       // Fetch the link and its related document from the database
       const updatedLink = await prisma.$transaction(async (tx) => {
         const link = await tx.link.create({
@@ -252,7 +329,8 @@ export default async function handler(
             ...(linkData.enableUpload && {
               enableUpload: linkData.enableUpload,
               isFileRequestOnly: linkData.isFileRequestOnly,
-              uploadFolderId: linkData.uploadFolderId,
+              uploadFolderIds: validatedUploadFolderIds,
+              uploadFolderId: validatedPrimaryUploadFolderId,
             }),
             enableAIAgents: linkData.enableAIAgents || false,
             enableConversation: linkData.enableConversation || false,

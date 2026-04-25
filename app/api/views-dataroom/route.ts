@@ -145,6 +145,8 @@ export async function POST(request: NextRequest) {
           },
         },
         enableUpload: true,
+        uploadFolderId: true,
+        uploadFolderIds: true,
         dataroom: {
           select: {
             agentsEnabled: true,
@@ -745,6 +747,43 @@ export async function POST(request: NextRequest) {
         const dataroomViewId =
           newDataroomView?.id ?? dataroomSession?.viewId ?? undefined;
 
+        // Resolve the upload-destination allow-list so the visitor UI can
+        // surface exactly which folders they may target. Null/empty = no
+        // restriction (visitor may upload into any folder they're in).
+        let uploadFolderAllowList:
+          | { id: string; name: string; path: string }[]
+          | null = null;
+        if (link.enableUpload) {
+          // `uploadFolderIds` is the new source of truth, but until the
+          // legacy `uploadFolderId` column has been backfilled into it we
+          // fall back to `[uploadFolderId]` for rows where the array is
+          // still empty. The fallback becomes inert post-backfill.
+          const allowedIds: string[] =
+            Array.isArray(link.uploadFolderIds) &&
+            link.uploadFolderIds.length > 0
+              ? link.uploadFolderIds.filter(
+                  (id): id is string => typeof id === "string" && !!id,
+                )
+              : link.uploadFolderId
+                ? [link.uploadFolderId]
+                : [];
+          if (allowedIds.length > 0) {
+            const folders = await prisma.dataroomFolder.findMany({
+              where: {
+                id: { in: allowedIds },
+                dataroomId: link.dataroomId!,
+              },
+              select: { id: true, name: true, path: true },
+            });
+            const byId = new Map(folders.map((f) => [f.id, f]));
+            uploadFolderAllowList = allowedIds
+              .map((id) => byId.get(id))
+              .filter(
+                (f): f is { id: string; name: string; path: string } => !!f,
+              );
+          }
+        }
+
         const returnObject = {
           message: "Dataroom View recorded",
           viewId: dataroomViewId,
@@ -756,6 +795,7 @@ export async function POST(request: NextRequest) {
           viewerId: viewer?.id,
           conversationsEnabled: link.enableConversation,
           enableVisitorUpload: link.enableUpload,
+          uploadFolderAllowList,
           agentsEnabled: link.dataroom?.agentsEnabled ?? false,
           dataroomName: link.dataroom?.name,
           ...(isTeamMember && { isTeamMember: true }),

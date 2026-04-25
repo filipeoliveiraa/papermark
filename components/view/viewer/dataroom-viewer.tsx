@@ -655,6 +655,7 @@ export default function DataroomViewer({
                               ? folders.find((f) => f.id === folderId)?.name
                               : undefined
                           }
+                          allowedFolders={viewData?.uploadFolderAllowList}
                         />
                       )}
                     </div>
