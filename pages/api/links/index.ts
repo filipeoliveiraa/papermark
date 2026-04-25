@@ -27,40 +27,29 @@ export interface DomainObject {
 }
 
 /**
- * Normalize the list of allowed upload folder ids from the incoming payload.
- * Accepts the new `uploadFolderIds` array as well as the legacy single
- * `uploadFolderId` field, and deduplicates the result while dropping falsy
- * entries. An empty array represents "visitor may upload anywhere".
+ * Normalize the list of allowed upload folder ids from the incoming payload,
+ * deduplicating and dropping falsy entries. An empty array represents
+ * "visitor may upload anywhere". An omitted/undefined property is treated as
+ * an empty array; any other non-array shape is rejected so the caller can
+ * surface a 400 instead of silently dropping malformed input.
  */
 function normalizeUploadFolderIds(linkData: {
   uploadFolderIds?: unknown;
-  uploadFolderId?: unknown;
 }): string[] {
-  const ids: string[] = [];
-  if (Array.isArray(linkData.uploadFolderIds)) {
-    for (const id of linkData.uploadFolderIds) {
-      if (typeof id === "string" && id.length > 0) ids.push(id);
-    }
-  }
   if (
-    typeof linkData.uploadFolderId === "string" &&
-    linkData.uploadFolderId.length > 0
+    !Object.prototype.hasOwnProperty.call(linkData, "uploadFolderIds") ||
+    linkData.uploadFolderIds === undefined
   ) {
-    ids.push(linkData.uploadFolderId);
+    return [];
+  }
+  if (!Array.isArray(linkData.uploadFolderIds)) {
+    throw new TypeError("uploadFolderIds must be an array.");
+  }
+  const ids: string[] = [];
+  for (const id of linkData.uploadFolderIds) {
+    if (typeof id === "string" && id.length > 0) ids.push(id);
   }
   return Array.from(new Set(ids));
-}
-
-/**
- * Legacy single-folder column mirrors the first entry of the allow-list so
- * callers still reading the old column keep working.
- */
-function primaryUploadFolderId(linkData: {
-  uploadFolderIds?: unknown;
-  uploadFolderId?: unknown;
-}): string | null {
-  const ids = normalizeUploadFolderIds(linkData);
-  return ids[0] ?? null;
 }
 
 export default async function handler(
@@ -233,10 +222,18 @@ export default async function handler(
       // check, a tampered payload could persist arbitrary folder cuids
       // (including ones from other datarooms/teams) into the link.
       let validatedUploadFolderIds: string[] = [];
-      let validatedPrimaryUploadFolderId: string | null = null;
+      let validatedUploadFolders: { id: string; name: string; path: string }[] =
+        [];
       if (linkData.enableUpload) {
-        const normalizedIds = normalizeUploadFolderIds(linkData);
-        const primaryId = primaryUploadFolderId(linkData);
+        let normalizedIds: string[];
+        try {
+          normalizedIds = normalizeUploadFolderIds(linkData);
+        } catch (err) {
+          if (err instanceof TypeError) {
+            return res.status(400).json({ error: err.message });
+          }
+          throw err;
+        }
 
         if (normalizedIds.length > 0) {
           if (!dataroomLink || !targetId) {
@@ -250,22 +247,23 @@ export default async function handler(
               id: { in: normalizedIds },
               dataroomId: targetId,
             },
-            select: { id: true },
+            select: { id: true, name: true, path: true },
           });
-          const validIdSet = new Set(validFolders.map((f) => f.id));
+          const byId = new Map(validFolders.map((f) => [f.id, f]));
 
-          if (validIdSet.size !== normalizedIds.length) {
+          if (byId.size !== normalizedIds.length) {
             return res.status(400).json({
               error:
                 "One or more upload folders do not belong to this data room.",
             });
           }
 
-          validatedUploadFolderIds = normalizedIds.filter((id) =>
-            validIdSet.has(id),
-          );
-          validatedPrimaryUploadFolderId =
-            primaryId && validIdSet.has(primaryId) ? primaryId : null;
+          validatedUploadFolderIds = normalizedIds.filter((id) => byId.has(id));
+          validatedUploadFolders = validatedUploadFolderIds
+            .map((id) => byId.get(id))
+            .filter(
+              (f): f is { id: string; name: string; path: string } => !!f,
+            );
         }
       }
 
@@ -330,7 +328,6 @@ export default async function handler(
               enableUpload: linkData.enableUpload,
               isFileRequestOnly: linkData.isFileRequestOnly,
               uploadFolderIds: validatedUploadFolderIds,
-              uploadFolderId: validatedPrimaryUploadFolderId,
             }),
             enableAIAgents: linkData.enableAIAgents || false,
             enableConversation: linkData.enableConversation || false,
@@ -407,6 +404,9 @@ export default async function handler(
 
       const linkWithView = {
         ...updatedLink,
+        // Echo the resolved folder allow-list so the client can render chips
+        // with the correct folder names without an extra round-trip.
+        uploadFolders: validatedUploadFolders,
         _count: { views: 0 },
         views: [],
       };
