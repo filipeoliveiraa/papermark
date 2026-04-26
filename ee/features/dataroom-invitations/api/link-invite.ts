@@ -181,7 +181,7 @@ export default async function handle(
     let reservedInvitations: { id: string; email: string }[];
     try {
       reservedInvitations = await prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${user.id}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${user.id}))`;
 
         const dailySentCount = await tx.viewerInvitation.count({
           where: {
