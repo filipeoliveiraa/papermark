@@ -49,6 +49,7 @@ next-env.d.ts
 # Internal scripts
 pages/api/scripts
 scripts/
+!.github/scripts/
 
 # marketing emails
 components/emails/marketing
@@ -63,3 +64,6 @@ lib/emails/marketing
 # changelog and docs
 changelog
 .docs
+
+# Local sync workflow dry-run output
+_public/
