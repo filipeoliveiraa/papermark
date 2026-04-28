@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +21,7 @@ import {
   EyeIcon,
   EyeOffIcon,
   FileSlidersIcon,
+  FileSpreadsheetIcon,
   LinkIcon,
   SendIcon,
   Settings2Icon,
@@ -91,6 +93,14 @@ import { DataroomLinkSheet } from "./link-sheet/dataroom-link-sheet";
 import { PermissionsSheet } from "./link-sheet/permissions-sheet";
 import { TagColumn } from "./link-sheet/tags/tag-details";
 import LinksVisitors from "./links-visitors";
+
+const BulkImportLinksModal = dynamic(
+  () =>
+    import("./bulk-import-modal").then((mod) => ({
+      default: mod.BulkImportLinksModal,
+    })),
+  { ssr: false },
+);
 
 const isDocumentProcessing = (version?: DocumentVersion) => {
   if (!version) return false;
@@ -275,12 +285,14 @@ export default function LinksTable({
   primaryVersion,
   mutateDocument,
   dataroomName,
+  onBulkImportOpen,
 }: {
   targetType: "DOCUMENT" | "DATAROOM";
   links?: LinkWithViews[];
   primaryVersion?: DocumentVersion;
   mutateDocument?: () => void;
   dataroomName?: string;
+  onBulkImportOpen?: () => void;
 }) {
   const [tags, _] = useQueryState<string[]>("tags", {
     parse: (value: string) => value.split(",").filter(Boolean),
@@ -342,6 +354,7 @@ export default function LinksTable({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingLinks, setLoadingLinks] = useState<Set<string>>(new Set());
   const [isLinkSheetVisible, setIsLinkSheetVisible] = useState<boolean>(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState<boolean>(false);
   const [selectedLink, setSelectedLink] = useState<DEFAULT_LINK_TYPE>(
     DEFAULT_LINK_PROPS(`${targetType}_LINK`, groupId),
   );
@@ -376,6 +389,15 @@ export default function LinksTable({
       : null;
 
   const dataroomDisplayName = dataroomName ?? "this dataroom";
+
+  const openBulkImport = useCallback(() => {
+    if (onBulkImportOpen) {
+      onBulkImportOpen();
+      return;
+    }
+
+    setIsBulkImportOpen(true);
+  }, [onBulkImportOpen]);
 
   const handleCopyToClipboard = (linkString: string) => {
     copyToClipboard(`${linkString}`, "Link copied to clipboard.");
@@ -717,9 +739,30 @@ export default function LinksTable({
       );
     } else {
       return (
-        <Button onClick={() => setIsLinkSheetVisible(true)}>
-          Create link to share
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setIsLinkSheetVisible(true)}>
+            Create link to share
+          </Button>
+          {targetId ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="More link actions"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={openBulkImport}>
+                  <FileSpreadsheetIcon className="mr-2 h-4 w-4" />
+                  Bulk import from CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
       );
     }
   };
@@ -1352,6 +1395,15 @@ export default function LinksTable({
             linkName={selectedEmbedLink.name}
           />
         )}
+
+        {!onBulkImportOpen && targetId ? (
+          <BulkImportLinksModal
+            isOpen={isBulkImportOpen}
+            setIsOpen={setIsBulkImportOpen}
+            targetType={targetType}
+            targetId={targetId}
+          />
+        ) : null}
 
         <DeleteLinkModal />
       </div>

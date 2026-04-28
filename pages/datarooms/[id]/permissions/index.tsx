@@ -1,7 +1,14 @@
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { InviteViewersModal } from "@/ee/features/dataroom-invitations/components/invite-viewers-modal";
-import { CircleHelpIcon, PlusIcon, SendIcon } from "lucide-react";
+import {
+  CircleHelpIcon,
+  FileSpreadsheetIcon,
+  MoreHorizontalIcon,
+  PlusIcon,
+  SendIcon,
+} from "lucide-react";
 
 import { usePlan } from "@/lib/swr/use-billing";
 import { useDataroom, useDataroomLinks } from "@/lib/swr/use-dataroom";
@@ -11,7 +18,21 @@ import { DataroomLinkSheet } from "@/components/links/link-sheet/dataroom-link-s
 import LinksTable from "@/components/links/links-table";
 import { TabMenu } from "@/components/tab-menu";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { BadgeTooltip } from "@/components/ui/tooltip";
+
+const BulkImportLinksModal = dynamic(
+  () =>
+    import("@/components/links/bulk-import-modal").then((mod) => ({
+      default: mod.BulkImportLinksModal,
+    })),
+  { ssr: false },
+);
 
 export default function DataroomLinksPage() {
   const { dataroom } = useDataroom();
@@ -20,6 +41,7 @@ export default function DataroomLinksPage() {
   const canInviteViewers = isDataroomsPlus;
   const [isLinkSheetOpen, setIsLinkSheetOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   if (!dataroom) {
     return <div>Loading...</div>;
@@ -59,6 +81,23 @@ export default function DataroomLinksPage() {
               <PlusIcon className="h-4 w-4" />
               Create link
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="More link actions"
+                >
+                  <MoreHorizontalIcon className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setIsBulkImportOpen(true)}>
+                  <FileSpreadsheetIcon className="mr-2 h-4 w-4" />
+                  Bulk import from CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -84,6 +123,7 @@ export default function DataroomLinksPage() {
           links={links}
           targetType={"DATAROOM"}
           dataroomName={dataroom.name}
+          onBulkImportOpen={() => setIsBulkImportOpen(true)}
         />
       </div>
 
@@ -93,6 +133,13 @@ export default function DataroomLinksPage() {
         linkType="DATAROOM_LINK"
         existingLinks={links}
         linkTargetId={dataroom.id}
+      />
+
+      <BulkImportLinksModal
+        isOpen={isBulkImportOpen}
+        setIsOpen={setIsBulkImportOpen}
+        targetType="DATAROOM"
+        targetId={dataroom.id}
       />
 
       {!canInviteViewers && (

@@ -285,7 +285,7 @@ export async function fetchDataroomLinkData({
     },
   });
 
-  if (!linkData?.dataroom) {
+  if (!linkData?.dataroom || linkData.dataroom.teamId !== teamId) {
     throw new Error("Dataroom not found");
   }
 
@@ -437,7 +437,7 @@ export async function fetchDataroomDocumentLinkData({
     },
   });
 
-  if (!linkData?.dataroom) {
+  if (!linkData?.dataroom || linkData.dataroom.teamId !== teamId) {
     throw new Error("Dataroom not found");
   }
 
@@ -518,7 +518,7 @@ export async function fetchDocumentLinkData({
     },
   });
 
-  if (!linkData?.document) {
+  if (!linkData?.document || linkData.document.teamId !== teamId) {
     throw new Error("Document not found");
   }
 

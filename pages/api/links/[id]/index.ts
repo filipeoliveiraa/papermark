@@ -231,8 +231,8 @@ export default async function handle(
       ...linkDomainData
     } = req.body;
 
-    const dataroomLink = linkType === "DATAROOM_LINK";
-    const documentLink = linkType === "DOCUMENT_LINK";
+    let resolvedLinkType: "DOCUMENT_LINK" | "DATAROOM_LINK" | null = null;
+    let resolvedTargetId: string | null = null;
 
     try {
       const existingLink = await prisma.link.findUnique({
@@ -267,25 +267,108 @@ export default async function handle(
         });
       }
 
-      // If the PUT retargets the link (different targetId or linkType),
-      // ensure the destination dataroom is not frozen.
-      if (dataroomLink && targetId) {
-        const existingTargetId =
-          existingLink.linkType === "DATAROOM_LINK"
-            ? existingLink.dataroomId
-            : existingLink.documentId;
-        const isRetargeting =
-          existingLink.linkType !== linkType || existingTargetId !== targetId;
+      resolvedLinkType = linkType ?? existingLink.linkType;
 
-        if (isRetargeting) {
-          const destinationDataroom = await prisma.dataroom.findUnique({
-            where: { id: targetId, teamId },
-            select: { isFrozen: true },
+      if (
+        resolvedLinkType !== "DOCUMENT_LINK" &&
+        resolvedLinkType !== "DATAROOM_LINK"
+      ) {
+        return res.status(400).json({ error: "Invalid link type." });
+      }
+
+      resolvedTargetId =
+        targetId ??
+        (resolvedLinkType === "DATAROOM_LINK"
+          ? existingLink.dataroomId
+          : existingLink.documentId);
+
+      if (!resolvedTargetId) {
+        return res.status(400).json({
+          error: "A target document or data room is required.",
+        });
+      }
+
+      if (resolvedLinkType === "DOCUMENT_LINK") {
+        const destinationDocument = await prisma.document.findUnique({
+          where: { id: resolvedTargetId, teamId },
+          select: { id: true },
+        });
+        if (!destinationDocument) {
+          return res.status(400).json({
+            error: "Invalid document.",
           });
-          if (destinationDataroom?.isFrozen) {
-            return res.status(403).json({
+        }
+      } else {
+        const destinationDataroom = await prisma.dataroom.findUnique({
+          where: { id: resolvedTargetId, teamId },
+          select: { isFrozen: true },
+        });
+        if (!destinationDataroom) {
+          return res.status(400).json({
+            error: "Invalid data room.",
+          });
+        }
+        if (destinationDataroom.isFrozen) {
+          return res.status(403).json({
+            error:
+              "This data room is frozen. You cannot modify links for a frozen data room.",
+          });
+        }
+      }
+
+      // ViewerGroup (groupId) and PermissionGroup (permissionGroupId) are
+      // both scoped to a specific dataroom. Whenever the request carries
+      // either binding, ensure it actually belongs to the resolved target
+      // dataroom — this also covers the case where the target changes but
+      // the client forgets to clear/replace a stale group reference.
+      const incomingGroupId =
+        typeof req.body.groupId === "string" && req.body.groupId.length > 0
+          ? req.body.groupId
+          : null;
+      const incomingPermissionGroupId =
+        typeof req.body.permissionGroupId === "string" &&
+        req.body.permissionGroupId.length > 0
+          ? req.body.permissionGroupId
+          : null;
+
+      if (incomingGroupId || incomingPermissionGroupId) {
+        if (resolvedLinkType !== "DATAROOM_LINK") {
+          return res.status(400).json({
+            error:
+              "Visitor groups and permission groups can only be assigned to dataroom links.",
+          });
+        }
+
+        if (incomingGroupId) {
+          const viewerGroup = await prisma.viewerGroup.findFirst({
+            where: {
+              id: incomingGroupId,
+              teamId,
+              dataroomId: resolvedTargetId,
+            },
+            select: { id: true },
+          });
+          if (!viewerGroup) {
+            return res.status(400).json({
               error:
-                "This data room is frozen. You cannot modify links for a frozen data room.",
+                "The selected visitor group does not belong to this data room.",
+            });
+          }
+        }
+
+        if (incomingPermissionGroupId) {
+          const permissionGroup = await prisma.permissionGroup.findFirst({
+            where: {
+              id: incomingPermissionGroupId,
+              teamId,
+              dataroomId: resolvedTargetId,
+            },
+            select: { id: true },
+          });
+          if (!permissionGroup) {
+            return res.status(400).json({
+              error:
+                "The selected permission group does not belong to this data room.",
             });
           }
         }
@@ -296,6 +379,15 @@ export default async function handle(
         error: (error as Error).message,
       });
     }
+
+    if (!resolvedLinkType || !resolvedTargetId) {
+      return res.status(400).json({
+        error: "A target document or data room is required.",
+      });
+    }
+
+    const dataroomLink = resolvedLinkType === "DATAROOM_LINK";
+    const documentLink = resolvedLinkType === "DOCUMENT_LINK";
 
     const hashedPassword =
       password && password.length > 0
@@ -317,11 +409,14 @@ export default async function handle(
       domainObj = await prisma.domain.findUnique({
         where: {
           slug: domain,
+          teamId,
         },
       });
 
       if (!domainObj) {
-        return res.status(400).json({ error: "Domain not found." });
+        return res.status(400).json({
+          error: "Domain not found or not associated with this team.",
+        });
       }
 
       const currentLink = await prisma.link.findUnique({
@@ -415,7 +510,7 @@ export default async function handle(
       }
 
       if (normalizedIds.length > 0) {
-        if (!dataroomLink || !targetId) {
+        if (!dataroomLink || !resolvedTargetId) {
           return res.status(400).json({
             error: "Upload folders can only be assigned to dataroom links.",
           });
@@ -424,7 +519,7 @@ export default async function handle(
         const validFolders = await prisma.dataroomFolder.findMany({
           where: {
             id: { in: normalizedIds },
-            dataroomId: targetId,
+            dataroomId: resolvedTargetId,
           },
           select: { id: true, name: true, path: true },
         });
@@ -448,8 +543,9 @@ export default async function handle(
       const link = await tx.link.update({
         where: { id, teamId },
         data: {
-          documentId: documentLink ? targetId : null,
-          dataroomId: dataroomLink ? targetId : null,
+          documentId: documentLink ? resolvedTargetId : null,
+          dataroomId: dataroomLink ? resolvedTargetId : null,
+          linkType: resolvedLinkType,
           password: hashedPassword,
           name: linkData.name || null,
           emailProtected:

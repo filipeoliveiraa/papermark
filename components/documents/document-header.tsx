@@ -14,6 +14,7 @@ import {
   CloudDownloadIcon,
   DownloadIcon,
   FileDownIcon,
+  FileSpreadsheetIcon,
   FolderIcon,
   MoonIcon,
   ServerIcon,
@@ -73,11 +74,13 @@ export default function DocumentHeader({
   primaryVersion,
   teamId,
   actions,
+  onBulkImportLinks,
 }: {
   prismaDocument: DocumentWithVersion;
   primaryVersion: DocumentVersion;
   teamId: string;
   actions?: React.ReactNode[];
+  onBulkImportLinks?: () => void;
 }) {
   const router = useRouter();
   const teamInfo = useTeam();
@@ -725,6 +728,18 @@ export default function DocumentHeader({
                 <DropdownMenuItem onClick={() => setAddDataRoomOpen(true)}>
                   <BetweenHorizontalStartIcon className="mr-2 h-4 w-4" />
                   Add to dataroom
+                </DropdownMenuItem>
+              )}
+
+              {onBulkImportLinks && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    onBulkImportLinks();
+                    setMenuOpen(false);
+                  }}
+                >
+                  <FileSpreadsheetIcon className="mr-2 h-4 w-4" />
+                  Bulk import links from CSV
                 </DropdownMenuItem>
               )}
 

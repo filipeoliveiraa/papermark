@@ -102,6 +102,30 @@ export default async function handler(
         });
       }
 
+      if (!targetId) {
+        return res.status(400).json({
+          error: "A target document or data room is required.",
+        });
+      }
+
+      if (!documentLink && !dataroomLink) {
+        return res.status(400).json({
+          error: "Invalid link type.",
+        });
+      }
+
+      if (documentLink) {
+        const document = await prisma.document.findUnique({
+          where: { id: targetId, teamId },
+          select: { id: true },
+        });
+        if (!document) {
+          return res.status(400).json({
+            error: "Invalid document.",
+          });
+        }
+      }
+
       if (dataroomLink && targetId) {
         const dataroom = await prisma.dataroom.findUnique({
           where: { id: targetId, teamId },
@@ -140,11 +164,14 @@ export default async function handler(
         domainObj = await prisma.domain.findUnique({
           where: {
             slug: domain,
+            teamId,
           },
         });
 
         if (!domainObj) {
-          return res.status(400).json({ error: "Domain not found." });
+          return res.status(400).json({
+            error: "Domain not found or not associated with this team.",
+          });
         }
 
         const existingLink = await prisma.link.findUnique({

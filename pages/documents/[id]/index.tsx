@@ -63,6 +63,14 @@ const VisitorsTable = dynamic(
   },
 );
 
+const BulkImportLinksModal = dynamic(
+  () =>
+    import("@/components/links/bulk-import-modal").then((mod) => ({
+      default: mod.BulkImportLinksModal,
+    })),
+  { ssr: false },
+);
+
 export default function DocumentPage() {
   const {
     data: overview,
@@ -82,6 +90,7 @@ export default function DocumentPage() {
   const teamId = teamInfo?.currentTeam?.id;
 
   const [isLinkSheetOpen, setIsLinkSheetOpen] = useState<boolean>(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState<boolean>(false);
 
   // Mutate function that updates both overview and links
   const mutateDocument = () => {
@@ -107,12 +116,14 @@ export default function DocumentPage() {
       );
     } else {
       return (
-        <Button
-          className="flex h-8 whitespace-nowrap text-xs lg:h-9 lg:text-sm"
-          onClick={() => setIsLinkSheetOpen(true)}
-        >
-          Create Link
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            className="flex h-8 whitespace-nowrap text-xs lg:h-9 lg:text-sm"
+            onClick={() => setIsLinkSheetOpen(true)}
+          >
+            Create Link
+          </Button>
+        </div>
       );
     }
   };
@@ -150,6 +161,7 @@ export default function DocumentPage() {
           primaryVersion={primaryVersion}
           prismaDocument={prismaDocument}
           teamId={teamId}
+          onBulkImportLinks={() => setIsBulkImportOpen(true)}
           actions={[
             <NotionAccessibilityIndicator
               key={"notion-status"}
@@ -219,6 +231,7 @@ export default function DocumentPage() {
               targetType={"DOCUMENT"}
               primaryVersion={primaryVersion}
               mutateDocument={mutateDocument}
+              onBulkImportOpen={() => setIsBulkImportOpen(true)}
             />
 
             {/* Visitors - Always show */}
@@ -234,6 +247,14 @@ export default function DocumentPage() {
           linkType="DOCUMENT_LINK"
           setIsOpen={setIsLinkSheetOpen}
           existingLinks={links}
+        />
+
+        <BulkImportLinksModal
+          isOpen={isBulkImportOpen}
+          setIsOpen={setIsBulkImportOpen}
+          targetType="DOCUMENT"
+          targetId={prismaDocument.id}
+          onImported={mutateDocument}
         />
       </main>
     </AppLayout>
