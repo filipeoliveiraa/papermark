@@ -101,13 +101,6 @@ export default async function handle(
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      if (teamAccess.role !== "ADMIN" && teamAccess.role !== "MANAGER") {
-        return res.status(403).json({
-          message:
-            "You are not permitted to perform this action. Only admin and managers can delete dataroom documents.",
-        });
-      }
-
       const dataroom = await prisma.dataroom.findUnique({
         where: {
           id: dataroomId,
