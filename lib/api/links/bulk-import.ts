@@ -19,12 +19,6 @@ import {
 } from "@/lib/utils";
 import { sendLinkCreatedWebhook } from "@/lib/webhook/triggers/link-created";
 
-export const bulkImportConfig = {
-  // Allow background work to flush after the response.
-  supportsResponseStreaming: true,
-  maxDuration: 120,
-};
-
 // Reused from `pages/api/webhooks/services/[...path]/index.ts` so the CSV
 // importer accepts the same option set users already configure through the
 // incoming-webhooks API.

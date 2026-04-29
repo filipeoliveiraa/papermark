@@ -130,9 +130,10 @@ export default async function handle(
         },
       });
 
-      const isLogFile = name.toLowerCase().endsWith(".log");
+      const isDownloadOnlyByExtension =
+        /\.(log|err|prj|jgw|tif|tiff|ecw|bak)$/i.test(name);
 
-      if (type === "docs" && !isLogFile) {
+      if (type === "docs" && !isDownloadOnlyByExtension) {
         await convertFilesToPdfTask.trigger(
           {
             documentId: document.id,

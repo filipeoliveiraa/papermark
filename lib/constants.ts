@@ -83,10 +83,13 @@ export const SUPPORTED_DOCUMENT_MIME_TYPES = [
   "application/vnd.oasis.opendocument.text", // .odt
   "application/rtf", // .rtf
   "text/rtf", // .rtf
-  "text/plain", // .txt
+  "text/plain", // .txt, .log, .err, .prj, .jgw
   "text/markdown", // .md
   "image/vnd.dwg", // .dwg
   "image/vnd.dxf", // .dxf
+  "image/tiff", // .tif, .tiff
+  "image/x-ecw", // .ecw (custom - GIS raster, no standard MIME)
+  "application/x-bak", // .bak (custom - generic backup file)
   "image/png", // .png
   "image/jpeg", // .jpeg
   "image/jpg", // .jpg
@@ -104,6 +107,7 @@ export const SUPPORTED_DOCUMENT_MIME_TYPES = [
   "application/vnd.google-earth.kml+xml", // .kml
   "application/vnd.google-earth.kmz", // .kmz
   "application/vnd.ms-outlook", // .msg
+  "message/rfc822", // .eml
 ];
 
 // Upload configurations for different plan types and contexts
@@ -137,9 +141,12 @@ export const FULL_PLAN_ACCEPTED_FILE_TYPES = {
   "application/vnd.oasis.opendocument.text": [], // ".odt"
   "application/rtf": [], // ".rtf"
   "text/rtf": [], // ".rtf"
-  "text/plain": [".txt", ".log"], // ".txt", ".log"
+  "text/plain": [".txt", ".log", ".err", ".prj", ".jgw"], // ".txt", ".log", ".err", ".prj", ".jgw"
   "image/vnd.dwg": [".dwg"], // ".dwg"
   "image/vnd.dxf": [".dxf"], // ".dxf"
+  "image/tiff": [".tif", ".tiff"], // ".tif", ".tiff"
+  "image/x-ecw": [".ecw"], // ".ecw"
+  "application/x-bak": [".bak"], // ".bak"
   "image/png": [], // ".png"
   "image/jpeg": [], // ".jpeg"
   "image/jpg": [], // ".jpg"
@@ -157,6 +164,7 @@ export const FULL_PLAN_ACCEPTED_FILE_TYPES = {
   "application/vnd.google-earth.kml+xml": [".kml"], // ".kml"
   "application/vnd.google-earth.kmz": [".kmz"], // ".kmz"
   "application/vnd.ms-outlook": [".msg"], // ".msg"
+  "message/rfc822": [".eml"], // ".eml"
 };
 
 export const VIEWER_ACCEPTED_FILE_TYPES = {
@@ -178,13 +186,17 @@ export const VIEWER_ACCEPTED_FILE_TYPES = {
   "application/vnd.oasis.opendocument.text": [], // ".odt"
   "application/rtf": [], // ".rtf"
   "text/rtf": [], // ".rtf"
-  "text/plain": [".txt", ".log"], // ".txt", ".log"
+  "text/plain": [".txt", ".log", ".err", ".prj", ".jgw"], // ".txt", ".log", ".err", ".prj", ".jgw"
+  "image/tiff": [".tif", ".tiff"], // ".tif", ".tiff"
+  "image/x-ecw": [".ecw"], // ".ecw"
+  "application/x-bak": [".bak"], // ".bak"
   "image/png": [], // ".png"
   "image/jpeg": [], // ".jpeg"
   "image/jpg": [], // ".jpg"
   "application/zip": [".zip"], // ".zip"
   "application/x-zip-compressed": [".zip"], // ".zip"
   "application/vnd.ms-outlook": [".msg"], // ".msg"
+  "message/rfc822": [".eml"], // ".eml"
 };
 
 export const SUPPORTED_DOCUMENT_SIMPLE_TYPES = [
@@ -200,6 +212,7 @@ export const SUPPORTED_DOCUMENT_SIMPLE_TYPES = [
   "video",
   "map",
   "email",
+  "other",
 ] as const;
 
 export const VIDEO_EVENT_TYPES = [

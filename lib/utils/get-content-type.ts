@@ -46,7 +46,12 @@ export function getSupportedContentType(contentType: string): string | null {
     case "application/vnd.google-earth.kmz":
       return "map";
     case "application/vnd.ms-outlook":
+    case "message/rfc822":
       return "email";
+    case "image/tiff":
+    case "image/x-ecw":
+    case "application/x-bak":
+      return "other";
     default:
       return null;
   }
@@ -122,6 +127,14 @@ export function getExtensionFromContentType(
       return "kmz";
     case "application/vnd.ms-outlook":
       return "msg";
+    case "message/rfc822":
+      return "eml";
+    case "image/tiff":
+      return "tiff";
+    case "image/x-ecw":
+      return "ecw";
+    case "application/x-bak":
+      return "bak";
     default:
       return null;
   }

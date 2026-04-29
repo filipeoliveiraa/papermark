@@ -119,16 +119,18 @@ export const processDocument = async ({
     },
   });
 
-  const isLogFile = name.toLowerCase().endsWith(".log");
+  const isDownloadOnlyByExtension =
+    /\.(log|err|prj|jgw|tif|tiff|ecw|bak)$/i.test(name);
 
   // determine if the document is download only
   const isDownloadOnly =
     type === "zip" ||
     type === "map" ||
     type === "email" ||
+    type === "other" ||
     contentType === "text/tab-separated-values" ||
     type === "cad" ||
-    isLogFile;
+    isDownloadOnlyByExtension;
 
   // Save data to the database
   const document = await prisma.document.create({
@@ -198,7 +200,10 @@ export const processDocument = async ({
         concurrencyKey: teamId,
       },
     );
-  } else if ((type === "docs" || type === "slides") && !isLogFile) {
+  } else if (
+    (type === "docs" || type === "slides") &&
+    !isDownloadOnlyByExtension
+  ) {
     await convertFilesToPdfTask.trigger(
       {
         documentId: document.id,

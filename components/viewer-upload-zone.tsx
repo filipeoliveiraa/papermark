@@ -109,6 +109,24 @@ export default function ViewerUploadZone({
           contentType = "application/vnd.ms-excel.sheet.macroEnabled.12";
         }
 
+        if (
+          uploadResult.fileName.endsWith(".tif") ||
+          uploadResult.fileName.endsWith(".tiff")
+        ) {
+          supportedFileType = "other";
+          contentType = "image/tiff";
+        }
+
+        if (uploadResult.fileName.endsWith(".ecw")) {
+          supportedFileType = "other";
+          contentType = "image/x-ecw";
+        }
+
+        if (uploadResult.fileName.endsWith(".bak")) {
+          supportedFileType = "other";
+          contentType = "application/x-bak";
+        }
+
         const documentData: DocumentData = {
           key: uploadResult.id,
           supportedFileType: supportedFileType,

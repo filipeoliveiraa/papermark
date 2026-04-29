@@ -618,6 +618,24 @@ export default function UploadZone({
             contentType = `application/vnd.google-earth.${uploadResult.fileName.endsWith(".kml") ? "kml+xml" : "kmz"}`;
           }
 
+          if (
+            uploadResult.fileName.endsWith(".tif") ||
+            uploadResult.fileName.endsWith(".tiff")
+          ) {
+            supportedFileType = "other";
+            contentType = "image/tiff";
+          }
+
+          if (uploadResult.fileName.endsWith(".ecw")) {
+            supportedFileType = "other";
+            contentType = "image/x-ecw";
+          }
+
+          if (uploadResult.fileName.endsWith(".bak")) {
+            supportedFileType = "other";
+            contentType = "application/x-bak";
+          }
+
           const documentData: DocumentData = {
             key: uploadResult.id,
             supportedFileType: supportedFileType,

@@ -263,6 +263,24 @@ export function AddDocumentModal({
         contentType = "application/vnd.ms-excel.sheet.macroEnabled.12";
       }
 
+      if (
+        currentFile.name.endsWith(".tif") ||
+        currentFile.name.endsWith(".tiff")
+      ) {
+        supportedFileType = "other";
+        contentType = "image/tiff";
+      }
+
+      if (currentFile.name.endsWith(".ecw")) {
+        supportedFileType = "other";
+        contentType = "image/x-ecw";
+      }
+
+      if (currentFile.name.endsWith(".bak")) {
+        supportedFileType = "other";
+        contentType = "application/x-bak";
+      }
+
       if (!supportedFileType) {
         setUploading(false);
         toast.error(

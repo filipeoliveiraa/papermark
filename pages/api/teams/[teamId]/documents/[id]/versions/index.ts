@@ -154,9 +154,13 @@ export default async function handle(
         },
       });
 
-      const isLogFile = url.toLowerCase().endsWith(".log");
+      const isDownloadOnlyByExtension =
+        /\.(log|err|prj|jgw|tif|tiff|ecw|bak)$/i.test(url);
 
-      if ((type === "docs" || type === "slides") && !isLogFile) {
+      if (
+        (type === "docs" || type === "slides") &&
+        !isDownloadOnlyByExtension
+      ) {
         await convertFilesToPdfTask.trigger(
           {
             documentVersionId: version.id,
