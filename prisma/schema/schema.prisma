@@ -409,25 +409,32 @@ model IncomingWebhook {
 }
 
 model RestrictedToken {
-  id         String    @id @default(cuid())
-  name       String
-  hashedKey  String    @unique
-  partialKey String
-  scopes     String? // comma separated (Eg: "documents:write,links:write")
-  expires    DateTime?
-  lastUsed   DateTime?
-  rateLimit  Int       @default(60) // rate limit per minute
+  id          String    @id @default(cuid())
+  name        String
+  hashedKey   String    @unique
+  partialKey  String
+  scopes      String? // space separated. Either a single preset ("apis.all" or "apis.read") or a granular list (e.g. "documents.write links.write"). Null is legacy and migrated to "apis.all" by 20260425000000_normalize_token_scopes.
+  mode        String    @default("live") // "live" | "test"
+  source      String    @default("dashboard") // "dashboard" | "oauth"
+  subjectType String    @default("user") // validated in app code via Zod; "user" keys are revoked when the owner loses team access, "machine" keys stay team-scoped
+  clientId    String? // references OAuthClient.id for tokens issued via OAuth
+  expires     DateTime?
+  lastUsed    DateTime?
+  rateLimit   Int       @default(60) // rate limit per minute
 
-  userId String
-  teamId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId      String
+  teamId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  oauthClient OAuthClient? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([teamId])
+  @@index([hashedKey])
+  @@index([clientId])
 }
 
 model Webhook {

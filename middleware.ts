@@ -43,7 +43,7 @@ export const config = {
      * 4. /_vercel (Vercel internals)
      * 5. /favicon.ico, /sitemap.xml, /robots.txt (static files)
      */
-    "/((?!api/|_next/|_static|vendor|_icons|_vercel|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!api/|oauth/|\\.well-known/|_next/|_static|vendor|_icons|_vercel|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };
 

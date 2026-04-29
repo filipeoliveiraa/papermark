@@ -153,3 +153,19 @@ model DocumentUpload {
   @@index([dataroomId])
   @@index([dataroomDocumentId])
 }
+
+model PendingDocumentUpload {
+  id          String              @id @default(cuid())
+  uploadId    String              @unique
+  teamId      String
+  tokenId     String
+  key         String
+  contentType String
+  storageType DocumentStorageType @default(S3_PATH)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime            @default(now())
+
+  @@index([teamId, expiresAt])
+  @@index([tokenId, expiresAt])
+}

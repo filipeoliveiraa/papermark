@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { getServerSession } from "next-auth";
 
+import { revokeUserBoundTeamTokens } from "@/lib/api/auth/restricted-tokens";
 import { errorhandler } from "@/lib/errorHandler";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
@@ -63,6 +64,7 @@ export default async function handle(
             ownerId: null,
           },
         }),
+        revokeUserBoundTeamTokens(userToBeDeleted, teamId),
         // delete the user from the team
         prisma.userTeam.delete({
           where: {

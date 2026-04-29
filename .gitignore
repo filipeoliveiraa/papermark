@@ -48,7 +48,10 @@ next-env.d.ts
 
 # Internal scripts
 pages/api/scripts
-scripts/
+scripts/*
+!scripts/generate-openapi.ts
+!scripts/mcp-smoke.mjs
+!scripts/check-tool-contracts.sh
 !.github/scripts/
 
 # marketing emails
