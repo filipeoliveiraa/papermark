@@ -4,6 +4,7 @@ import posthog from "posthog-js";
 // import { useRouter } from "next/router";
 import { PostHogProvider } from "posthog-js/react";
 
+import { registerLandingVariant } from "@/lib/landing-ab-client";
 import { getPostHogConfig } from "@/lib/posthog";
 import { CustomUser } from "@/lib/types";
 
@@ -39,6 +40,7 @@ export const PostHogCustomProvider = ({
             } else {
               posthog.reset();
             }
+            registerLandingVariant(posthog);
           })
           .catch(() => {
             // Do nothing.
