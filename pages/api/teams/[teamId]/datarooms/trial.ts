@@ -133,13 +133,13 @@ export default async function handle(
       waitUntil(
         sendDataroomTrial24hReminderEmailTask.trigger(
           { to: email!, name: fullName.split(" ")[0], teamId },
-          { delay: "6d" },
+          { delay: "6d", tags: [`team_${teamId}`] },
         ),
       );
       waitUntil(
         sendDataroomTrialExpiredEmailTask.trigger(
           { to: email!, name: fullName.split(" ")[0], teamId },
-          { delay: "7d" },
+          { delay: "7d", tags: [`team_${teamId}`] },
         ),
       );
 
