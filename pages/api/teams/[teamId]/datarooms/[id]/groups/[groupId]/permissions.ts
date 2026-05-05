@@ -176,79 +176,54 @@ export default async function handler(
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    const existingPermissions = await prisma.viewerGroupAccessControls.findMany(
-      {
-        where: {
-          groupId,
-          group: { dataroomId },
-        },
-        select: { itemId: true, itemType: true },
-      },
-    );
-
-    const existingSet = new Set(
-      existingPermissions.map((p) => `${p.itemId}-${p.itemType}`),
-    );
-
-    const toUpdate: {
-      groupId: string;
-      itemId: string;
-      itemType: ItemType;
-      canView: boolean;
-      canDownload: boolean;
-    }[] = [];
-    const toCreate: {
-      groupId: string;
-      itemId: string;
-      itemType: ItemType;
-      canView: boolean;
-      canDownload: boolean;
-    }[] = [];
-
-    Object.entries(permissions).forEach(([itemId, itemPermissions]) => {
-      const key = `${itemId}-${itemPermissions.itemType}`;
-      const data = {
-        groupId,
-        itemId,
-        itemType: itemPermissions.itemType,
-        canView: itemPermissions.view,
-        canDownload: itemPermissions.download,
-      };
-
-      if (existingSet.has(key)) {
-        toUpdate.push(data);
-      } else {
-        toCreate.push(data);
-      }
+    // Verify the group belongs to this dataroom + team to avoid spoofing
+    const group = await prisma.viewerGroup.findFirst({
+      where: { id: groupId, dataroomId, teamId },
+      select: { id: true },
     });
 
-    console.log("toUpdate", toUpdate);
-    console.log("toCreate", toCreate);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
 
-    // Perform operations
+    // Build the deterministic upsert payload. We sort by itemId so the order
+    // of writes is stable across calls; combined with upsert this avoids the
+    // create/update race that previously caused intermittent failures and
+    // "random-feeling" persisted permissions when saves overlapped.
+    const upserts = Object.entries(permissions)
+      .map(([itemId, itemPermissions]) => ({
+        itemId,
+        itemType: itemPermissions.itemType,
+        canView: Boolean(itemPermissions.view),
+        canDownload: Boolean(itemPermissions.download),
+      }))
+      .sort((a, b) => a.itemId.localeCompare(b.itemId));
+
+    // Perform operations sequentially inside a single transaction so that
+    // either every change lands or none do. We use upsert so we don't have to
+    // distinguish "create" vs "update" up front (the previous split caused
+    // unique-constraint failures when other in-flight saves had already
+    // created the row).
     await prisma.$transaction(async (tx) => {
-      if (toUpdate.length > 0) {
-        await Promise.all(
-          toUpdate.map((item) =>
-            tx.viewerGroupAccessControls.update({
-              where: {
-                groupId_itemId: {
-                  groupId: item.groupId,
-                  itemId: item.itemId,
-                },
-              },
-              data: {
-                canView: item.canView,
-                canDownload: item.canDownload,
-              },
-            }),
-          ),
-        );
-      }
-
-      if (toCreate.length > 0) {
-        await tx.viewerGroupAccessControls.createMany({
-          data: toCreate,
+      for (const item of upserts) {
+        await tx.viewerGroupAccessControls.upsert({
+          where: {
+            groupId_itemId: { groupId, itemId: item.itemId },
+          },
+          create: {
+            groupId,
+            itemId: item.itemId,
+            itemType: item.itemType,
+            canView: item.canView,
+            canDownload: item.canDownload,
+          },
+          update: {
+            // itemType is immutable for a given (groupId, itemId), but we set
+            // it explicitly to recover from any historical inconsistencies.
+            itemType: item.itemType,
+            canView: item.canView,
+            canDownload: item.canDownload,
+          },
         });
       }
     });

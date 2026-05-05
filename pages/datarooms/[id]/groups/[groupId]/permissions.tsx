@@ -8,7 +8,7 @@ import { useDataroomGroup } from "@/lib/swr/use-dataroom-groups";
 
 export default function DataroomGroupPage() {
   const { dataroom } = useDataroom();
-  const { viewerGroup } = useDataroomGroup();
+  const { viewerGroup, mutate: mutateViewerGroup } = useDataroomGroup();
 
   if (!dataroom || !viewerGroup) {
     return <div>Loading...</div>;
@@ -28,6 +28,7 @@ export default function DataroomGroupPage() {
               dataroomId={dataroom.id}
               permissions={viewerGroup.accessControls}
               groupId={viewerGroup.id}
+              onSaved={mutateViewerGroup}
             />
           </div>
         </div>

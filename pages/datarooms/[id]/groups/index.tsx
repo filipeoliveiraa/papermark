@@ -96,7 +96,7 @@ export default function DataroomGroupPage() {
                         <Link
                           href={`/datarooms/${dataroom.id}/groups/${group.id}`}
                         >
-                          <GroupCard group={group} />
+                          <GroupCard group={group} dataroomId={dataroom.id} />
                         </Link>
                       </li>
                     ))}

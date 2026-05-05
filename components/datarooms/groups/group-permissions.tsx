@@ -20,9 +20,9 @@ import {
   File,
   Folder,
   HomeIcon,
+  Loader2Icon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useDebounce } from "use-debounce";
 
 import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { useDataroomFoldersTree } from "@/lib/swr/use-dataroom";
@@ -34,7 +34,6 @@ import {
 
 import CloudDownloadOff from "@/components/shared/icons/cloud-download-off";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -139,12 +138,14 @@ const createColumns = (extra: ColumnExtra): ColumnDef<FileOrFolder>[] => [
         extra.updatePermissions(item.id, value);
       };
 
+      const toggleValue: string[] = [];
+      if (item.permissions.view) toggleValue.push("view");
+      if (item.permissions.download) toggleValue.push("download");
+
       return (
         <ToggleGroup
           type="multiple"
-          value={Object.entries(item.permissions)
-            .filter(([_, value]) => value)
-            .map(([key, _]) => key)}
+          value={toggleValue}
           onValueChange={handleValueChange}
         >
           <ToggleGroupItem
@@ -202,11 +203,12 @@ const buildTree = (
   const getPermissions = (id: string) => {
     const permission = permissions.find((p) => p.itemId === id);
 
-    // If we have permission data loaded, use it. Otherwise default to true for consistency.
-    const hasPermissionData = permissions.length > 0;
-
+    // No row in viewerGroupAccessControls means the viewer cannot see the
+    // item. Default to false so the UI faithfully reflects the persisted
+    // server state (otherwise toggling one item silently changes the view of
+    // unrelated items after refetch, which feels random to users).
     return {
-      view: permission ? permission.canView : hasPermissionData ? false : true,
+      view: permission ? permission.canView : false,
       download: permission ? permission.canDownload : false,
       partialView: false,
       partialDownload: false,
@@ -349,10 +351,12 @@ export default function ExpandableTable({
   dataroomId,
   groupId,
   permissions,
+  onSaved,
 }: {
   dataroomId: string;
   groupId: string;
   permissions: ViewerGroupAccessControls[];
+  onSaved?: () => void | Promise<unknown>;
 }) {
   const teamInfo = useTeam();
   const teamId = teamInfo?.currentTeam?.id;
@@ -362,7 +366,8 @@ export default function ExpandableTable({
   });
   const [data, setData] = useState<FileOrFolder[]>([]);
   const [pendingChanges, setPendingChanges] = useState<ItemPermission>({});
-  const [debouncedPendingChanges] = useDebounce(pendingChanges, 2000);
+  const [isSaving, setIsSaving] = useState(false);
+  const hasPendingChanges = Object.keys(pendingChanges).length > 0;
 
   // Use ref to access current data without dependency
   const dataRef = useRef<FileOrFolder[]>([]);
@@ -403,22 +408,14 @@ export default function ExpandableTable({
       const updatedPermissions = {
         view: newPermissions.includes("view"),
         download: newPermissions.includes("download"),
-        partialView: newPermissions.includes("partialView"),
-        partialDownload: newPermissions.includes("partialDownload"),
       };
 
-      // Special cases
-      if (!updatedPermissions.view && item.permissions.download) {
+      // Enforce invariants:
+      //   - download requires view (you can't download what you can't see)
+      //   - turning view off implies turning download off
+      if (!updatedPermissions.view) {
         updatedPermissions.download = false;
       } else if (updatedPermissions.download && !updatedPermissions.view) {
-        updatedPermissions.view = true;
-      }
-
-      if (updatedPermissions.partialDownload) {
-        updatedPermissions.download = true;
-      }
-
-      if (updatedPermissions.partialView) {
         updatedPermissions.view = true;
       }
 
@@ -725,53 +722,78 @@ export default function ExpandableTable({
     [],
   );
 
+  // Rebuild the tree from server state when the underlying permissions or
+  // folder tree change. We intentionally only do this when there are no
+  // pending edits so that an in-flight SWR refetch (e.g. from another tab)
+  // never wipes out unsaved work in this view.
   useEffect(() => {
-    if (folders && !loading) {
+    if (folders && !loading && !hasPendingChanges) {
       const treeData = buildTreeWithRoot(folders, permissions, "Dataroom Home");
       setData(treeData);
     }
-  }, [folders, loading, permissions]);
+  }, [folders, loading, permissions, hasPendingChanges]);
 
-  const saveChanges = useCallback(
-    async (changes: typeof pendingChanges) => {
-      try {
-        const response = await fetch(
-          `/api/teams/${teamId}/datarooms/${dataroomId}/groups/${groupId}/permissions`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              dataroomId,
-              groupId,
-              permissions: changes,
-            }),
+  const handleDiscardChanges = useCallback(() => {
+    if (!folders) return;
+    setPendingChanges({});
+    setData(buildTreeWithRoot(folders, permissions, "Dataroom Home"));
+  }, [folders, permissions]);
+
+  const handleSaveChanges = useCallback(async () => {
+    if (!hasPendingChanges || isSaving) return;
+    setIsSaving(true);
+    const changesToSave = pendingChanges;
+    try {
+      const response = await fetch(
+        `/api/teams/${teamId}/datarooms/${dataroomId}/groups/${groupId}/permissions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        );
+          body: JSON.stringify({
+            dataroomId,
+            groupId,
+            permissions: changesToSave,
+          }),
+        },
+      );
 
-        if (!response.ok) {
-          throw new Error("Failed to save permissions");
-        }
-
-        toast.success("Permissions updated successfully.");
-
-        setPendingChanges({});
-      } catch (error) {
-        console.error("Error saving permissions:", error);
-        toast.error("Failed to update permissions", {
-          description: "Please try again.",
-        });
+      if (!response.ok) {
+        throw new Error("Failed to save permissions");
       }
-    },
-    [dataroomId, groupId],
-  );
 
-  useEffect(() => {
-    if (Object.keys(debouncedPendingChanges).length > 0) {
-      saveChanges(debouncedPendingChanges);
+      toast.success("Permissions updated successfully.");
+      await onSaved?.();
+      setPendingChanges({});
+    } catch (error) {
+      console.error("Error saving permissions:", error);
+      toast.error("Failed to update permissions", {
+        description: "Please try again.",
+      });
+    } finally {
+      setIsSaving(false);
     }
-  }, [debouncedPendingChanges, saveChanges]);
+  }, [
+    hasPendingChanges,
+    isSaving,
+    pendingChanges,
+    teamId,
+    dataroomId,
+    groupId,
+    onSaved,
+  ]);
+
+  // Warn the user before they navigate away with unsaved permission changes.
+  useEffect(() => {
+    if (!hasPendingChanges) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasPendingChanges]);
 
   const columns = useMemo(
     () => createColumns({ updatePermissions }),
@@ -800,68 +822,141 @@ export default function ExpandableTable({
 
   if (loading) return <div>Loading...</div>;
 
+  const changedItemCount = Object.keys(pendingChanges).length;
+
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  className="py-2 first:w-12 last:text-right"
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => {
-              const isRoot = row.original.id === "__dataroom_root__";
-              return (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className={cn(isRoot && "bg-blue-50/50 dark:bg-blue-950/50")}
-                >
-                  {row.getVisibleCells().map((cell, index) => (
-                    <TableCell
-                      key={cell.id}
-                      style={
-                        index === 0
-                          ? {
-                              paddingLeft: `${row.depth * 1.25}rem`,
-                            }
-                          : undefined
-                      }
-                      className="py-2 last:flex last:justify-end"
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              );
-            })
+    <div className="space-y-3">
+      <div
+        role="status"
+        aria-live="polite"
+        className={cn(
+          "flex flex-col gap-3 rounded-md border px-4 py-3 transition-colors sm:flex-row sm:items-center sm:justify-between",
+          hasPendingChanges
+            ? "border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/40"
+            : "border-border bg-muted/40",
+        )}
+      >
+        <div className="flex items-center gap-2 text-sm">
+          {hasPendingChanges ? (
+            <>
+              <span
+                aria-hidden
+                className="inline-block h-2 w-2 rounded-full bg-amber-500"
+              />
+              <span className="font-medium text-amber-900 dark:text-amber-100">
+                {changedItemCount} unsaved{" "}
+                {changedItemCount === 1 ? "change" : "changes"}
+              </span>
+              <span className="text-muted-foreground">
+                Save to apply your updates to this group.
+              </span>
+            </>
           ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                No results.
-              </TableCell>
-            </TableRow>
+            <span className="text-muted-foreground">
+              All permission changes saved.
+            </span>
           )}
-        </TableBody>
-      </Table>
+        </div>
+        <div className="flex items-center gap-2 sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleDiscardChanges}
+            disabled={!hasPendingChanges || isSaving}
+          >
+            Discard
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSaveChanges}
+            disabled={!hasPendingChanges || isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              "Save changes"
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "rounded-md border",
+          isSaving && "pointer-events-none opacity-60",
+        )}
+      >
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className="py-2 first:w-12 last:text-right"
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => {
+                const isRoot = row.original.id === "__dataroom_root__";
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className={cn(
+                      isRoot && "bg-blue-50/50 dark:bg-blue-950/50",
+                    )}
+                  >
+                    {row.getVisibleCells().map((cell, index) => (
+                      <TableCell
+                        key={cell.id}
+                        style={
+                          index === 0
+                            ? {
+                                paddingLeft: `${row.depth * 1.25}rem`,
+                              }
+                            : undefined
+                        }
+                        className="py-2 last:flex last:justify-end"
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

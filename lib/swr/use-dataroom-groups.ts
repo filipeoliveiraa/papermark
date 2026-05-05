@@ -101,7 +101,11 @@ export function useDataroomGroup() {
   const teamInfo = useTeam();
   const teamId = teamInfo?.currentTeam?.id;
 
-  const { data: viewerGroup, error } = useSWR<ViewerGroupWithMembers>(
+  const {
+    data: viewerGroup,
+    error,
+    mutate,
+  } = useSWR<ViewerGroupWithMembers>(
     teamId &&
       id &&
       groupId &&
@@ -121,6 +125,7 @@ export function useDataroomGroup() {
     viewerGroupPermissions: viewerGroup?.accessControls ?? [],
     loading: !viewerGroup && !error,
     error,
+    mutate,
   };
 }
 
