@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert";
 
 export default function TrialBanner() {
-  const { trial } = usePlan();
+  const { trial, trialEndsAt } = usePlan();
   const isTrial = !!trial;
   const [showTrialBanner, setShowTrialBanner] = useState<boolean | null>(null);
 
@@ -31,7 +31,12 @@ export default function TrialBanner() {
   }, [isTrial]);
 
   if (isTrial && showTrialBanner) {
-    return <TrialBannerComponent setShowTrialBanner={setShowTrialBanner} />;
+    return (
+      <TrialBannerComponent
+        setShowTrialBanner={setShowTrialBanner}
+        trialEndsAt={trialEndsAt}
+      />
+    );
   }
 
   return null;
@@ -39,8 +44,10 @@ export default function TrialBanner() {
 
 function TrialBannerComponent({
   setShowTrialBanner,
+  trialEndsAt,
 }: {
   setShowTrialBanner: Dispatch<SetStateAction<boolean | null>>;
+  trialEndsAt: Date | null | undefined;
 }) {
   const teamInfo = useTeam();
 
@@ -53,16 +60,22 @@ function TrialBannerComponent({
 
   const { datarooms } = useDataroomsSimple();
 
-  const trialDaysLeft = datarooms
-    ? daysLeft(
-        new Date(
-          datarooms[0]?.createdAt ??
-            teamInfo?.currentTeam?.createdAt ??
-            new Date(),
-        ),
-        7,
-      )
-    : 0;
+  // Prefer the explicit trialEndsAt override when set (e.g. after a manual
+  // trial extension); otherwise fall back to the legacy "7d from first
+  // dataroom or team creation" computation.
+  let trialDaysLeft = 0;
+  if (trialEndsAt) {
+    trialDaysLeft = daysLeft(new Date(trialEndsAt), 0);
+  } else if (datarooms) {
+    trialDaysLeft = daysLeft(
+      new Date(
+        datarooms[0]?.createdAt ??
+          teamInfo?.currentTeam?.createdAt ??
+          new Date(),
+      ),
+      7,
+    );
+  }
 
   const isExpired = trialDaysLeft <= 0;
 

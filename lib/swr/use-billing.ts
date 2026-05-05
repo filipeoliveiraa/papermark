@@ -59,6 +59,7 @@ type PlanResponse = {
   pauseEndsAt: Date | null;
   isPaused: boolean;
   cancelledAt: Date | null;
+  trialEndsAt: Date | null;
   isCustomer: boolean;
   subscriptionCycle: "monthly" | "yearly";
   discount: SubscriptionDiscount | null;
@@ -126,6 +127,7 @@ export function usePlan({
     startsAt: plan?.startsAt,
     endsAt: plan?.endsAt,
     cancelledAt: plan?.cancelledAt,
+    trialEndsAt: plan?.trialEndsAt ?? null,
     pausedAt: plan?.pausedAt,
     isPaused: plan?.isPaused ?? false,
     isCancelled: !!plan?.cancelledAt,

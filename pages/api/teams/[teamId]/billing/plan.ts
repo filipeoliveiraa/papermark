@@ -48,6 +48,7 @@ export default async function handle(
           pauseStartsAt: true,
           pauseEndsAt: true,
           cancelledAt: true,
+          trialEndsAt: true,
         },
       });
 
@@ -103,6 +104,7 @@ export default async function handle(
         pauseEndsAt: team.pauseEndsAt,
         isPaused,
         cancelledAt: team.cancelledAt,
+        trialEndsAt: team.trialEndsAt,
         discount,
       });
     } catch (error) {

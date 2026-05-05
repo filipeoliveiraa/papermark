@@ -28,8 +28,15 @@ import { Separator } from "@/components/ui/separator";
 export default function DataroomsPage() {
   const teamInfo = useTeam();
   const { datarooms, totalCount } = useDatarooms();
-  const { isFree, isPro, isBusiness, isDatarooms, isDataroomsPlus, isTrial } =
-    usePlan();
+  const {
+    isFree,
+    isPro,
+    isBusiness,
+    isDatarooms,
+    isDataroomsPlus,
+    isTrial,
+    trialEndsAt,
+  } = usePlan();
   const { limits } = useLimits();
   const router = useRouter();
 
@@ -122,13 +129,18 @@ export default function DataroomsPage() {
                   <span>Trial: </span>
                   <span className="font-medium">
                     {(() => {
-                      const startDate =
-                        datarooms && datarooms.length > 0
-                          ? datarooms[datarooms.length - 1]?.createdAt
-                          : new Date(
-                              teamInfo?.currentTeam?.createdAt ?? Date.now(),
-                            );
-                      const days = daysLeft(new Date(startDate), 7);
+                      let days: number;
+                      if (trialEndsAt) {
+                        days = daysLeft(new Date(trialEndsAt), 0);
+                      } else {
+                        const startDate =
+                          datarooms && datarooms.length > 0
+                            ? datarooms[datarooms.length - 1]?.createdAt
+                            : new Date(
+                                teamInfo?.currentTeam?.createdAt ?? Date.now(),
+                              );
+                        days = daysLeft(new Date(startDate), 7);
+                      }
                       if (days <= 0) return "Expired";
                       const label = days === 1 ? "day" : "days";
                       return `${days} ${label} left`;
