@@ -24,6 +24,7 @@ type ProcessDocumentParams = {
   teamPlan: string;
   userId?: string;
   folderPathName?: string;
+  folderId?: string | null;
   createLink?: boolean;
   isExternalUpload?: boolean;
 };
@@ -34,6 +35,7 @@ export const processDocument = async ({
   teamPlan,
   userId,
   folderPathName,
+  folderId,
   createLink = false,
   isExternalUpload = false,
 }: ProcessDocumentParams) => {
@@ -107,17 +109,22 @@ export const processDocument = async ({
     }
   }
 
-  const folder = await prisma.folder.findUnique({
-    where: {
-      teamId_path: {
-        teamId,
-        path: "/" + folderPathName,
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
+  // `folderId` (resolved by callers like the public v1 API) wins over the
+  // path-based lookup; the path lookup remains for the dashboard upload flow
+  // which still passes `folderPathName` referring to a pre-existing folder.
+  const folder = folderId
+    ? { id: folderId }
+    : folderPathName
+      ? await prisma.folder.findUnique({
+          where: {
+            teamId_path: {
+              teamId,
+              path: "/" + folderPathName,
+            },
+          },
+          select: { id: true },
+        })
+      : null;
 
   const isDownloadOnlyByExtension =
     /\.(log|err|prj|jgw|tif|tiff|ecw|bak)$/i.test(name);
