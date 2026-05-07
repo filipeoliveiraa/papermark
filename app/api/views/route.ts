@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { hashToken } from "@/lib/api/auth/token";
 import { verifyPreviewSession } from "@/lib/auth/preview-auth";
 import { PreviewSession } from "@/lib/auth/preview-auth";
+import { isEmbeddableUrl } from "@/lib/edge-config/embeddable-domains";
 import { sendOtpVerificationEmail } from "@/lib/emails/send-email-otp-verification";
 import { getFeatureFlags } from "@/lib/featureFlags";
 import { getFile } from "@/lib/files/get-file";
@@ -729,6 +730,11 @@ export async function POST(request: NextRequest) {
       const agentsEnabled =
         link.team?.agentsEnabled && link.document?.agentsEnabled;
 
+      const isLinkType = documentVersion?.type === "link";
+      const isEmbeddable = isLinkType
+        ? await isEmbeddableUrl(documentVersion?.file)
+        : false;
+
       const returnObject = {
         message: "View recorded",
         viewId: !isPreview && newView ? newView.id : undefined,
@@ -772,6 +778,7 @@ export async function POST(request: NextRequest) {
         verificationToken: hashedVerificationToken ?? undefined,
         ...(isTeamMember && { isTeamMember: true }),
         ...(agentsEnabled && { agentsEnabled: true }),
+        ...(isEmbeddable && { isEmbeddable: true }),
       };
 
       return NextResponse.json(returnObject);

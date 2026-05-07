@@ -183,6 +183,7 @@ export default function ViewData({
             linkUrl={viewData.file || document.versions[0]?.file || ""}
             linkName={document.name}
             versionNumber={document.versions[0]?.versionNumber || 1}
+            isEmbeddable={viewData.isEmbeddable ?? false}
             navData={navData}
           />
         ) : document.downloadOnly ? (

@@ -65,6 +65,7 @@ export type DEFAULT_DATAROOM_DOCUMENT_VIEW_TYPE = {
   conversationsEnabled?: boolean;
   isTeamMember?: boolean;
   agentsEnabled?: boolean;
+  isEmbeddable?: boolean;
   dataroomName?: string;
 };
 
@@ -198,6 +199,7 @@ export default function DataroomDocumentView({
           conversationsEnabled,
           isTeamMember,
           agentsEnabled,
+          isEmbeddable,
           dataroomName,
         } = fetchData as DEFAULT_DATAROOM_DOCUMENT_VIEW_TYPE;
         analytics.identify(
@@ -244,6 +246,7 @@ export default function DataroomDocumentView({
           conversationsEnabled,
           isTeamMember,
           agentsEnabled,
+          isEmbeddable,
           dataroomName,
         }));
         setSubmitted(true);

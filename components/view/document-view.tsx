@@ -51,6 +51,7 @@ export type DEFAULT_DOCUMENT_VIEW_TYPE = {
   verificationToken?: string;
   isTeamMember?: boolean;
   agentsEnabled?: boolean;
+  isEmbeddable?: boolean;
   viewerId?: string;
 };
 
@@ -176,6 +177,7 @@ export default function DocumentView({
           ipAddress,
           verificationToken,
           agentsEnabled,
+          isEmbeddable,
           isTeamMember,
           viewerId,
         } = fetchData as DEFAULT_DOCUMENT_VIEW_TYPE;
@@ -215,6 +217,7 @@ export default function DocumentView({
           ipAddress,
           isTeamMember,
           agentsEnabled,
+          isEmbeddable,
           viewerId,
         });
         setSubmitted(true);

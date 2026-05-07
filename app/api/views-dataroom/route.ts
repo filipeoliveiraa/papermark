@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/dataroom-auth";
 import { verifyDataroomSession } from "@/lib/auth/dataroom-auth";
 import { PreviewSession, verifyPreviewSession } from "@/lib/auth/preview-auth";
+import { isEmbeddableUrl } from "@/lib/edge-config/embeddable-domains";
 import { sendOtpVerificationEmail } from "@/lib/emails/send-email-otp-verification";
 import { getFile } from "@/lib/files/get-file";
 import { newId } from "@/lib/id-helper";
@@ -1068,6 +1069,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const isLinkType = documentVersion?.type === "link";
+      const isEmbeddable = isLinkType
+        ? await isEmbeddableUrl(documentVersion?.file)
+        : false;
+
       const returnObject = {
         message: "View recorded",
         viewId: !isPreview && newView ? newView.id : undefined,
@@ -1119,6 +1125,7 @@ export async function POST(request: NextRequest) {
         agentsEnabled: link.dataroom?.agentsEnabled ?? false,
         dataroomName: link.dataroom?.name,
         ...(isTeamMember && { isTeamMember: true }),
+        ...(isEmbeddable && { isEmbeddable: true }),
       };
 
       const response = NextResponse.json(returnObject, { status: 200 });
