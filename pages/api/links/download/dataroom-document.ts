@@ -6,7 +6,11 @@ import { waitUntil } from "@vercel/functions";
 import { getFile } from "@/lib/files/get-file";
 import { notifyDocumentDownload } from "@/lib/integrations/slack/events";
 import prisma from "@/lib/prisma";
-import { getFileNameWithPdfExtension } from "@/lib/utils";
+import {
+  buildAttachmentDispositionForName,
+  getFileNameWithPdfExtension,
+} from "@/lib/utils";
+import { ensureFileExtension } from "@/lib/utils/get-content-type";
 import { getIpAddress } from "@/lib/utils/ip";
 
 export const config = {
@@ -197,10 +201,25 @@ export default async function handle(
           : (downloadDocuments[0].document!.versions[0].originalFile ??
             downloadDocuments[0].document!.versions[0].file);
 
+      // Pre-compute the user-facing download filename (renamed name + correct
+      // extension). We pass it as ResponseContentDisposition on the S3
+      // presigned URL so the browser uses it instead of the original
+      // upload-time disposition stored on the S3 object. CloudFront-fronted
+      // origins ignore this and still return the stored disposition.
+      const versionForName = downloadDocuments[0].document!.versions[0];
+      const desiredFileName = ensureFileExtension({
+        name: downloadDocuments[0].document!.name,
+        contentType: versionForName.contentType,
+        type: versionForName.type,
+      });
+
       const downloadUrl = await getFile({
-        type: downloadDocuments[0].document!.versions[0].storageType,
+        type: versionForName.storageType,
         data: file,
         isDownload: true,
+        responseContentDisposition: desiredFileName
+          ? buildAttachmentDispositionForName(desiredFileName)
+          : undefined,
       });
 
       // For PDF files with watermark, always buffer and process
@@ -245,11 +264,12 @@ export default async function handle(
 
         const pdfBuffer = await response.arrayBuffer();
 
-        // Set appropriate headers for watermarked PDF
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${encodeURIComponent(getFileNameWithPdfExtension(downloadDocuments[0].document!.name))}"`,
+          buildAttachmentDispositionForName(
+            getFileNameWithPdfExtension(downloadDocuments[0].document!.name),
+          ),
         );
         res.setHeader("Content-Length", Buffer.from(pdfBuffer).length);
 
@@ -257,52 +277,14 @@ export default async function handle(
         return res.send(Buffer.from(pdfBuffer));
       }
 
-      // For non-watermarked PDFs, we need to buffer and set proper headers
-      // - contentType is application/pdf
-      // - contentType is null and type is pdf
-      // - contentType starts with image/
-      if (
-        downloadDocuments[0].document!.versions[0].contentType ===
-          "application/pdf" ||
-        (downloadDocuments[0].document!.versions[0].contentType === null &&
-          downloadDocuments[0].document!.versions[0].type === "pdf") ||
-        downloadDocuments[0].document!.versions[0].contentType?.startsWith(
-          "image/",
-        )
-      ) {
-        const response = await fetch(downloadUrl);
-        if (!response.ok) {
-          return res.status(500).json({ error: "Error downloading file" });
-        }
-
-        const pdfBuffer = await response.arrayBuffer();
-
-        // Set appropriate headers to force download
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader(
-          "Content-Disposition",
-          `attachment; filename="${encodeURIComponent(downloadDocuments[0].document!.name)}"`,
-        );
-        res.setHeader("Content-Length", Buffer.from(pdfBuffer).length);
-        res.setHeader("Cache-Control", "no-cache");
-
-        // Send the PDF buffer directly
-        return res.send(Buffer.from(pdfBuffer));
-      }
-
-      const headResponse = await fetch(downloadUrl, { method: "HEAD" });
-      const contentType =
-        downloadDocuments[0].document!.versions[0].contentType ||
-        headResponse.headers.get("content-type") ||
-        "application/octet-stream";
-      const fileName = downloadDocuments[0].document!.name;
-
-      // For all other files, return direct download URL
+      // For everything else (PDFs, images, sheets, slides, archives, ...)
+      // we hand back the presigned URL with the renamed Content-Disposition
+      // baked in via response-content-disposition. The client iframes it,
+      // CloudFront/S3 returns the bytes directly, and the OS saves the file
+      // with the right name + extension. No need to buffer through Vercel.
       return res.status(200).json({
         downloadUrl,
-        fileName,
-        contentType,
-        isDirectDownload: true,
+        fileName: desiredFileName,
       });
     } catch (error) {
       console.error("Error:", error);

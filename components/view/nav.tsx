@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 
 import { createAdaptiveSurfacePalette } from "@/lib/utils/create-adaptive-surface-palette";
+import { downloadFromLinkEndpoint } from "@/lib/utils/download-document";
 
 import {
   DropdownMenu,
@@ -131,77 +132,26 @@ export default function Nav({
     }
     if (!allowDownload || type === "notion") return;
 
-    const downloadPromise = (async () => {
-      const response = await fetch(`/api/links/download`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ linkId, viewId }),
-      });
+    // The server only produces a buffered binary response (which is when this
+    // fallback is consulted) for watermarked PDFs today, but other viewers
+    // ("sheet", future flows) share this Nav. Derive a safe fallback from the
+    // viewer `type` rather than hardcoding ".pdf" so non-PDF flows don't get
+    // a misleading extension if the contract ever broadens. We don't have the
+    // document name here, so we use a generic "document"-stem fallback.
+    const fallbackFileName =
+      !type || type === "pdf" ? "document.pdf" : "document";
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || "Failed to download file";
-        throw new Error(errorMessage);
-      }
-
-      // Check if the response is a PDF file (for watermarked PDFs)
-      const contentType = response.headers.get("content-type");
-      if (contentType === "application/pdf") {
-        // Handle direct PDF download (watermarked PDFs)
-        const pdfBlob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(pdfBlob);
-
-        // Extract filename from Content-Disposition header
-        const contentDisposition = response.headers.get("content-disposition");
-        let filename = "document.pdf";
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(
-            /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/,
-          );
-          if (filenameMatch && filenameMatch[1]) {
-            filename = decodeURIComponent(
-              filenameMatch[1].replace(/['"]/g, ""),
-            );
-          }
-        }
-
-        const link = document.createElement("a");
-        link.href = blobUrl;
-        link.rel = "noopener noreferrer";
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-
-        setTimeout(() => {
-          window.URL.revokeObjectURL(blobUrl);
-          document.body.removeChild(link);
-        }, 100);
-      } else {
-        // Handle JSON response with downloadUrl (non-watermarked files)
-        const { downloadUrl } = await response.json();
-
-        const iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        document.body.appendChild(iframe);
-        iframe.src = downloadUrl;
-
-        setTimeout(() => {
-          if (iframe.parentNode) {
-            document.body.removeChild(iframe);
-          }
-        }, 5000);
-      }
-
-      return "File downloaded successfully";
-    })();
+    const downloadPromise = downloadFromLinkEndpoint({
+      endpoint: "/api/links/download",
+      body: { linkId, viewId },
+      fallbackFileName,
+    });
 
     toast.promise(downloadPromise, {
       loading: hasWatermark
         ? "Preparing download with watermark..."
         : "Preparing download...",
-      success: (message) => message,
+      success: "File downloaded successfully",
       error: (err) => err.message || "Failed to download file",
     });
   };

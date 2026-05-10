@@ -5,7 +5,11 @@ import { LinkType } from "@prisma/client";
 import { getFile } from "@/lib/files/get-file";
 import { notifyDocumentDownload } from "@/lib/integrations/slack/events";
 import prisma from "@/lib/prisma";
-import { getFileNameWithPdfExtension } from "@/lib/utils";
+import {
+  buildAttachmentDispositionForName,
+  getFileNameWithPdfExtension,
+} from "@/lib/utils";
+import { ensureFileExtension } from "@/lib/utils/get-content-type";
 import { getIpAddress } from "@/lib/utils/ip";
 
 // This function can run for a maximum of 300 seconds
@@ -138,10 +142,22 @@ export default async function handle(
           : (view.document!.versions[0].originalFile ??
             view.document!.versions[0].file);
 
+      // Pre-compute the user-facing filename (renamed doc name + correct
+      // extension). Pass it as ResponseContentDisposition so the browser
+      // uses our name even when downloading via direct presigned URL.
+      const desiredFileName = ensureFileExtension({
+        name: view.document!.name,
+        contentType: view.document!.versions[0].contentType,
+        type: view.document!.versions[0].type,
+      });
+
       const downloadUrl = await getFile({
         type: view.document!.versions[0].storageType,
         data: file,
         isDownload: true,
+        responseContentDisposition: desiredFileName
+          ? buildAttachmentDispositionForName(desiredFileName)
+          : undefined,
       });
 
       if (
@@ -197,11 +213,12 @@ export default async function handle(
 
         const pdfBuffer = await response.arrayBuffer();
 
-        // Set appropriate headers
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${encodeURIComponent(getFileNameWithPdfExtension(view.document!.name))}"`,
+          buildAttachmentDispositionForName(
+            getFileNameWithPdfExtension(view.document!.name),
+          ),
         );
         res.setHeader("Content-Length", Buffer.from(pdfBuffer).length);
 
@@ -209,9 +226,10 @@ export default async function handle(
         return res.send(Buffer.from(pdfBuffer));
       }
 
-      return res
-        .status(200)
-        .json({ downloadUrl, fileName: view.document!.name });
+      return res.status(200).json({
+        downloadUrl,
+        fileName: desiredFileName,
+      });
     } catch (error) {
       return res.status(500).json({
         message: "Internal Server Error",

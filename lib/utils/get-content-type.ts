@@ -140,6 +140,61 @@ export function getExtensionFromContentType(
   }
 }
 
+/**
+ * Ensure a download filename has a file extension.
+ *
+ * Document.name is mostly populated from the original `file.name` at upload
+ * time, so it usually already includes the extension. However, owners can
+ * rename documents via the UI without keeping the extension, and some legacy
+ * uploads may have stripped extensions. When such a name is used as a
+ * download filename, the OS can't infer the file type.
+ *
+ * Behavior:
+ *  - If `name` already ends with a plausible extension (1-8 alphanumeric
+ *    characters after a final dot), it is returned unchanged.
+ *  - Otherwise we append the extension derived from `contentType` first
+ *    (most accurate) and fall back to `type` (Papermark's internal type
+ *    column, e.g. "pdf", "sheet", "image").
+ *  - Returns the original name if no extension can be derived.
+ */
+export function ensureFileExtension({
+  name,
+  contentType,
+  type,
+}: {
+  name: string | null | undefined;
+  contentType?: string | null;
+  type?: string | null;
+}): string {
+  if (!name) return name ?? "";
+
+  if (/\.[A-Za-z0-9]{1,8}$/.test(name)) {
+    return name;
+  }
+
+  const derivedFromContentType = contentType
+    ? getExtensionFromContentType(contentType)
+    : null;
+
+  // `type` is the Papermark-internal short type. Most values are generic
+  // buckets ("sheet", "image", "docs", "slides", "video", "map", "email",
+  // "cad", "other") or non-file kinds ("notion", "link") that must NOT be
+  // appended as a fake extension. Only fall back to `type` when it is on a
+  // strict allow-list of values that correspond to a single real extension,
+  // and additionally validate it matches a filename-safe shape so a stray
+  // value can never produce an unsafe filename suffix.
+  const ALLOWED_TYPE_EXTENSIONS = new Set(["pdf", "zip"]);
+  const usableType =
+    type &&
+    ALLOWED_TYPE_EXTENSIONS.has(type) &&
+    /^[a-z0-9]{1,6}$/.test(type)
+      ? type
+      : null;
+
+  const ext = derivedFromContentType || usableType;
+  return ext ? `${name}.${ext}` : name;
+}
+
 export function supportsAdvancedExcelMode(
   contentType: string | null | undefined,
 ): boolean {

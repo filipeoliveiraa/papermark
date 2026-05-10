@@ -11,18 +11,14 @@ import {
   type LambdaClient,
 } from "@aws-sdk/client-lambda";
 
-import {
-  buildFolderNameMap,
-  buildFolderPathsFromHierarchy,
-  collectDescendantIds,
-} from "@/lib/dataroom/build-folder-hierarchy";
+import { buildBulkDownloadStructure } from "@/lib/dataroom/build-bulk-download-structure";
+import { collectDescendantIds } from "@/lib/dataroom/build-folder-hierarchy";
 import { sendDownloadReadyEmail } from "@/lib/emails/send-download-ready-email";
 import { getLambdaClientForTeam } from "@/lib/files/aws-client";
 import { parseS3PresignedUrl } from "@/lib/files/bulk-download-presign";
 import { notifyDocumentDownload } from "@/lib/integrations/slack/events";
 import prisma from "@/lib/prisma";
 import { downloadJobStore } from "@/lib/redis-download-job-store";
-import { safeSlugify } from "@/lib/utils";
 import { constructLinkUrl } from "@/lib/utils/link-url";
 
 // Maximum files per batch (Lambda payload limit)
@@ -924,63 +920,17 @@ async function buildDownloadContext({
     );
   }
 
-  // Single pass: compute downloadable docs AND index docs by folderId so
-  // both build*ModeStructure helpers can reuse the same map without
-  // walking effectiveDocuments again.
-  const downloadableDocuments: BuildDocumentRow[] = [];
-  const docsByFolderId = new Map<string, BuildDocumentRow[]>();
-  const rootDocs: BuildDocumentRow[] = [];
-
-  for (const doc of effectiveDocuments) {
-    const version = doc.document.versions[0];
-    if (
-      !version ||
-      version.type === "notion" ||
-      version.storageType === "VERCEL_BLOB"
-    ) {
-      continue;
-    }
-
-    downloadableDocuments.push(doc);
-
-    if (doc.folderId) {
-      const list = docsByFolderId.get(doc.folderId);
-      if (list) {
-        list.push(doc);
-      } else {
-        docsByFolderId.set(doc.folderId, [doc]);
-      }
-    } else {
-      rootDocs.push(doc);
-    }
-  }
-
-  let folderStructure: BulkDownloadFolderStructure;
-  let fileKeys: string[];
-
-  if (type === "folder") {
-    const built = buildFolderModeStructure({
-      rootFolder: rootFolder!,
-      // Use the FULL folder list so parent folders that only have canView
-      // permissions still resolve correct child paths.
-      fullFolders: foldersInScope,
-      effectiveFolders,
-      docsByFolderId,
+  const { folderStructure, fileKeys, downloadableDocuments } =
+    buildBulkDownloadStructure({
+      fullFolders: type === "folder" ? foldersInScope : allDataroomFolders,
+      includedFolders: effectiveFolders,
+      includedDocuments: effectiveDocuments,
       enableWatermark,
+      rootFolder:
+        type === "folder" && rootFolder
+          ? { id: rootFolder.id, name: rootFolder.name }
+          : undefined,
     });
-    folderStructure = built.folderStructure;
-    fileKeys = built.fileKeys;
-  } else {
-    const built = buildBulkModeStructure({
-      allFolders: allDataroomFolders,
-      effectiveFolders,
-      docsByFolderId,
-      rootDocs,
-      enableWatermark,
-    });
-    folderStructure = built.folderStructure;
-    fileKeys = built.fileKeys;
-  }
 
   logger.info("Built folder download context", {
     jobId,
@@ -1020,7 +970,7 @@ async function buildDownloadContext({
     await prisma.view.createMany({
       data: downloadableDocuments.map((doc) => ({
         viewType: "DOCUMENT_VIEW",
-        documentId: doc.document.id,
+        documentId: doc.document.id!,
         linkId,
         dataroomId,
         groupId: groupId ?? null,
@@ -1071,268 +1021,6 @@ async function buildDownloadContext({
     fileKeys,
     folderName: type === "folder" ? rootFolder!.name : undefined,
   };
-}
-
-type FolderRow = {
-  id: string;
-  name: string;
-  path: string;
-  parentId: string | null;
-};
-
-type BuildDocumentRow = {
-  id: string;
-  folderId: string | null;
-  document: {
-    id: string;
-    name: string;
-    versions: {
-      type: string | null;
-      file: string;
-      storageType: string;
-      originalFile: string | null;
-      numPages: number | null;
-      contentType: string | null;
-      fileSize: bigint | null;
-    }[];
-  };
-};
-
-/**
- * Pick the S3 key to ship to Lambda for a given primary version. PDFs use
- * the watermarkable rendition (`file`) when watermarking is on; everything
- * else falls back to the original upload.
- */
-function pickFileKey(
-  version: BuildDocumentRow["document"]["versions"][number],
-  enableWatermark: boolean,
-): string {
-  return enableWatermark && version.type === "pdf"
-    ? version.file
-    : (version.originalFile ?? version.file);
-}
-
-function buildFolderModeStructure({
-  rootFolder,
-  fullFolders,
-  effectiveFolders,
-  docsByFolderId,
-  enableWatermark,
-}: {
-  rootFolder: FolderRow;
-  fullFolders: FolderRow[];
-  effectiveFolders: FolderRow[];
-  docsByFolderId: Map<string, BuildDocumentRow[]>;
-  enableWatermark: boolean;
-}) {
-  const folderStructure: BulkDownloadFolderStructure = {};
-  const fileKeys: string[] = [];
-
-  // Build paths from the FULL folder list (same as the previous API logic
-  // so parent folders only granted canView still produce correct child paths).
-  const computedPathMap = buildFolderPathsFromHierarchy(fullFolders);
-  const computedRootPath =
-    computedPathMap.get(rootFolder.id) ?? rootFolder.path;
-  const rootFolderInfo = {
-    name: rootFolder.name,
-    computedPath: computedRootPath,
-  };
-
-  const addFileToStructure = (
-    computedFolderPath: string,
-    fileName: string,
-    fileKey: string,
-    fileType?: string,
-    numPages?: number,
-    fileSize?: number,
-  ) => {
-    let relativePath = "";
-    if (computedFolderPath !== rootFolderInfo.computedPath) {
-      const escapedRoot = rootFolderInfo.computedPath.replace(
-        /[.*+?^${}()|[\]\\]/g,
-        "\\$&",
-      );
-      const pathRegex = new RegExp(`^${escapedRoot}/(.*)$`);
-      const match = computedFolderPath.match(pathRegex);
-      relativePath = match ? match[1] : "";
-    }
-
-    const pathParts = [safeSlugify(rootFolderInfo.name)];
-    if (relativePath) {
-      pathParts.push(...relativePath.split("/").filter(Boolean));
-    }
-
-    let currentPath = "";
-    for (const part of pathParts) {
-      currentPath += "/" + part;
-      if (!folderStructure[currentPath]) {
-        folderStructure[currentPath] = {
-          name: part,
-          path: currentPath,
-          files: [],
-        };
-      }
-    }
-
-    if (fileName && fileKey) {
-      const needsWatermark =
-        enableWatermark && (fileType === "pdf" || fileType === "image");
-      folderStructure[currentPath].files.push({
-        name: fileName,
-        key: fileKey,
-        type: fileType,
-        numPages: numPages,
-        needsWatermark: needsWatermark ?? undefined,
-        size: fileSize,
-      });
-      fileKeys.push(fileKey);
-    }
-  };
-
-  for (const folder of effectiveFolders) {
-    const folderPath = computedPathMap.get(folder.id) ?? folder.path;
-    const docs = docsByFolderId.get(folder.id);
-
-    if (!docs || docs.length === 0) {
-      addFileToStructure(folderPath, "", "");
-      continue;
-    }
-
-    for (const doc of docs) {
-      // docsByFolderId is already filtered to downloadable primary
-      // versions (see buildDownloadContext), so versions[0] is guaranteed
-      // present and not notion / VERCEL_BLOB.
-      const version = doc.document.versions[0];
-      const fileKey = pickFileKey(version, enableWatermark);
-      addFileToStructure(
-        folderPath,
-        doc.document.name,
-        fileKey,
-        version.type ?? undefined,
-        version.numPages ?? undefined,
-        version.fileSize ? Number(version.fileSize) : undefined,
-      );
-    }
-  }
-
-  const rootPath = "/" + safeSlugify(rootFolder.name);
-  if (!folderStructure[rootPath]) {
-    folderStructure[rootPath] = {
-      name: safeSlugify(rootFolder.name),
-      path: rootPath,
-      files: [],
-    };
-  }
-
-  return { folderStructure, fileKeys };
-}
-
-function buildBulkModeStructure({
-  allFolders,
-  effectiveFolders,
-  docsByFolderId,
-  rootDocs,
-  enableWatermark,
-}: {
-  allFolders: FolderRow[];
-  effectiveFolders: FolderRow[];
-  docsByFolderId: Map<string, BuildDocumentRow[]>;
-  rootDocs: BuildDocumentRow[];
-  enableWatermark: boolean;
-}) {
-  const folderStructure: BulkDownloadFolderStructure = {};
-  const fileKeys: string[] = [];
-
-  const computedPathMap = buildFolderPathsFromHierarchy(allFolders);
-  const folderMap = buildFolderNameMap(allFolders, computedPathMap);
-
-  const addFileToStructure = (
-    path: string,
-    fileName: string,
-    fileKey: string,
-    fileType?: string,
-    numPages?: number,
-    fileSize?: number,
-  ) => {
-    const pathParts = path.split("/").filter(Boolean);
-    let currentPath = "";
-
-    for (const part of pathParts) {
-      currentPath += "/" + part;
-      if (!folderStructure[currentPath]) {
-        const folderInfo = folderMap.get(currentPath);
-        folderStructure[currentPath] = {
-          name: folderInfo ? folderInfo.name : part,
-          path: currentPath,
-          files: [],
-        };
-      }
-    }
-
-    if (!folderStructure[path]) {
-      const folderInfo = folderMap.get(path) || { name: "Root", id: null };
-      folderStructure[path] = {
-        name: folderInfo.name,
-        path: path,
-        files: [],
-      };
-    }
-
-    if (fileName && fileKey) {
-      const needsWatermark =
-        enableWatermark && (fileType === "pdf" || fileType === "image");
-      folderStructure[path].files.push({
-        name: fileName,
-        key: fileKey,
-        type: fileType,
-        numPages: numPages,
-        needsWatermark: needsWatermark ?? undefined,
-        size: fileSize,
-      });
-      fileKeys.push(fileKey);
-    }
-  };
-
-  // Root-level documents (already pre-filtered to downloadable primary
-  // versions in buildDownloadContext).
-  for (const doc of rootDocs) {
-    const version = doc.document.versions[0];
-    const fileKey = pickFileKey(version, enableWatermark);
-    addFileToStructure(
-      "/",
-      doc.document.name,
-      fileKey,
-      version.type ?? undefined,
-      version.numPages ?? undefined,
-      version.fileSize ? Number(version.fileSize) : undefined,
-    );
-  }
-
-  // Documents nested in folders.
-  for (const folder of effectiveFolders) {
-    const folderPath = computedPathMap.get(folder.id) ?? folder.path;
-    const docs = docsByFolderId.get(folder.id);
-
-    if (!docs || docs.length === 0) {
-      addFileToStructure(folderPath, "", "");
-      continue;
-    }
-
-    for (const doc of docs) {
-      const version = doc.document.versions[0];
-      const fileKey = pickFileKey(version, enableWatermark);
-      addFileToStructure(
-        folderPath,
-        doc.document.name,
-        fileKey,
-        version.type ?? undefined,
-        version.numPages ?? undefined,
-        version.fileSize ? Number(version.fileSize) : undefined,
-      );
-    }
-  }
-
-  return { folderStructure, fileKeys };
 }
 
 async function sendEmailNotification({

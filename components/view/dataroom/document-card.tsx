@@ -8,6 +8,8 @@ import { toast } from "sonner";
 
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { downloadFromLinkEndpoint } from "@/lib/utils/download-document";
+import { ensureFileExtension } from "@/lib/utils/get-content-type";
 import { fileIcon } from "@/lib/utils/get-file-icon";
 import {
   HIERARCHICAL_DISPLAY_STYLE,
@@ -106,77 +108,18 @@ export default function DocumentCard({
       return;
     }
 
-    const downloadPromise = (async () => {
-      const response = await fetch(`/api/links/download/dataroom-document`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          linkId,
-          viewId,
-          documentId: document.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || "Failed to download file";
-        throw new Error(errorMessage);
-      }
-
-      // Check if the response is JSON (for direct downloads) or binary (for buffered files)
-      const contentType = response.headers.get("content-type");
-
-      // If it's a watermarked PDF, handle it with the buffer method
-      if (contentType?.includes("application/pdf")) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-
-        const link = window.document.createElement("a");
-        link.href = url;
-        const disposition = response.headers.get("content-disposition");
-        const filenameMatch =
-          disposition && disposition.match(/filename="(.+)"/);
-        link.download = filenameMatch
-          ? decodeURIComponent(filenameMatch[1])
-          : document.name;
-        link.rel = "noopener noreferrer";
-        window.document.body.appendChild(link);
-        link.click();
-
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-          window.document.body.removeChild(link);
-        }, 100);
-
-        return "File downloaded successfully";
-      }
-
-      // For all other files, use a hidden iframe to trigger the download
-      if (contentType?.includes("application/json")) {
-        const data = await response.json();
-
-        const iframe = window.document.createElement("iframe");
-        iframe.style.display = "none";
-        window.document.body.appendChild(iframe);
-        iframe.src = data.downloadUrl;
-
-        setTimeout(() => {
-          if (iframe.parentNode) {
-            window.document.body.removeChild(iframe);
-          }
-        }, 5000);
-
-        return "File downloaded successfully";
-      }
-
-      throw new Error("Unexpected response format");
-    })();
+    const downloadPromise = downloadFromLinkEndpoint({
+      endpoint: "/api/links/download/dataroom-document",
+      body: { linkId, viewId, documentId: document.id },
+      fallbackFileName: ensureFileExtension({
+        name: document.name,
+        type: document.versions[0]?.type,
+      }),
+    });
 
     toast.promise(downloadPromise, {
       loading: "Preparing download...",
-      success: (message) => message,
+      success: "File downloaded successfully",
       error: (err) => err.message || "Failed to download file",
     });
   };

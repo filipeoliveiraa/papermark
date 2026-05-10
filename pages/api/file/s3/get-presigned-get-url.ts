@@ -39,9 +39,14 @@ export default async function handler(
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const { key, expiresIn: requestedExpiresIn } = req.body as {
+  const {
+    key,
+    expiresIn: requestedExpiresIn,
+    responseContentDisposition,
+  } = req.body as {
     key: string;
     expiresIn?: number;
+    responseContentDisposition?: string;
   };
 
   const expiration = Math.min(requestedExpiresIn || TWO_MINUTES, ONE_HOUR);
@@ -60,17 +65,41 @@ export default async function handler(
     const { client, config } = await getTeamS3ClientAndConfig(teamId);
 
     if (config.distributionHost) {
+      // CloudFront signed URLs DO honor `response-content-disposition` if S3
+      // is the origin and the distribution forwards that query param. The
+      // catch is that `@aws-sdk/cloudfront-signer` mangles the encoding when
+      // it parses the URL, so the resulting URL fails with AccessDenied.
+      // Workaround: set the param via URL.searchParams (so it's part of the
+      // signed policy) and then re-set it on the signed output to fix the
+      // encoding.
+      // See https://obviy.us/blog/cloudfront-signed-disposition/
       const distributionUrl = new URL(
         key,
         `https://${config.distributionHost}`,
       );
+      if (responseContentDisposition) {
+        distributionUrl.searchParams.set(
+          "response-content-disposition",
+          responseContentDisposition,
+        );
+      }
 
-      const url = getCloudfrontSignedUrl({
+      const signed = getCloudfrontSignedUrl({
         url: distributionUrl.toString(),
         keyPairId: `${config.distributionKeyId}`,
         privateKey: `${config.distributionKeyContents}`,
         dateLessThan: new Date(Date.now() + expiration).toISOString(),
       });
+
+      let url = signed;
+      if (responseContentDisposition) {
+        const fixed = new URL(signed);
+        fixed.searchParams.set(
+          "response-content-disposition",
+          responseContentDisposition,
+        );
+        url = fixed.href;
+      }
 
       return res.status(200).json({ url });
     }
@@ -78,6 +107,9 @@ export default async function handler(
     const getObjectCommand = new GetObjectCommand({
       Bucket: config.bucket,
       Key: key,
+      ...(responseContentDisposition
+        ? { ResponseContentDisposition: responseContentDisposition }
+        : {}),
     });
 
     const url = await getS3SignedUrl(client, getObjectCommand, {

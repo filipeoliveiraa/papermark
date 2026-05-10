@@ -30,11 +30,14 @@ type DataroomIncludeDocumentsItem =
       id: string;
       folderId: string | null;
       hierarchicalIndex: string | null;
-      document: {
-        id: string;
-        name: string;
-        type: string;
-      };
+      document:
+        | {
+            id: string;
+            name: string;
+            type: string;
+          }
+        | null
+        | undefined;
     };
 
 function updateDocNameInDocuments(
@@ -92,13 +95,19 @@ function updateDocNameInIncludeDocumentsTree(
   });
 
   return items.map((item) => {
-    if ("childFolders" in item) {
-      return updateFolder(item);
+    if ("document" in item) {
+      const { document } = item;
+
+      if (!document) {
+        return item;
+      }
+
+      return document.id === docId
+        ? { ...item, document: { ...document, name: newName } }
+        : item;
     }
 
-    return item.document.id === docId
-      ? { ...item, document: { ...item.document, name: newName } }
-      : item;
+    return updateFolder(item);
   });
 }
 

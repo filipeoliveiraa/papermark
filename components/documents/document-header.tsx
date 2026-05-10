@@ -36,7 +36,10 @@ import {
   DocumentWithVersion,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { supportsAdvancedExcelMode } from "@/lib/utils/get-content-type";
+import {
+  ensureFileExtension,
+  supportsAdvancedExcelMode,
+} from "@/lib/utils/get-content-type";
 import { fileIcon } from "@/lib/utils/get-file-icon";
 
 import FileUp from "@/components/shared/icons/file-up";
@@ -506,7 +509,11 @@ export default function DocumentHeader({
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = prismaDocument.name;
+        a.download = ensureFileExtension({
+          name: prismaDocument.name,
+          contentType: documentVersion.contentType,
+          type: documentVersion.type,
+        });
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);

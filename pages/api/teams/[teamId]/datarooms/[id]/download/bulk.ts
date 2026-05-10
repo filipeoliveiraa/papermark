@@ -4,10 +4,7 @@ import { getTeamStorageConfigById } from "@/ee/features/storage/config";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { getServerSession } from "next-auth";
 
-import {
-  buildFolderNameMap,
-  buildFolderPathsFromHierarchy,
-} from "@/lib/dataroom/build-folder-hierarchy";
+import { buildBulkDownloadStructure } from "@/lib/dataroom/build-bulk-download-structure";
 import prisma from "@/lib/prisma";
 import { downloadJobStore } from "@/lib/redis-download-job-store";
 import { bulkDownloadTask } from "@/lib/trigger/bulk-download";
@@ -95,119 +92,12 @@ export default async function handler(
         return res.status(404).end("Dataroom not found");
       }
 
-      let downloadFolders = dataroom.folders;
-      let downloadDocuments = dataroom.documents;
-
-      // Build folder paths from the parentId hierarchy (source of truth)
-      // instead of using the materialized `path` field which can become stale
-      // after folder renames/moves
-      const computedPathMap = buildFolderPathsFromHierarchy(downloadFolders);
-      const folderMap = buildFolderNameMap(downloadFolders, computedPathMap);
-
-      // Construct folderStructure and fileKeys
-      const folderStructure: {
-        [key: string]: {
-          name: string;
-          path: string;
-          files: { name: string; key: string; size?: number }[];
-        };
-      } = {};
-      const fileKeys: string[] = [];
-
-      const addFileToStructure = (
-        path: string,
-        fileName: string,
-        fileKey: string,
-        fileSize?: number,
-      ) => {
-        const pathParts = path.split("/").filter(Boolean);
-        let currentPath = "";
-
-        // Add folder information for each level of the path
-        pathParts.forEach((part, index) => {
-          currentPath += "/" + part;
-          const folderInfo = folderMap.get(currentPath);
-          if (!folderStructure[currentPath]) {
-            folderStructure[currentPath] = {
-              name: folderInfo ? folderInfo.name : part,
-              path: currentPath,
-              files: [],
-            };
-          }
-        });
-
-        // Add the file to the leaf folder
-        if (!folderStructure[path]) {
-          const folderInfo = folderMap.get(path) || {
-            name: "Root",
-            id: null,
-          };
-          folderStructure[path] = {
-            name: folderInfo.name,
-            path: path,
-            files: [],
-          };
-        }
-        folderStructure[path].files.push({
-          name: fileName,
-          key: fileKey,
-          size: fileSize,
-        });
-        fileKeys.push(fileKey);
-      };
-
-      downloadDocuments
-        .filter((doc) => !doc.folderId)
-        .filter((doc) => doc.document.versions[0].type !== "notion")
-        .filter((doc) => doc.document.versions[0].storageType !== "VERCEL_BLOB")
-        .forEach((doc) =>
-          addFileToStructure(
-            "/",
-            doc.document.name,
-            doc.document.versions[0].originalFile ??
-              doc.document.versions[0].file,
-            doc.document.versions[0].fileSize
-              ? Number(doc.document.versions[0].fileSize)
-              : undefined,
-          ),
-        );
-
-      // Pre-index documents by folderId for O(1) lookup per folder
-      const docsByFolderId = new Map<string, typeof downloadDocuments>();
-      for (const doc of downloadDocuments) {
-        if (!doc.folderId) continue;
-        const list = docsByFolderId.get(doc.folderId) ?? [];
-        list.push(doc);
-        docsByFolderId.set(doc.folderId, list);
-      }
-
-      downloadFolders.forEach((folder) => {
-        // Use the computed path from parentId hierarchy instead of the stored path
-        const folderPath = computedPathMap.get(folder.id) ?? folder.path;
-
-        const folderDocs = (docsByFolderId.get(folder.id) ?? [])
-          .filter((doc) => doc.document.versions[0].type !== "notion")
-          .filter(
-            (doc) => doc.document.versions[0].storageType !== "VERCEL_BLOB",
-          );
-
-        folderDocs &&
-          folderDocs.forEach((doc) =>
-            addFileToStructure(
-              folderPath,
-              doc.document.name,
-              doc.document.versions[0].originalFile ??
-                doc.document.versions[0].file,
-              doc.document.versions[0].fileSize
-                ? Number(doc.document.versions[0].fileSize)
-                : undefined,
-            ),
-          );
-
-        // If the folder is empty, ensure it's still added to the structure
-        if (folderDocs && folderDocs.length === 0) {
-          addFileToStructure(folderPath, "", "");
-        }
+      // Admin bulk download: no permission filtering, no watermark.
+      const { folderStructure, fileKeys } = buildBulkDownloadStructure({
+        fullFolders: dataroom.folders,
+        includedFolders: dataroom.folders,
+        includedDocuments: dataroom.documents,
+        enableWatermark: false,
       });
 
       if (fileKeys.length === 0) {

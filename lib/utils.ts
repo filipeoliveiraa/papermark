@@ -391,6 +391,24 @@ export function buildContentDisposition(
   return `attachment; filename="${slugifiedName}"; filename*=UTF-8''${encodeRFC5987(originalFileName)}`;
 }
 
+/**
+ * Build a Content-Disposition `attachment` header for a single download
+ * filename (already including its extension). This handles slugifying the
+ * ASCII fallback so the header is safe across browsers and proxies, while
+ * preserving the original Unicode name in `filename*` per RFC 5987.
+ *
+ * Use this for ad-hoc downloads (e.g. ResponseContentDisposition on S3
+ * presigned URLs) where the caller already produced a complete filename.
+ */
+export function buildAttachmentDispositionForName(filename: string): string {
+  const dotIdx = filename.lastIndexOf(".");
+  const base = dotIdx > 0 ? filename.slice(0, dotIdx) : filename;
+  const ext = dotIdx > 0 ? filename.slice(dotIdx) : "";
+  const sanitizedExt = /^\.[A-Za-z0-9]+$/.test(ext) ? ext : "";
+  const slug = safeSlugify(base) + sanitizedExt;
+  return buildContentDisposition(filename, slug);
+}
+
 export const daysLeft = (
   accountCreationDate: Date,
   maxDays: number,
