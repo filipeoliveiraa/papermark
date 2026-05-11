@@ -29,12 +29,8 @@ export async function sendLinkViewWebhook({
       select: { plan: true },
     });
 
-    if (
-      team?.plan === "free" ||
-      team?.plan === "pro" ||
-      team?.plan.includes("trial")
-    ) {
-      // team is not on paid plan, so we don't need to send webhooks
+    if (team?.plan === "free" || team?.plan === "pro") {
+      // team is not on a webhook-eligible plan, so we don't send webhooks
       return;
     }
 
