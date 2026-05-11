@@ -5,6 +5,7 @@ export function getSupportedContentType(contentType: string): string | null {
     case "application/vnd.ms-excel":
     case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
     case "application/vnd.ms-excel.sheet.macroEnabled.12":
+    case "application/vnd.ms-excel.sheet.binary.macroEnabled.12":
     case "text/csv":
     case "text/tab-separated-values":
     case "application/vnd.oasis.opendocument.spreadsheet":
@@ -44,6 +45,12 @@ export function getSupportedContentType(contentType: string): string | null {
       return "video";
     case "application/vnd.google-earth.kml+xml":
     case "application/vnd.google-earth.kmz":
+    case "application/x-esri-shape":
+    case "application/x-esri-shape-index":
+    case "application/x-dbf":
+    case "application/x-esri-sbn":
+    case "application/x-esri-sbx":
+    case "application/x-mapserver-qix":
       return "map";
     case "application/vnd.ms-outlook":
     case "message/rfc822":
@@ -51,6 +58,7 @@ export function getSupportedContentType(contentType: string): string | null {
     case "image/tiff":
     case "image/x-ecw":
     case "application/x-bak":
+    case "application/x-spss-sav":
       return "other";
     default:
       return null;
@@ -69,6 +77,8 @@ export function getExtensionFromContentType(
       return "xlsx";
     case "application/vnd.ms-excel.sheet.macroEnabled.12":
       return "xlsm";
+    case "application/vnd.ms-excel.sheet.binary.macroEnabled.12":
+      return "xlsb";
     case "text/csv":
       return "csv";
     case "text/tab-separated-values":
@@ -135,6 +145,20 @@ export function getExtensionFromContentType(
       return "ecw";
     case "application/x-bak":
       return "bak";
+    case "application/x-spss-sav":
+      return "sav";
+    case "application/x-esri-shape":
+      return "shp";
+    case "application/x-esri-shape-index":
+      return "shx";
+    case "application/x-dbf":
+      return "dbf";
+    case "application/x-esri-sbn":
+      return "sbn";
+    case "application/x-esri-sbx":
+      return "sbx";
+    case "application/x-mapserver-qix":
+      return "qix";
     default:
       return null;
   }

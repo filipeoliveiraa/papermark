@@ -97,11 +97,27 @@ const putFileInS3 = async ({
     docId = newId("doc");
   }
 
+  // Some formats either have no browser-known MIME (binary GIS/stats) or
+  // browsers return inconsistent MIMEs (older Office macro-enabled / binary).
+  // Fall back to extension matching for those before rejecting the upload.
+  const EXTENSION_FALLBACKS = [
+    ".dwg",
+    ".dxf",
+    ".xlsm",
+    ".xlsb",
+    ".sav",
+    ".shp",
+    ".shx",
+    ".dbf",
+    ".sbn",
+    ".sbx",
+    ".qix",
+    ".cpg",
+  ];
+  const lowerName = file.name.toLowerCase();
   if (
     !SUPPORTED_DOCUMENT_MIME_TYPES.includes(file.type) &&
-    !file.name.endsWith(".dwg") &&
-    !file.name.endsWith(".dxf") &&
-    !file.name.endsWith(".xlsm")
+    !EXTENSION_FALLBACKS.some((ext) => lowerName.endsWith(ext))
   ) {
     throw new Error(
       "Only PDF, Powerpoint, Word, and Excel, ZIP files are supported",

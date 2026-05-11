@@ -127,7 +127,9 @@ export const processDocument = async ({
       : null;
 
   const isDownloadOnlyByExtension =
-    /\.(log|err|prj|jgw|tif|tiff|ecw|bak)$/i.test(name);
+    /\.(log|err|prj|jgw|tif|tiff|ecw|bak|xlsb|sav|shp|shx|dbf|sbn|sbx|qix|cpg)$/i.test(
+      name,
+    );
 
   // determine if the document is download only
   const isDownloadOnly =

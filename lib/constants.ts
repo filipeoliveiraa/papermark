@@ -70,6 +70,7 @@ export const SUPPORTED_DOCUMENT_MIME_TYPES = [
   "application/vnd.ms-excel", // .xls
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
   "application/vnd.ms-excel.sheet.macroEnabled.12", // .xlsm
+  "application/vnd.ms-excel.sheet.binary.macroEnabled.12", // .xlsb
   "text/csv", // .csv
   "text/tab-separated-values", // .tsv
   "application/vnd.oasis.opendocument.spreadsheet", // .ods
@@ -83,13 +84,20 @@ export const SUPPORTED_DOCUMENT_MIME_TYPES = [
   "application/vnd.oasis.opendocument.text", // .odt
   "application/rtf", // .rtf
   "text/rtf", // .rtf
-  "text/plain", // .txt, .log, .err, .prj, .jgw
+  "text/plain", // .txt, .log, .err, .prj, .jgw, .cpg
   "text/markdown", // .md
   "image/vnd.dwg", // .dwg
   "image/vnd.dxf", // .dxf
   "image/tiff", // .tif, .tiff
   "image/x-ecw", // .ecw (custom - GIS raster, no standard MIME)
   "application/x-bak", // .bak (custom - generic backup file)
+  "application/x-spss-sav", // .sav (SPSS Statistics data file, no IANA MIME)
+  "application/x-esri-shape", // .shp (ESRI Shapefile geometry, custom - no standard MIME)
+  "application/x-esri-shape-index", // .shx (ESRI Shapefile index, custom)
+  "application/x-dbf", // .dbf (dBase attribute table, custom - de facto)
+  "application/x-esri-sbn", // .sbn (ESRI spatial bin index, custom)
+  "application/x-esri-sbx", // .sbx (ESRI spatial bin index, custom)
+  "application/x-mapserver-qix", // .qix (MapServer/GDAL quadtree spatial index, custom)
   "image/png", // .png
   "image/jpeg", // .jpeg
   "image/jpg", // .jpg
@@ -127,6 +135,7 @@ export const FULL_PLAN_ACCEPTED_FILE_TYPES = {
   "application/vnd.ms-excel": [], // ".xls"
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [], // ".xlsx"
   "application/vnd.ms-excel.sheet.macroEnabled.12": [".xlsm"], // ".xlsm"
+  "application/vnd.ms-excel.sheet.binary.macroEnabled.12": [".xlsb"], // ".xlsb"
   "text/csv": [], // ".csv"
   "text/tab-separated-values": [".tsv"], // ".tsv"
   "application/vnd.oasis.opendocument.spreadsheet": [], // ".ods"
@@ -141,12 +150,19 @@ export const FULL_PLAN_ACCEPTED_FILE_TYPES = {
   "application/vnd.oasis.opendocument.text": [], // ".odt"
   "application/rtf": [], // ".rtf"
   "text/rtf": [], // ".rtf"
-  "text/plain": [".txt", ".log", ".err", ".prj", ".jgw"], // ".txt", ".log", ".err", ".prj", ".jgw"
+  "text/plain": [".txt", ".log", ".err", ".prj", ".jgw", ".cpg"], // ".txt", ".log", ".err", ".prj", ".jgw", ".cpg"
   "image/vnd.dwg": [".dwg"], // ".dwg"
   "image/vnd.dxf": [".dxf"], // ".dxf"
   "image/tiff": [".tif", ".tiff"], // ".tif", ".tiff"
   "image/x-ecw": [".ecw"], // ".ecw"
   "application/x-bak": [".bak"], // ".bak"
+  "application/x-spss-sav": [".sav"], // ".sav"
+  "application/x-esri-shape": [".shp"], // ".shp"
+  "application/x-esri-shape-index": [".shx"], // ".shx"
+  "application/x-dbf": [".dbf"], // ".dbf"
+  "application/x-esri-sbn": [".sbn"], // ".sbn"
+  "application/x-esri-sbx": [".sbx"], // ".sbx"
+  "application/x-mapserver-qix": [".qix"], // ".qix"
   "image/png": [], // ".png"
   "image/jpeg": [], // ".jpeg"
   "image/jpg": [], // ".jpg"
@@ -172,6 +188,7 @@ export const VIEWER_ACCEPTED_FILE_TYPES = {
   "application/vnd.ms-excel": [], // ".xls"
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [], // ".xlsx"
   "application/vnd.ms-excel.sheet.macroEnabled.12": [".xlsm"], // ".xlsm"
+  "application/vnd.ms-excel.sheet.binary.macroEnabled.12": [".xlsb"], // ".xlsb"
   "text/csv": [], // ".csv"
   "text/tab-separated-values": [".tsv"], // ".tsv"
   "application/vnd.oasis.opendocument.spreadsheet": [], // ".ods"
@@ -186,10 +203,17 @@ export const VIEWER_ACCEPTED_FILE_TYPES = {
   "application/vnd.oasis.opendocument.text": [], // ".odt"
   "application/rtf": [], // ".rtf"
   "text/rtf": [], // ".rtf"
-  "text/plain": [".txt", ".log", ".err", ".prj", ".jgw"], // ".txt", ".log", ".err", ".prj", ".jgw"
+  "text/plain": [".txt", ".log", ".err", ".prj", ".jgw", ".cpg"], // ".txt", ".log", ".err", ".prj", ".jgw", ".cpg"
   "image/tiff": [".tif", ".tiff"], // ".tif", ".tiff"
   "image/x-ecw": [".ecw"], // ".ecw"
   "application/x-bak": [".bak"], // ".bak"
+  "application/x-spss-sav": [".sav"], // ".sav"
+  "application/x-esri-shape": [".shp"], // ".shp"
+  "application/x-esri-shape-index": [".shx"], // ".shx"
+  "application/x-dbf": [".dbf"], // ".dbf"
+  "application/x-esri-sbn": [".sbn"], // ".sbn"
+  "application/x-esri-sbx": [".sbx"], // ".sbx"
+  "application/x-mapserver-qix": [".qix"], // ".qix"
   "image/png": [], // ".png"
   "image/jpeg": [], // ".jpeg"
   "image/jpg": [], // ".jpg"
