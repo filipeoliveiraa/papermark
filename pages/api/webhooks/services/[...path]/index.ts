@@ -27,6 +27,10 @@ import {
   getExtensionFromContentType,
   getSupportedContentType,
 } from "@/lib/utils/get-content-type";
+import {
+  fetchPublicHttpsUrlToBuffer,
+  type PublicHttpsDownload,
+} from "@/lib/utils/ssrf-protection";
 import { sendLinkCreatedWebhook } from "@/lib/webhook/triggers/link-created";
 import { webhookFileUrlSchema } from "@/lib/zod/url-validation";
 
@@ -35,6 +39,8 @@ export const config = {
   supportsResponseStreaming: true,
   maxDuration: 120,
 };
+
+const MAX_WEBHOOK_FILE_BYTES = 100 * 1024 * 1024;
 
 // Define a common link schema to reuse
 const LinkSchema = z.object({
@@ -416,13 +422,18 @@ async function handleDocumentCreate(
   }
 
   // 4. Fetch file from URL
-  const response = await fetch(fileUrl);
-  if (!response.ok) {
+  let remoteFile: PublicHttpsDownload;
+  try {
+    remoteFile = await fetchPublicHttpsUrlToBuffer(fileUrl, {
+      maxBytes: MAX_WEBHOOK_FILE_BYTES,
+    });
+  } catch (error) {
+    console.warn("Failed to fetch webhook file", error);
     return res.status(400).json({ error: "Failed to fetch file from URL" });
   }
 
   // 5. Validate response content type matches expected
-  const responseContentType = response.headers.get("content-type");
+  const responseContentType = remoteFile.contentType;
   if (!responseContentType || responseContentType.startsWith("text/html")) {
     return res
       .status(400)
@@ -436,7 +447,7 @@ async function handleDocumentCreate(
   }
 
   // 6. Convert to buffer
-  const fileBuffer = Buffer.from(await response.arrayBuffer());
+  const fileBuffer = remoteFile.buffer;
 
   // Ensure filename has proper extension, based on the actual response content-type when available
   let fileName = name?.trim();
@@ -727,13 +738,18 @@ async function handleDocumentUpdate(
   }
 
   // Fetch file from URL
-  const response = await fetch(fileUrl);
-  if (!response.ok) {
+  let remoteFile: PublicHttpsDownload;
+  try {
+    remoteFile = await fetchPublicHttpsUrlToBuffer(fileUrl, {
+      maxBytes: MAX_WEBHOOK_FILE_BYTES,
+    });
+  } catch (error) {
+    console.warn("Failed to fetch webhook file", error);
     return res.status(400).json({ error: "Failed to fetch file from URL" });
   }
 
   // Validate response content type
-  const responseContentType = response.headers.get("content-type");
+  const responseContentType = remoteFile.contentType;
   if (!responseContentType || responseContentType.startsWith("text/html")) {
     return res
       .status(400)
@@ -746,7 +762,7 @@ async function handleDocumentUpdate(
   }
 
   // Convert to buffer
-  const fileBuffer = Buffer.from(await response.arrayBuffer());
+  const fileBuffer = remoteFile.buffer;
 
   // Ensure filename has proper extension
   let fileName = document.name?.trim() ?? "document";

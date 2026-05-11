@@ -71,9 +71,9 @@ export default async function handle(
         });
       }
 
-      // Fetch dataroom with AI settings
+      // Fetch dataroom with AI settings, scoped to the current team.
       const dataroom = await prisma.dataroom.findUnique({
-        where: { id: dataroomId },
+        where: { id: dataroomId, teamId },
         select: {
           id: true,
           teamId: true,
@@ -119,7 +119,7 @@ export default async function handle(
         dataroomDocument = await prisma.dataroomDocument.create({
           data: {
             documentId: docId,
-            dataroomId,
+            dataroomId: dataroom.id,
           },
         });
       } catch (error) {
@@ -178,10 +178,10 @@ export default async function handle(
                     metadata: fileMetadata,
                   },
                   {
-                    idempotencyKey: `ai-index-dataroom-${dataroomId}-${primaryVersion.id}`,
+                    idempotencyKey: `ai-index-dataroom-${dataroom.id}-${primaryVersion.id}`,
                     tags: [
                       `team_${teamId}`,
-                      `dataroom_${dataroomId}`,
+                      `dataroom_${dataroom.id}`,
                       `document_${document.id}`,
                       `version_${primaryVersion.id}`,
                     ],

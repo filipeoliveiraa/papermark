@@ -8,6 +8,11 @@ import { ipAddress, waitUntil } from "@vercel/functions";
 import { getServerSession } from "next-auth";
 
 import { hashToken } from "@/lib/api/auth/token";
+import {
+  collectFingerprintHeaders,
+  generateSessionFingerprint,
+} from "@/lib/auth/dataroom-auth";
+import { createLinkSession } from "@/lib/auth/link-session";
 import { verifyPreviewSession } from "@/lib/auth/preview-auth";
 import { PreviewSession } from "@/lib/auth/preview-auth";
 import { isEmbeddableUrl } from "@/lib/edge-config/embeddable-domains";
@@ -781,7 +786,38 @@ export async function POST(request: NextRequest) {
         ...(isEmbeddable && { isEmbeddable: true }),
       };
 
-      return NextResponse.json(returnObject);
+      const response = NextResponse.json(returnObject);
+
+      if (!isPreview && newView) {
+        const ipAddressValue = ipAddress(request) ?? LOCALHOST_IP;
+        const userAgent = request.headers.get("user-agent") ?? "unknown";
+        const fingerprint = generateSessionFingerprint(
+          collectFingerprintHeaders(request.headers),
+        );
+        const { token: sessionToken, expiresAt } = await createLinkSession(
+          linkId,
+          "DOCUMENT_LINK",
+          newView.id,
+          email ?? "",
+          ipAddressValue,
+          userAgent,
+          isEmailVerified,
+          viewer?.id ?? undefined,
+          documentId,
+          undefined,
+          fingerprint,
+        );
+
+        response.cookies.set(`pm_ls_${linkId}`, sessionToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          expires: new Date(expiresAt),
+          path: "/",
+        });
+      }
+
+      return response;
     } catch (error) {
       log({
         message: `Failed to record view for ${linkId}. \n\n ${error}`,

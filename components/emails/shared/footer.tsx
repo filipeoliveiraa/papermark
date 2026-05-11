@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Hr, Link, Section, Text } from "@react-email/components";
+import { Hr, Link, Section, Text } from "react-email";
 
 export const Footer = ({
   withAddress = false,

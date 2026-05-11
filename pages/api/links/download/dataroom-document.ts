@@ -3,6 +3,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { ItemType, ViewType } from "@prisma/client";
 import { waitUntil } from "@vercel/functions";
 
+import { getDataroomSessionByLinkIdInPagesRouter } from "@/lib/auth/dataroom-auth";
 import { getFile } from "@/lib/files/get-file";
 import { notifyDocumentDownload } from "@/lib/integrations/slack/events";
 import prisma from "@/lib/prisma";
@@ -23,16 +24,23 @@ export default async function handle(
 ) {
   if (req.method === "POST") {
     // POST /api/links/download/dataroom-document
-    const { linkId, viewId, documentId } = req.body as {
+    const { linkId, documentId } = req.body as {
       linkId: string;
-      viewId: string;
       documentId: string;
     };
 
     try {
+      const session = await getDataroomSessionByLinkIdInPagesRouter(
+        req,
+        linkId,
+      );
+      if (!session) {
+        return res.status(401).json({ error: "Session required to download" });
+      }
+
       const view = await prisma.view.findUnique({
         where: {
-          id: viewId,
+          id: session.viewId,
           linkId: linkId,
           viewType: { equals: ViewType.DATAROOM_VIEW },
         },
@@ -48,6 +56,7 @@ export default async function handle(
               expiresAt: true,
               isArchived: true,
               deletedAt: true,
+              emailAuthenticated: true,
               enableWatermark: true,
               watermarkConfig: true,
               name: true,
@@ -94,6 +103,19 @@ export default async function handle(
         return res.status(404).json({ error: "Error downloading" });
       }
 
+      // if dataroom does not exist, we should not allow the download
+      if (!view.dataroom) {
+        return res.status(404).json({ error: "Error downloading" });
+      }
+
+      if (session.dataroomId !== view.dataroom.id) {
+        return res.status(403).json({ error: "Error downloading" });
+      }
+
+      if (view.link.emailAuthenticated && !session.verified) {
+        return res.status(403).json({ error: "Error downloading" });
+      }
+
       // if link does not allow download, we should not allow the download
       if (!view.link.allowDownload) {
         return res.status(403).json({ error: "Error downloading" });
@@ -112,11 +134,6 @@ export default async function handle(
       // if link is expired, we should not allow the download
       if (view.link.expiresAt && view.link.expiresAt < new Date()) {
         return res.status(403).json({ error: "Error downloading" });
-      }
-
-      // if dataroom does not exist, we should not allow the download
-      if (!view.dataroom) {
-        return res.status(404).json({ error: "Error downloading" });
       }
 
       // if viewedAt is longer than 23 hours ago, we should not allow the download

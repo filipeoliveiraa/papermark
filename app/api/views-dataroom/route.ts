@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { reportDeniedAccessAttempt } from "@/ee/features/access-notifications";
 import { getTeamStorageConfigById } from "@/ee/features/storage/config";
 import { authOptions } from "@/lib/auth/auth-options";
-import { ItemType, LinkAudienceType } from "@prisma/client";
+import { ItemType, LinkAudienceType, LinkType } from "@prisma/client";
 import { ipAddress, waitUntil } from "@vercel/functions";
 import { getServerSession } from "next-auth";
 
@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
         deletedAt: true,
         slug: true,
         domainId: true,
+        linkType: true,
         allowList: true,
         denyList: true,
         enableAgreement: true,
@@ -848,6 +849,95 @@ export async function POST(request: NextRequest) {
 
     // ** DOCUMENT_VIEW **
     try {
+      if (!documentVersionId) {
+        return NextResponse.json(
+          { message: "Document version ID is required." },
+          { status: 400 },
+        );
+      }
+
+      const documentVersionAccess = await prisma.documentVersion.findUnique({
+        where: { id: documentVersionId },
+        select: { documentId: true },
+      });
+
+      if (!documentVersionAccess) {
+        return NextResponse.json(
+          { message: "Document version not found." },
+          { status: 404 },
+        );
+      }
+
+      const effectiveGroupId = link.groupId || link.permissionGroupId;
+      let dataroomDocument: { id: string } | null = null;
+      let dataroomDocumentPermission: {
+        canView: boolean;
+        canDownload: boolean;
+      } | null = null;
+
+      if (link.linkType !== LinkType.DATAROOM_LINK || !link.dataroomId) {
+        return NextResponse.json(
+          { message: "Unauthorized access." },
+          { status: 403 },
+        );
+      }
+
+      dataroomDocument = await prisma.dataroomDocument.findUnique({
+        where: {
+          dataroomId_documentId: {
+            dataroomId: link.dataroomId,
+            documentId: documentVersionAccess.documentId,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!dataroomDocument) {
+        return NextResponse.json(
+          { message: "Unauthorized access." },
+          { status: 403 },
+        );
+      }
+
+      if (effectiveGroupId) {
+        if (link.groupId) {
+          dataroomDocumentPermission =
+            await prisma.viewerGroupAccessControls.findUnique({
+              where: {
+                groupId_itemId: {
+                  groupId: link.groupId,
+                  itemId: dataroomDocument.id,
+                },
+                itemType: ItemType.DATAROOM_DOCUMENT,
+              },
+              select: { canView: true, canDownload: true },
+            });
+        } else if (link.permissionGroupId) {
+          dataroomDocumentPermission =
+            await prisma.permissionGroupAccessControls.findUnique({
+              where: {
+                groupId_itemId: {
+                  groupId: link.permissionGroupId,
+                  itemId: dataroomDocument.id,
+                },
+                itemType: ItemType.DATAROOM_DOCUMENT,
+              },
+              select: { canView: true, canDownload: true },
+            });
+        }
+
+        if (
+          !dataroomDocumentPermission?.canView &&
+          !dataroomDocumentPermission?.canDownload
+        ) {
+          return NextResponse.json(
+            { message: "Unauthorized access." },
+            { status: 403 },
+          );
+        }
+      }
+
+      const resolvedDocumentId = documentVersionAccess.documentId;
       let newView: { id: string } | null = null;
       let dataroomView: { id: string } | null = null;
       if (!isPreview) {
@@ -879,7 +969,7 @@ export async function POST(request: NextRequest) {
         newView = await prisma.view.create({
           data: {
             ...viewFields,
-            documentId: documentId,
+            documentId: resolvedDocumentId,
             dataroomViewId:
               dataroomSession?.viewId ?? dataroomView?.id ?? dataroomViewId,
             viewType: "DOCUMENT_VIEW",
@@ -894,7 +984,7 @@ export async function POST(request: NextRequest) {
               try {
                 await notifyDocumentView({
                   teamId: link.teamId!,
-                  documentId,
+                  documentId: resolvedDocumentId,
                   dataroomId: link.dataroomId!,
                   linkId,
                   viewerEmail: verifiedEmail ?? email,
@@ -984,7 +1074,7 @@ export async function POST(request: NextRequest) {
         // For link documents, the file is already a URL, no processing needed
         if (documentVersion.type === "sheet") {
           const document = await prisma.document.findUnique({
-            where: { id: documentId },
+            where: { id: resolvedDocumentId },
             select: { advancedExcelEnabled: true },
           });
           useAdvancedExcelViewer = document?.advancedExcelEnabled ?? false;
@@ -1014,59 +1104,15 @@ export async function POST(request: NextRequest) {
 
       // check if viewer can download the document based on group permissions
       let canDownload: boolean = link.allowDownload ?? false;
-      const effectiveGroupId = link.groupId || link.permissionGroupId;
 
       if (
         link.allowDownload &&
         (link.audienceType === LinkAudienceType.GROUP ||
           link.permissionGroupId) &&
         effectiveGroupId &&
-        documentId &&
-        link.dataroomId
+        dataroomDocument
       ) {
-        const dataroomDocument = await prisma.dataroomDocument.findUnique({
-          where: {
-            dataroomId_documentId: {
-              dataroomId: link.dataroomId,
-              documentId: documentId,
-            },
-          },
-          select: { id: true },
-        });
-        if (!dataroomDocument) {
-          canDownload = false;
-        } else {
-          if (link.groupId) {
-            // This is a ViewerGroup (legacy behavior)
-            const groupDocumentPermission =
-              await prisma.viewerGroupAccessControls.findUnique({
-                where: {
-                  groupId_itemId: {
-                    groupId: link.groupId,
-                    itemId: dataroomDocument.id,
-                  },
-                  itemType: ItemType.DATAROOM_DOCUMENT,
-                },
-                select: { canDownload: true },
-              });
-            canDownload = groupDocumentPermission?.canDownload ?? false;
-          } else if (link.permissionGroupId) {
-            // This is a PermissionGroup (new behavior)
-            const permissionGroupDocumentPermission =
-              await prisma.permissionGroupAccessControls.findUnique({
-                where: {
-                  groupId_itemId: {
-                    groupId: link.permissionGroupId,
-                    itemId: dataroomDocument.id,
-                  },
-                  itemType: ItemType.DATAROOM_DOCUMENT,
-                },
-                select: { canDownload: true },
-              });
-            canDownload =
-              permissionGroupDocumentPermission?.canDownload ?? false;
-          }
-        }
+        canDownload = dataroomDocumentPermission?.canDownload ?? false;
       }
 
       const isLinkType = documentVersion?.type === "link";

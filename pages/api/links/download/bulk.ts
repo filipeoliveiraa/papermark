@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { ViewType } from "@prisma/client";
 
-import { verifyDataroomSessionInPagesRouter } from "@/lib/auth/dataroom-auth";
+import { getDataroomSessionByLinkIdInPagesRouter } from "@/lib/auth/dataroom-auth";
 import prisma from "@/lib/prisma";
 import { downloadJobStore } from "@/lib/redis-download-job-store";
 import { bulkDownloadTask } from "@/lib/trigger/bulk-download";
@@ -24,9 +24,8 @@ export default async function handle(
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const { linkId, viewId, emailNotification } = req.body as {
+  const { linkId, emailNotification } = req.body as {
     linkId: string;
-    viewId: string;
     emailNotification?: boolean;
   };
 
@@ -34,14 +33,15 @@ export default async function handle(
     return res.status(400).json({ error: "linkId is required" });
   }
 
-  if (typeof viewId !== "string" || !viewId.trim()) {
-    return res.status(400).json({ error: "viewId is required" });
-  }
-
   try {
+    const session = await getDataroomSessionByLinkIdInPagesRouter(req, linkId);
+    if (!session) {
+      return res.status(401).json({ error: "Session required to download" });
+    }
+
     const view = await prisma.view.findUnique({
       where: {
-        id: viewId,
+        id: session.viewId,
         linkId: linkId,
         viewType: { equals: ViewType.DATAROOM_VIEW },
       },
@@ -80,13 +80,8 @@ export default async function handle(
     }
 
     const dataroomId = view.dataroom?.id;
-    const session = await verifyDataroomSessionInPagesRouter(
-      req,
-      linkId,
-      dataroomId ?? "",
-    );
-    if (!session) {
-      return res.status(401).json({ error: "Session required to download" });
+    if (!dataroomId || session.dataroomId !== dataroomId) {
+      return res.status(403).json({ error: "Error downloading" });
     }
 
     if (emailNotification) {

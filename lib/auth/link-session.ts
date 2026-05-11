@@ -1,7 +1,9 @@
 // lib/auth/link-session.ts
+import { NextApiRequest } from "next";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
+import { parse } from "cookie";
 import crypto from "crypto";
 import { z } from "zod";
 
@@ -33,6 +35,16 @@ export const LinkSessionSchema = z.object({
 });
 
 export type LinkSession = z.infer<typeof LinkSessionSchema>;
+
+function getFingerprintFromPagesRequest(req: NextApiRequest): string {
+  const header = (name: string) => {
+    const v = req.headers[name];
+    return (Array.isArray(v) ? v[0] : v) ?? null;
+  };
+  return generateSessionFingerprint(
+    collectFingerprintHeaders({ get: header }),
+  );
+}
 
 export async function createLinkSession(
   linkId: string,
@@ -88,12 +100,12 @@ export async function createLinkSession(
   return { token: sessionToken, expiresAt };
 }
 
-export async function verifyLinkSession(
-  request: NextRequest,
+async function verifyLinkSessionToken(
+  sessionToken: string | undefined,
   linkId: string,
+  fingerprint: string,
+  userAgent: string,
 ): Promise<LinkSession | null> {
-  const sessionToken = cookies().get(`pm_ls_${linkId}`)?.value;
-
   if (!sessionToken) return null;
 
   const session = await redis.get(`link_session:${sessionToken}`);
@@ -113,19 +125,13 @@ export async function verifyLinkSession(
     // + client hints); legacy sessions without a fingerprint fall back to a
     // plain User-Agent comparison.
     if (sessionData.fingerprint) {
-      const currentFingerprint = generateSessionFingerprint(
-        collectFingerprintHeaders(request.headers),
-      );
-      if (currentFingerprint !== sessionData.fingerprint) {
+      if (fingerprint !== sessionData.fingerprint) {
         await deleteLinkSession(sessionToken, sessionData.viewerId);
         return null;
       }
-    } else {
-      const currentUserAgent = request.headers.get("user-agent") ?? "unknown";
-      if (currentUserAgent !== sessionData.userAgent) {
-        await deleteLinkSession(sessionToken, sessionData.viewerId);
-        return null;
-      }
+    } else if (userAgent !== sessionData.userAgent) {
+      await deleteLinkSession(sessionToken, sessionData.viewerId);
+      return null;
     }
 
     // Check link ID matches
@@ -167,6 +173,33 @@ export async function verifyLinkSession(
     await redis.del(`link_session:${sessionToken}`);
     return null;
   }
+}
+
+export async function verifyLinkSession(
+  request: NextRequest,
+  linkId: string,
+): Promise<LinkSession | null> {
+  const sessionToken = cookies().get(`pm_ls_${linkId}`)?.value;
+  const fingerprint = generateSessionFingerprint(
+    collectFingerprintHeaders(request.headers),
+  );
+  const userAgent = request.headers.get("user-agent") ?? "unknown";
+
+  return verifyLinkSessionToken(sessionToken, linkId, fingerprint, userAgent);
+}
+
+export async function verifyLinkSessionInPagesRouter(
+  req: NextApiRequest,
+  linkId: string,
+): Promise<LinkSession | null> {
+  const sessionToken = parse(req.headers.cookie || "")[`pm_ls_${linkId}`];
+  const fingerprint = getFingerprintFromPagesRequest(req);
+  const userAgent =
+    (Array.isArray(req.headers["user-agent"])
+      ? req.headers["user-agent"][0]
+      : req.headers["user-agent"]) ?? "unknown";
+
+  return verifyLinkSessionToken(sessionToken, linkId, fingerprint, userAgent);
 }
 
 async function deleteLinkSession(

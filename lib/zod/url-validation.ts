@@ -9,8 +9,9 @@ import {
   getNotionPageIdFromSlug,
   isCustomNotionDomain,
 } from "@/lib/notion/utils";
-import { sanitizePlainText } from "@/lib/utils/sanitize-html";
+import { isPublicHostnameLiteral } from "@/lib/utils/ssrf-protection";
 import { getSupportedContentType } from "@/lib/utils/get-content-type";
+import { sanitizePlainText } from "@/lib/utils/sanitize-html";
 
 /**
  * Validates basic security aspects of paths and URLs
@@ -42,33 +43,13 @@ export const validatePathSecurity = (pathOrUrl: string): boolean => {
 export const validateUrlSSRFProtection = (url: string): boolean => {
   try {
     const urlObj = new URL(url);
-    const hostname = urlObj.hostname;
-
-    // Block localhost/loopback
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "::1"
-    ) {
+    if (urlObj.username || urlObj.password) {
       return false;
     }
 
-    // Block private IP ranges (simplified check)
-    if (hostname.match(/^10\.|^172\.(1[6-9]|2[0-9]|3[01])\.|^192\.168\./)) {
-      return false;
-    }
-
-    // Block link-local addresses
-    if (hostname.match(/^169\.254\./)) {
-      return false;
-    }
-
-    // Block IPv6 link-local addresses (fe80::/10)
-    if (hostname.toLowerCase().startsWith("fe80:")) {
-      return false;
-    }
-
-    return true;
+    // Synchronous validation only catches literal hosts. Network fetchers must
+    // resolve DNS and re-check redirect targets before connecting.
+    return isPublicHostnameLiteral(urlObj.hostname);
   } catch {
     return false;
   }

@@ -788,9 +788,9 @@ export default function PagesVerticalViewer({
         style={{ height: "calc(100dvh - 64px)" }}
         className="relative overflow-hidden"
       >
-        <ResizablePanelGroup direction="horizontal">
+        <ResizablePanelGroup orientation="horizontal">
           {/* Document Content */}
-          <ResizablePanel defaultSize={100}>
+          <ResizablePanel defaultSize="100%">
             <div
               className={cn(
                 "h-full w-full",

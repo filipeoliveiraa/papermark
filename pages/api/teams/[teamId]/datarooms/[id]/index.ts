@@ -166,6 +166,7 @@ export default async function handle(
         const dataroom = await tx.dataroom.update({
           where: {
             id: dataroomId,
+            teamId: team.id,
           },
           data: {
             ...(name && { name }),
@@ -219,6 +220,11 @@ export default async function handle(
           await tx.tagItem.deleteMany({
             where: {
               dataroomId: dataroomId,
+              dataroom: {
+                is: {
+                  teamId: team.id,
+                },
+              },
               itemType: "DATAROOM_TAG",
             },
           });

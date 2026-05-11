@@ -39,8 +39,23 @@ export default async function handle(
         return res.status(401).json("Unauthorized");
       }
 
-      if (userTeam?.role === "ADMIN" && userTeam.userId === userToBeDeleted) {
-        return res.status(401).json("You can't remove the Admin");
+      const isSelfRemoval = userTeam.userId === userToBeDeleted;
+
+      if (!isSelfRemoval && userTeam.role !== "ADMIN") {
+        return res.status(403).json("Only admins can remove teammates");
+      }
+
+      if (isSelfRemoval && userTeam.role === "ADMIN") {
+        const adminCount = await prisma.userTeam.count({
+          where: {
+            teamId,
+            role: "ADMIN",
+          },
+        });
+
+        if (adminCount <= 1) {
+          return res.status(403).json("You can't remove the last admin");
+        }
       }
 
       await Promise.all([

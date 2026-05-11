@@ -31,28 +31,38 @@ export default async function handle(
     const userId = (session.user as CustomUser).id;
 
     try {
-      const team = await prisma.team.findUnique({
+      const teamAccess = await prisma.userTeam.findUnique({
         where: {
-          id: teamId,
-          users: {
-            some: {
-              userId: (session.user as CustomUser).id,
-            },
+          userId_teamId: {
+            userId: userId,
+            teamId: teamId,
           },
+        },
+      });
+      if (!teamAccess) {
+        return res.status(403).end("Unauthorized to access this team");
+      }
+
+      const group = await prisma.viewerGroup.findFirst({
+        where: {
+          id: groupId,
+          dataroomId,
+          teamId,
         },
         select: {
           id: true,
         },
       });
 
-      if (!team) {
-        return res.status(403).end("Unauthorized to access this team");
+      if (!group) {
+        return res.status(404).json({ message: "Group not found" });
       }
 
       let links = await prisma.link.findMany({
         where: {
-          groupId: groupId,
-          dataroomId: dataroomId,
+          groupId,
+          dataroomId,
+          teamId,
           linkType: "DATAROOM_LINK",
           deletedAt: null,
         },

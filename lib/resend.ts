@@ -1,6 +1,6 @@
 import { JSXElementConstructor, ReactElement } from "react";
 
-import { render, toPlainText } from "@react-email/render";
+import { render, toPlainText } from "react-email";
 import { Resend } from "resend";
 
 import prisma from "@/lib/prisma";

@@ -57,11 +57,16 @@ export default async function handle(
       const dataroom = await prisma.dataroom.findUnique({
         where: {
           id: dataroomId,
+          teamId,
         },
         include: {
           views: true,
         },
       });
+
+      if (!dataroom) {
+        return res.status(404).end("Dataroom not found");
+      }
 
       const users = await prisma.user.findMany({
         where: {
@@ -76,7 +81,7 @@ export default async function handle(
         },
       });
 
-      const views = dataroom?.views;
+      const views = dataroom.views;
 
       // if there are no views, return an empty array
       if (!views) {

@@ -5,7 +5,11 @@ import { getToken } from "next-auth/jwt";
 const LOGIN_PATH = "/login";
 const DEFAULT_AUTH_REDIRECT_PATH = "/dashboard";
 
-function normalizeNextPath(nextPath: string | null): string {
+function isProtocolRelativePath(path: string) {
+  return path[1] === "/" || path[1] === "\\";
+}
+
+function normalizeNextPath(nextPath: string | null, requestUrl: string): string {
   if (!nextPath) {
     return DEFAULT_AUTH_REDIRECT_PATH;
   }
@@ -25,11 +29,22 @@ function normalizeNextPath(nextPath: string | null): string {
     }
   }
 
-  if (!normalized.startsWith("/")) {
+  if (!normalized.startsWith("/") || isProtocolRelativePath(normalized)) {
     return DEFAULT_AUTH_REDIRECT_PATH;
   }
 
-  return normalized;
+  try {
+    const targetUrl = new URL(normalized, requestUrl);
+    const requestOrigin = new URL(requestUrl).origin;
+
+    if (targetUrl.origin !== requestOrigin) {
+      return DEFAULT_AUTH_REDIRECT_PATH;
+    }
+
+    return `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+  } catch {
+    return DEFAULT_AUTH_REDIRECT_PATH;
+  }
 }
 
 export default async function AppMiddleware(req: NextRequest) {
@@ -63,7 +78,7 @@ export default async function AppMiddleware(req: NextRequest) {
     const rawNextPath = url.searchParams.get("next");
 
     if (rawNextPath) {
-      const normalizedNextPath = normalizeNextPath(rawNextPath);
+      const normalizedNextPath = normalizeNextPath(rawNextPath, req.url);
       const canonicalLoginUrl = new URL(LOGIN_PATH, req.url);
       canonicalLoginUrl.searchParams.set("next", normalizedNextPath);
 
@@ -93,7 +108,7 @@ export default async function AppMiddleware(req: NextRequest) {
 
   // AUTHENTICATED if the path is /login, redirect to the next path
   if (token?.email && path === LOGIN_PATH) {
-    const nextPath = normalizeNextPath(url.searchParams.get("next"));
+    const nextPath = normalizeNextPath(url.searchParams.get("next"), req.url);
     return NextResponse.redirect(new URL(nextPath, req.url));
   }
 

@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { LinkType } from "@prisma/client";
 
+import { verifyDataroomSessionInPagesRouter } from "@/lib/auth/dataroom-auth";
+import { verifyLinkSessionInPagesRouter } from "@/lib/auth/link-session";
 import { getFile } from "@/lib/files/get-file";
 import { notifyDocumentDownload } from "@/lib/integrations/slack/events";
 import prisma from "@/lib/prisma";
@@ -33,11 +35,14 @@ export default async function handle(
         },
         select: {
           id: true,
+          dataroomId: true,
+          dataroomViewId: true,
           viewedAt: true,
           viewerEmail: true,
           link: {
             select: {
               linkType: true,
+              emailAuthenticated: true,
               allowDownload: true,
               expiresAt: true,
               isArchived: true,
@@ -73,6 +78,46 @@ export default async function handle(
       // if view does not exist, we should not allow the download
       if (!view) {
         return res.status(404).json({ error: "Error downloading" });
+      }
+
+      if (view.link.linkType === LinkType.DATAROOM_LINK) {
+        const session = await verifyDataroomSessionInPagesRouter(
+          req,
+          linkId,
+          view.dataroomId ?? "",
+        );
+        if (!session) {
+          return res
+            .status(401)
+            .json({ error: "Session required to download" });
+        }
+
+        if (!view.dataroomViewId || session.viewId !== view.dataroomViewId) {
+          return res.status(403).json({ error: "Error downloading" });
+        }
+
+        if (view.link.emailAuthenticated && !session.verified) {
+          return res.status(403).json({ error: "Error downloading" });
+        }
+      } else if (view.link.linkType === LinkType.DOCUMENT_LINK) {
+        const session = await verifyLinkSessionInPagesRouter(req, linkId);
+        if (!session) {
+          return res
+            .status(401)
+            .json({ error: "Session required to download" });
+        }
+
+        if (
+          session.linkType !== LinkType.DOCUMENT_LINK ||
+          session.viewId !== view.id ||
+          session.documentId !== view.document?.id
+        ) {
+          return res.status(403).json({ error: "Error downloading" });
+        }
+
+        if (view.link.emailAuthenticated && !session.verified) {
+          return res.status(403).json({ error: "Error downloading" });
+        }
       }
 
       // if document is downloadOnly, always allow. Otherwise, check link settings.

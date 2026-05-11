@@ -25,11 +25,10 @@ export default async function handler(
   }
 
   try {
-    const { folderId, dataroomId, viewId, linkId, emailNotification } =
+    const { folderId, dataroomId, linkId, emailNotification } =
       req.body as {
         folderId: string;
         dataroomId: string;
-        viewId: string;
         linkId: string;
         emailNotification?: boolean;
       };
@@ -39,9 +38,18 @@ export default async function handler(
         .json({ error: "folderId is required in request body" });
     }
 
+    const session = await verifyDataroomSessionInPagesRouter(
+      req,
+      linkId,
+      dataroomId,
+    );
+    if (!session) {
+      return res.status(401).json({ error: "Session required to download" });
+    }
+
     const view = await prisma.view.findUnique({
       where: {
-        id: viewId,
+        id: session.viewId,
         linkId: linkId,
         viewType: { equals: ViewType.DATAROOM_VIEW },
       },
@@ -70,15 +78,6 @@ export default async function handler(
 
     if (!view) {
       return res.status(404).json({ error: "Error downloading" });
-    }
-
-    const session = await verifyDataroomSessionInPagesRouter(
-      req,
-      linkId,
-      dataroomId,
-    );
-    if (!session) {
-      return res.status(401).json({ error: "Session required to download" });
     }
 
     // Verified session and email are only required when the viewer requested email notification

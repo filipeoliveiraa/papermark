@@ -99,7 +99,13 @@ export default async function handle(
       },
     });
 
-    if (!link || !link.dataroom || link.dataroom.id !== dataroomId) {
+    if (
+      !link ||
+      !link.dataroom ||
+      link.dataroom.id !== dataroomId ||
+      link.teamId !== teamId ||
+      link.dataroom.teamId !== teamId
+    ) {
       return res.status(404).json({ error: "Link not found" });
     }
 
