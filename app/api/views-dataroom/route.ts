@@ -930,10 +930,48 @@ export async function POST(request: NextRequest) {
           !dataroomDocumentPermission?.canView &&
           !dataroomDocumentPermission?.canDownload
         ) {
-          return NextResponse.json(
-            { message: "Unauthorized access." },
-            { status: 403 },
-          );
+          // Fallback: viewer-uploaded docs aren't tied to the link's
+          // permission group, so allow the original uploader through. Gated
+          // on a verified session (or NextAuth team-member preview) to
+          // prevent unverified callers from claiming an upload's viewerId.
+          const allowUploadFallback = isEmailVerified || isTeamMember;
+          const ownerViewerId = viewer?.id ?? dataroomSession?.viewerId;
+          const viewerUpload =
+            ownerViewerId || isTeamMember
+              ? await prisma.documentUpload.findFirst({
+                  where: {
+                    linkId,
+                    dataroomDocumentId: dataroomDocument.id,
+                    ...(ownerViewerId && !isTeamMember
+                      ? { viewerId: ownerViewerId }
+                      : {}),
+                  },
+                  select: { id: true },
+                })
+              : null;
+
+          if (!viewerUpload) {
+            return NextResponse.json(
+              { message: "Unauthorized access." },
+              { status: 403 },
+            );
+          }
+
+          if (!allowUploadFallback) {
+            // Trigger inline OTP re-auth. Echoing the email back is safe
+            // here — the caller supplied it on the access form.
+            return NextResponse.json(
+              {
+                message: "Email verification required to access your upload.",
+                requiresVerification: "viewer-upload",
+                email: viewer?.email ?? null,
+              },
+              { status: 401 },
+            );
+          }
+
+          // Per-link `allowDownload` still gates the download UI downstream.
+          dataroomDocumentPermission = { canView: true, canDownload: true };
         }
       }
 

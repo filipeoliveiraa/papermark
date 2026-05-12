@@ -168,15 +168,45 @@ export default async function handle(
             });
         }
 
-        const permittedDocumentIds = groupPermissions
-          .filter(
-            (permission) => permission.itemType === ItemType.DATAROOM_DOCUMENT,
-          )
-          .map((permission) => permission.itemId);
+        const permittedDocumentIds = new Set(
+          groupPermissions
+            .filter(
+              (permission) =>
+                permission.itemType === ItemType.DATAROOM_DOCUMENT,
+            )
+            .map((permission) => permission.itemId as string),
+        );
+
+        // Fallback: viewer-uploaded docs aren't tied to the link's
+        // permission group. Allow the original uploader through, scoped to
+        // the current viewer's id.
+        const candidateDocIds = downloadDocuments
+          .filter((doc) => !permittedDocumentIds.has(doc.id))
+          .map((doc) => doc.id);
+
+        if (candidateDocIds.length > 0 && view.viewerId) {
+          const viewerUploads = await prisma.documentUpload.findMany({
+            where: {
+              linkId,
+              viewerId: view.viewerId,
+              dataroomDocumentId: { in: candidateDocIds },
+            },
+            select: { dataroomDocumentId: true },
+          });
+          for (const upload of viewerUploads) {
+            if (upload.dataroomDocumentId) {
+              permittedDocumentIds.add(upload.dataroomDocumentId);
+            }
+          }
+        }
 
         downloadDocuments = downloadDocuments.filter((doc) =>
-          permittedDocumentIds.includes(doc.id),
+          permittedDocumentIds.has(doc.id),
         );
+      }
+
+      if (downloadDocuments.length === 0) {
+        return res.status(403).json({ error: "Error downloading" });
       }
 
       //creates new view for document

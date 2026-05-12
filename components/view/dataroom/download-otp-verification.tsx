@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   InputOTP,
@@ -21,6 +21,12 @@ export interface DownloadOtpVerificationProps {
   compact?: boolean;
   /** When true, send OTP email automatically on mount (e.g. when user just chose "Notify me" and clicked Start download). */
   sendOtpOnMount?: boolean;
+  /**
+   * Optional copy shown above the OTP input. Defaults to the
+   * download-notification phrasing. Override for other re-auth flows
+   * (e.g. viewer-upload access).
+   */
+  description?: ReactNode;
 }
 
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -33,6 +39,7 @@ export function DownloadOtpVerification({
   onCancel,
   compact = false,
   sendOtpOnMount = false,
+  description,
 }: DownloadOtpVerificationProps) {
   const [code, setCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -106,10 +113,12 @@ export function DownloadOtpVerification({
 
   return (
     <form onSubmit={verifyOtp} className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        We sent a 6-digit code to <strong>{email}</strong>. Enter it below to
-        verify and receive download notifications.
-      </p>
+      {description ?? (
+        <p className="text-sm text-muted-foreground">
+          We sent a 6-digit code to <strong>{email}</strong>. Enter it below to
+          verify and receive download notifications.
+        </p>
+      )}
       <InputOTP
         maxLength={6}
         pattern={REGEXP_ONLY_DIGITS}

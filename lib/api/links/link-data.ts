@@ -385,7 +385,19 @@ export async function fetchDataroomDocumentLinkData({
       hasAccess = groupPermissions.length > 0;
     }
 
-    // if it's a group/permission link, we need to check if the document is accessible
+    // Fallback: viewer-uploaded docs aren't tied to the link's permission
+    // group, so let getStaticProps render the page. The runtime view
+    // endpoint enforces per-viewer ownership and OTP re-auth.
+    if (!hasAccess) {
+      const viewerUpload = await prisma.documentUpload.findFirst({
+        where: { linkId, dataroomDocumentId },
+        select: { id: true },
+      });
+      if (viewerUpload) {
+        hasAccess = true;
+      }
+    }
+
     if (!hasAccess) {
       throw new Error("Document not found in group");
     }

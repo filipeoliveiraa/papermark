@@ -20,6 +20,7 @@ import AccessForm, {
 
 import EmailVerificationMessage from "../access-form/email-verification-form";
 import ViewData, { TViewDocumentData } from "../view-data";
+import { DownloadOtpVerification } from "./download-otp-verification";
 
 type RowData = { [key: string]: any };
 type SheetData = {
@@ -137,8 +138,16 @@ export default function DataroomDocumentView({
   const [code, setCode] = useState<string | null>(null);
   const [isInvalidCode, setIsInvalidCode] = useState<boolean>(false);
 
+  // Set when the server requires inline OTP re-auth before granting access.
+  const [uploadReauth, setUploadReauth] = useState<{
+    email: string;
+  } | null>(null);
+
   const handleSubmission = async (): Promise<void> => {
     setIsLoading(true);
+    // Captured up front because the inner `data` binding below shadows the
+    // component-scope `data` (form state).
+    const formEmail = data.email;
     const response = await fetch("/api/views-dataroom", {
       method: "POST",
       headers: {
@@ -255,6 +264,22 @@ export default function DataroomDocumentView({
       }
     } else {
       const data = await response.json();
+
+      // Server requires inline OTP re-auth. Skip the toast — the OTP
+      // component renders its own explanation.
+      if (
+        response.status === 401 &&
+        data.requiresVerification === "viewer-upload"
+      ) {
+        const reauthEmail =
+          data.email ?? verifiedEmail ?? userEmail ?? formEmail ?? null;
+        if (reauthEmail) {
+          setUploadReauth({ email: reauthEmail });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       toast.error(data.message);
 
       if (data.resetVerification) {
@@ -313,6 +338,39 @@ export default function DataroomDocumentView({
         setIsInvalidCode={setIsInvalidCode}
         brand={brand}
       />
+    );
+  }
+
+  // Inline OTP re-auth step. On success the session flips to verified and
+  // `handleSubmission` retries cleanly.
+  if (uploadReauth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-6 shadow-sm">
+          <div className="space-y-1">
+            <h1 className="text-lg font-semibold">Verify it&apos;s you</h1>
+            <p className="text-sm text-muted-foreground">
+              This file was uploaded by you. To reopen it, confirm you control{" "}
+              <strong>{uploadReauth.email}</strong>.
+            </p>
+          </div>
+          <DownloadOtpVerification
+            linkId={link.id}
+            email={uploadReauth.email}
+            sendOtpOnMount
+            description={
+              <p className="text-sm text-muted-foreground">
+                We sent a 6-digit code to <strong>{uploadReauth.email}</strong>.
+                Enter it below to access your uploaded file.
+              </p>
+            }
+            onVerified={() => {
+              setUploadReauth(null);
+              void handleSubmission();
+            }}
+          />
+        </div>
+      </div>
     );
   }
 

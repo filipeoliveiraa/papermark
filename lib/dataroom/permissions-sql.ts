@@ -1,35 +1,50 @@
 import { ItemType, Prisma } from "@prisma/client";
 
 /**
- * SQL builders for bulk-saving viewer-group permissions.
+ * SQL builders for bulk-saving dataroom permissions.
  *
- * Replaces the previous loop of per-row `prisma.viewerGroupAccessControls
- * .upsert(...)` calls inside `prisma.$transaction(async (tx) => …)`, which
- * needed thousands of round-trips on large datarooms and reliably timed out
- * Prisma's interactive-transaction window for big "Save changes" payloads.
+ * Replaces per-row `prisma.*.upsert(...)` loops inside
+ * `prisma.$transaction(async (tx) => …)` blocks, which needed thousands of
+ * round-trips on large datarooms and reliably timed out Prisma's interactive
+ * transaction window for big "Save changes" payloads.
  *
- * The handler combines three statements inside a single transaction:
- *   1. `buildBulkUpsertPermissionsSql` — single `INSERT … ON CONFLICT DO
- *      UPDATE` for every entry in the user-supplied payload.
- *   2. `buildFindAncestorFolderIdsSql` — single recursive-CTE walk of
- *      `DataroomFolder.parentId` returning the distinct ancestor folder ids
- *      of every item the payload is making visible.
- *   3. `buildUpsertAncestorVisibilitySql` — single bulk upsert that forces
- *      `canView=true` on those ancestor folders while preserving any
- *      existing `canDownload`. This is the server-side safety net for
- *      callers (e.g. the post-upload modal in
- *      `set-unified-permissions-modal.tsx`) that submit only a single
- *      document and don't compute parent chains client-side.
+ * Two consumers share these builders:
+ *   1. **Viewer groups** (admin-side dataroom permissions UI) — writes to
+ *      `ViewerGroupAccessControls`. Append-only delta semantics: only rows
+ *      in the user's payload are upserted; nothing is deleted.
+ *   2. **Link permission groups** (per-link permission overrides) — writes
+ *      to `PermissionGroupAccessControls`. Set-everything semantics: the
+ *      caller posts the complete desired state, so any DB row not in the
+ *      payload (or in the computed ancestor set) is deleted.
+ *
+ * Both tables share the columns we touch:
+ *   `id, groupId, itemId, itemType, canView, canDownload, createdAt, updatedAt`
+ *
+ * `PermissionGroupAccessControls` has an extra `canDownloadOriginal Boolean
+ * @default(false)`. We intentionally never reference it in the SET clause
+ * here so its existing value is preserved on update and the column default
+ * fills in for INSERT — same shape as the previous Prisma client code path.
  *
  * `id` values are generated client-side as cuids — same convention as the
  * rest of the schema's `@id @default(cuid())` columns — and passed in as
- * normal bound parameters. We deliberately avoid `gen_random_uuid()::text`
- * here so every row in `ViewerGroupAccessControls` keeps a consistent id
- * format.
+ * normal bound parameters.
  *
  * All builders are pure functions over their inputs so we can assert their
  * shape in unit tests without spinning up Postgres.
  */
+
+/**
+ * The two access-control tables we know how to bulk-write to. The literal
+ * string is interpolated into the SQL with `Prisma.raw`, which is safe here
+ * because the value is a closed union type — it cannot be supplied by user
+ * input, only by callers in this codebase.
+ */
+export type AccessControlTable =
+  | "ViewerGroupAccessControls"
+  | "PermissionGroupAccessControls";
+
+const tableRef = (table: AccessControlTable): Prisma.Sql =>
+  Prisma.raw(`"${table}"`);
 
 export type PermissionUpsertRow = {
   /** Pre-generated cuid (same format as `@id @default(cuid())`). */
@@ -41,7 +56,7 @@ export type PermissionUpsertRow = {
 };
 
 export type AncestorUpsertRow = {
-  /** Pre-generated cuid for the new `ViewerGroupAccessControls` row. */
+  /** Pre-generated cuid for the new access-control row. */
   id: string;
   folderId: string;
 };
@@ -52,6 +67,7 @@ export type AncestorUpsertRow = {
  * Returns `null` when `rows` is empty so the caller can skip the round-trip.
  */
 export function buildBulkUpsertPermissionsSql(
+  table: AccessControlTable,
   groupId: string,
   rows: PermissionUpsertRow[],
 ): Prisma.Sql | null {
@@ -69,7 +85,7 @@ export function buildBulkUpsertPermissionsSql(
   );
 
   return Prisma.sql`
-    INSERT INTO "ViewerGroupAccessControls" (
+    INSERT INTO ${tableRef(table)} (
       "id",
       "groupId",
       "itemId",
@@ -110,6 +126,9 @@ export function buildBulkUpsertPermissionsSql(
  * - Folder→parent walking starts from each visible folder *and* from each
  *   visible document's `folderId`. Root-level documents have no folder, so
  *   they're filtered out (correct: they have no ancestor to make visible).
+ *
+ * Independent of the access-control table — this only walks
+ * `DataroomFolder` / `DataroomDocument` and is shared by both consumers.
  */
 export function buildFindAncestorFolderIdsSql(
   dataroomId: string,
@@ -173,6 +192,7 @@ export function buildFindAncestorFolderIdsSql(
  * ancestor is already visible — typical case in steady state.
  */
 export function buildUpsertAncestorVisibilitySql(
+  table: AccessControlTable,
   groupId: string,
   ancestors: AncestorUpsertRow[],
 ): Prisma.Sql | null {
@@ -188,7 +208,7 @@ export function buildUpsertAncestorVisibilitySql(
   );
 
   return Prisma.sql`
-    INSERT INTO "ViewerGroupAccessControls" (
+    INSERT INTO ${tableRef(table)} (
       "id",
       "groupId",
       "itemId",
@@ -211,7 +231,35 @@ export function buildUpsertAncestorVisibilitySql(
     ON CONFLICT ("groupId", "itemId") DO UPDATE SET
       "canView" = TRUE,
       "updatedAt" = NOW()
-    WHERE "ViewerGroupAccessControls"."canView" = FALSE;
+    WHERE ${tableRef(table)}."canView" = FALSE;
+  `;
+}
+
+/**
+ * Build a `DELETE` for rows in `table` belonging to `groupId` whose `itemId`
+ * is *not* in `keepItemIds`. This is the link-permission "set the entire
+ * permission state" semantic — anything no longer in the desired payload
+ * (after ancestor expansion) is removed.
+ *
+ * Returns `null` when `keepItemIds` is empty so the caller can decide
+ * whether to wipe everything for the group or skip the call entirely. Most
+ * link saves should always include something (at minimum the toggled item
+ * and its ancestors), so an empty array is unusual.
+ */
+export function buildDeletePermissionsNotInPayloadSql(
+  table: AccessControlTable,
+  groupId: string,
+  keepItemIds: string[],
+): Prisma.Sql | null {
+  if (keepItemIds.length === 0) return null;
+
+  // Dedupe so the bound parameter list stays compact for huge payloads.
+  const uniqueIds = Array.from(new Set(keepItemIds));
+
+  return Prisma.sql`
+    DELETE FROM ${tableRef(table)}
+    WHERE "groupId" = ${groupId}
+      AND "itemId" NOT IN (${Prisma.join(uniqueIds)});
   `;
 }
 

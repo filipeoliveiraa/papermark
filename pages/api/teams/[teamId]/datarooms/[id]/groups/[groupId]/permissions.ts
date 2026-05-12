@@ -96,7 +96,11 @@ export default async function handler(
       }),
     );
 
-    const bulkUpsertSql = buildBulkUpsertPermissionsSql(groupId, upsertRows);
+    const bulkUpsertSql = buildBulkUpsertPermissionsSql(
+      "ViewerGroupAccessControls",
+      groupId,
+      upsertRows,
+    );
 
     const { visibleDocumentIds, visibleFolderIds } =
       extractVisibleItemIds(permissions);
@@ -128,6 +132,7 @@ export default async function handler(
           }));
 
           const ancestorUpsertSql = buildUpsertAncestorVisibilitySql(
+            "ViewerGroupAccessControls",
             groupId,
             ancestors,
           );

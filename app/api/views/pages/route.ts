@@ -155,6 +155,7 @@ export async function POST(request: NextRequest) {
           dataroomId: true,
           linkId: true,
           viewedAt: true,
+          viewerId: true,
         },
       }),
       prisma.documentVersion.findUnique({
@@ -201,6 +202,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { message: "Invalid or expired session." },
           { status: 401 },
+        );
+      }
+
+      // Bind the requested viewId to the caller's session. Cross-view
+      // access (re-opening a doc within the same dataroom session creates
+      // a new DOCUMENT_VIEW row) requires both viewerIds to be defined and
+      // equal — anonymous views must match by viewId only.
+      const sameViewer =
+        !!session.viewerId &&
+        !!view.viewerId &&
+        session.viewerId === view.viewerId;
+      if (session.viewId !== view.id && !sameViewer) {
+        return NextResponse.json(
+          { message: "Unauthorized access." },
+          { status: 403 },
         );
       }
     }

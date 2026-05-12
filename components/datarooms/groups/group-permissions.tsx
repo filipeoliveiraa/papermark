@@ -52,6 +52,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipPortal,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const PermissionItemName = ({ item }: { item: FileOrFolder }) => {
   const { isFeatureEnabled } = useFeatureFlags();
@@ -66,17 +72,29 @@ const PermissionItemName = ({ item }: { item: FileOrFolder }) => {
   const isRoot = item.id === VIRTUAL_ROOT_ID;
 
   return (
-    <div className="flex items-center text-foreground">
+    <div className="flex min-w-0 items-center text-foreground">
       {isRoot ? (
-        <HomeIcon className="mr-2 h-5 w-5" />
+        <HomeIcon className="mr-2 h-5 w-5 shrink-0" />
       ) : item.itemType === ItemType.DATAROOM_FOLDER ? (
-        <Folder className="mr-2 h-5 w-5" />
+        <Folder className="mr-2 h-5 w-5 shrink-0" />
       ) : (
-        <File className="mr-2 h-5 w-5" />
+        <File className="mr-2 h-5 w-5 shrink-0" />
       )}
-      <span className="truncate" style={HIERARCHICAL_DISPLAY_STYLE}>
-        {displayName}
-      </span>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <span
+            className="truncate"
+            style={HIERARCHICAL_DISPLAY_STYLE}
+          >
+            {displayName}
+          </span>
+        </TooltipTrigger>
+        <TooltipPortal>
+          <TooltipContent className="max-w-sm break-words" side="top">
+            {displayName}
+          </TooltipContent>
+        </TooltipPortal>
+      </Tooltip>
     </div>
   );
 };
@@ -108,9 +126,9 @@ const createColumns = (extra: ColumnExtra): ColumnDef<FileOrFolder>[] => [
     accessorKey: "name",
     header: "Name",
     cell: ({ row }) => {
-      const isRoot = row.original.id === "__dataroom_root__";
+      const isRoot = row.original.id === VIRTUAL_ROOT_ID;
       return (
-        <div className="flex items-center text-foreground">
+        <div className="flex min-w-0 items-center text-foreground">
           {isRoot ? (
             <div className="h-6 w-6 shrink-0" />
           ) : row.getCanExpand() ? (
@@ -329,7 +347,7 @@ const buildTreeWithRoot = (
 
   return [
     {
-      id: "__dataroom_root__",
+      id: VIRTUAL_ROOT_ID,
       name: dataroomName,
       subItems: allItems,
       permissions: rootPermissions,
@@ -644,7 +662,7 @@ export default function ExpandableTable({
     },
     getRowCanExpand: (row) => {
       // Root folder is always expanded and cannot be collapsed
-      if (row.original.id === "__dataroom_root__") {
+      if (row.original.id === VIRTUAL_ROOT_ID) {
         return true;
       }
       return (row.subRows?.length ?? 0) > 0;
@@ -722,14 +740,19 @@ export default function ExpandableTable({
           isSaving && "pointer-events-none opacity-60",
         )}
       >
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
+                {headerGroup.headers.map((header, index) => (
                   <TableHead
                     key={header.id}
-                    className="py-2 first:w-12 last:text-right"
+                    className={cn(
+                      "py-2",
+                      index === 0
+                        ? "w-auto"
+                        : "w-[120px] whitespace-nowrap text-right",
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -745,7 +768,7 @@ export default function ExpandableTable({
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
-                const isRoot = row.original.id === "__dataroom_root__";
+                const isRoot = row.original.id === VIRTUAL_ROOT_ID;
                 return (
                   <TableRow
                     key={row.id}
@@ -764,12 +787,24 @@ export default function ExpandableTable({
                               }
                             : undefined
                         }
-                        className="py-2 last:flex last:justify-end"
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
+                        className={cn(
+                          "py-2",
+                          index === 0
+                            ? "max-w-0"
+                            : "w-[120px] whitespace-nowrap",
                         )}
+                      >
+                        <div
+                          className={cn(
+                            "min-w-0",
+                            index !== 0 && "flex justify-end",
+                          )}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </div>
                       </TableCell>
                     ))}
                   </TableRow>
