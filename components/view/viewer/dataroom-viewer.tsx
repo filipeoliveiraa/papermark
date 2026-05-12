@@ -204,18 +204,87 @@ export default function DataroomViewer({
     [folderId, folders],
   );
 
+  // Index access controls by `itemId` once per change so the per-document
+  // lookups below are O(1) instead of O(A). Without this, the descendant
+  // walk and the per-render `mixedItems` build each do an N×M scan over
+  // documents × accessControls, which becomes noticeable past a few
+  // thousand items in the dataroom.
+  const accessControlByItemId = useMemo(() => {
+    const map = new Map<
+      string,
+      ViewerGroupAccessControls | PermissionGroupAccessControls
+    >();
+    for (const access of accessControls) {
+      map.set(access.itemId, access);
+    }
+    return map;
+  }, [accessControls]);
+
   const allDocumentsCanDownload = useMemo(() => {
     if (!allowDownload) return false;
     if (!documents || documents.length === 0) return false;
 
     return documents.some((doc) => {
       if (doc.versions[0].type === "notion") return false;
-      const accessControl = accessControls.find(
-        (access) => access.itemId === doc.dataroomDocumentId,
-      );
+      const accessControl = accessControlByItemId.get(doc.dataroomDocumentId);
       return accessControl?.canDownload ?? true;
     });
-  }, [documents, accessControls, allowDownload]);
+  }, [documents, accessControlByItemId, allowDownload]);
+
+  // For each folder, whether *any* descendant document is downloadable for
+  // this viewer. The folder card's download menu is shown whenever this is
+  // true, so a folder that's only "partially downloadable" (e.g. one nested
+  // doc downloadable, others not) still surfaces the action — matching what
+  // the bulk-download job actually produces (it permission-filters in
+  // `lib/trigger/bulk-download.ts`).
+  const folderHasDownloadableDescendant = useMemo(() => {
+    const result = new Map<string, boolean>();
+
+    // Resolve a single doc's downloadability against the viewer's access
+    // controls. `canDownload` defaults to true when no explicit row exists,
+    // matching the per-document logic elsewhere in this file.
+    const isDocDownloadable = (doc: DataroomDocument): boolean => {
+      if (doc.versions[0]?.type === "notion") return false;
+      const accessControl = accessControlByItemId.get(doc.dataroomDocumentId);
+      return accessControl?.canDownload ?? true;
+    };
+
+    const folderChildren = new Map<string, string[]>();
+    const folderDocsMap = new Map<string, DataroomDocument[]>();
+
+    folders.forEach((folder) => {
+      const parentId = folder.parentId || "root";
+      if (!folderChildren.has(parentId)) folderChildren.set(parentId, []);
+      folderChildren.get(parentId)!.push(folder.id);
+    });
+
+    documents.forEach((doc) => {
+      const fid = doc.folderId || "root";
+      if (!folderDocsMap.has(fid)) folderDocsMap.set(fid, []);
+      folderDocsMap.get(fid)!.push(doc);
+    });
+
+    const compute = (folderId: string): boolean => {
+      const cached = result.get(folderId);
+      if (cached !== undefined) return cached;
+
+      const docs = folderDocsMap.get(folderId) || [];
+      if (docs.some(isDocDownloadable)) {
+        result.set(folderId, true);
+        return true;
+      }
+
+      const children = folderChildren.get(folderId) || [];
+      const hasDownloadableChild = children.some(compute);
+
+      result.set(folderId, hasDownloadableChild);
+      return hasDownloadableChild;
+    };
+
+    folders.forEach((folder) => compute(folder.id));
+
+    return result;
+  }, [folders, documents, accessControlByItemId]);
 
   // Efficiently calculate effective updatedAt for all folders in a single pass
   const folderEffectiveUpdatedAt = useMemo(() => {
@@ -291,8 +360,8 @@ export default function DataroomViewer({
       return (documents || [])
         .filter((doc) => doc.name.toLowerCase().includes(searchQuery))
         .map((doc) => {
-          const accessControl = accessControls.find(
-            (access) => access.itemId === doc.dataroomDocumentId,
+          const accessControl = accessControlByItemId.get(
+            doc.dataroomDocumentId,
           );
 
           return {
@@ -310,39 +379,30 @@ export default function DataroomViewer({
       ...(folders || [])
         .filter((folder) => folder.parentId === folderId)
         .map((folder) => {
-          const folderDocuments = documents.filter(
-            (doc) => doc.folderId === folder.id,
-          );
-
           // Get pre-calculated effective updatedAt
           const effectiveUpdatedAt =
             folderEffectiveUpdatedAt.get(folder.id) ||
             new Date(folder.updatedAt);
 
-          const allDocumentsCanDownload =
-            folderDocuments.length === 0 || // Allow download for empty folders
-            folderDocuments.every((doc) => {
-              const accessControl = accessControls.find(
-                (access) => access.itemId === doc.dataroomDocumentId,
-              );
-              return (
-                (accessControl?.canDownload ?? true) &&
-                doc.versions[0].type !== "notion"
-              );
-            });
+          // Show the download action when any descendant doc is downloadable
+          // — including the partial case where some are and some aren't, and
+          // the deeply-nested case where the only downloadable doc lives
+          // several levels below this folder.
+          const hasDownloadableDescendant =
+            folderHasDownloadableDescendant.get(folder.id) ?? false;
 
           return {
             ...folder,
             updatedAt: effectiveUpdatedAt,
             itemType: "folder",
-            allowDownload: allowDownload && allDocumentsCanDownload,
+            allowDownload: allowDownload && hasDownloadableDescendant,
           };
         }),
       ...(documents || [])
         .filter((doc) => doc.folderId === folderId)
         .map((doc) => {
-          const accessControl = accessControls.find(
-            (access) => access.itemId === doc.dataroomDocumentId,
+          const accessControl = accessControlByItemId.get(
+            doc.dataroomDocumentId,
           );
 
           return {
@@ -360,9 +420,10 @@ export default function DataroomViewer({
     folders,
     documents,
     folderId,
-    accessControls,
+    accessControlByItemId,
     allowDownload,
     folderEffectiveUpdatedAt,
+    folderHasDownloadableDescendant,
     searchQuery,
   ]);
 

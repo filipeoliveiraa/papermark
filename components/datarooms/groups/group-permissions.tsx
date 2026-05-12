@@ -24,6 +24,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  VIRTUAL_ROOT_ID,
+  aggregateFolderPermissions,
+  collectChangesForItem,
+  collectChangesForRoot,
+  findItemAndParents,
+  resolveToggleIntent,
+  type PermissionChanges,
+} from "@/lib/dataroom/permissions-tree";
 import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { useDataroomFoldersTree } from "@/lib/swr/use-dataroom";
 import { cn } from "@/lib/utils";
@@ -54,7 +63,7 @@ const PermissionItemName = ({ item }: { item: FileOrFolder }) => {
     isDataroomIndexEnabled,
   );
 
-  const isRoot = item.id === "__dataroom_root__";
+  const isRoot = item.id === VIRTUAL_ROOT_ID;
 
   return (
     <div className="flex items-center text-foreground">
@@ -88,10 +97,7 @@ type FileOrFolder = {
   documentId?: string;
 };
 
-type ItemPermission = Record<
-  string,
-  { view: boolean; download: boolean; itemType: ItemType }
->;
+type ItemPermission = PermissionChanges;
 
 type ColumnExtra = {
   updatePermissions: (id: string, newPermissions: string[]) => void;
@@ -237,40 +243,25 @@ const buildTree = (
 
       const folderPermissions = getPermissions(folder.id);
 
-      // Calculate view and partialView for folders
-      let viewStatus = folderPermissions.view;
-      let partialView = false;
-      let downloadStatus = folderPermissions.download;
-      let partialDownload = false;
-
-      if (allSubItems.length > 0) {
-        const viewableItems = allSubItems.filter(
-          (item) => item.permissions.view,
-        );
-        const downloadableItems = allSubItems.filter(
-          (item) => item.permissions.download,
-        );
-
-        viewStatus = viewableItems.length > 0;
-        partialView =
-          viewableItems.length > 0 && viewableItems.length < allSubItems.length;
-        downloadStatus = downloadableItems.length > 0;
-        partialDownload =
-          downloadableItems.length > 0 &&
-          downloadableItems.length < allSubItems.length;
-      }
+      // Aggregate from direct children so the partial (indeterminate) state
+      // propagates up the tree — a folder whose only-hidden descendant is
+      // several levels deep must still render as partial. Empty folders fall
+      // back to their own persisted permission row.
+      const aggregated = aggregateFolderPermissions(
+        allSubItems.map((sub) => sub.permissions),
+      ) ?? {
+        view: folderPermissions.view,
+        download: folderPermissions.download,
+        partialView: false,
+        partialDownload: false,
+      };
 
       result.push({
         id: folder.id,
         name: folder.name,
         hierarchicalIndex: folder.hierarchicalIndex,
         subItems: allSubItems,
-        permissions: {
-          view: viewStatus,
-          download: downloadStatus,
-          partialView,
-          partialDownload,
-        },
+        permissions: aggregated,
         itemType: ItemType.DATAROOM_FOLDER,
       });
     });
@@ -378,156 +369,171 @@ export default function ExpandableTable({
 
   const updatePermissions = useCallback(
     (id: string, newPermissions: string[]) => {
-      const isRoot = id === "__dataroom_root__";
+      const isRoot = id === VIRTUAL_ROOT_ID;
 
-      const findItemAndParents = (
-        items: FileOrFolder[],
-        targetId: string,
-        parents: FileOrFolder[] = [],
-      ): { item: FileOrFolder; parents: FileOrFolder[] } | null => {
-        for (const item of items) {
-          if (item.id === targetId) {
-            return { item, parents };
-          }
-          if (item.subItems) {
-            const result = findItemAndParents(item.subItems, targetId, [
-              ...parents,
-              item,
-            ]);
-            if (result) return result;
-          }
-        }
-        return null;
-      };
-
-      const result = findItemAndParents(dataRef.current, id);
-      if (!result) return;
-
-      const { item, parents } = result;
-
-      const updatedPermissions = {
+      const rawPermissions = {
         view: newPermissions.includes("view"),
         download: newPermissions.includes("download"),
       };
 
-      // Enforce invariants:
-      //   - download requires view (you can't download what you can't see)
-      //   - turning view off implies turning download off
-      if (!updatedPermissions.view) {
-        updatedPermissions.download = false;
-      } else if (updatedPermissions.download && !updatedPermissions.view) {
-        updatedPermissions.view = true;
+      // Resolve user intent against the previous state so clicking the
+      // download icon on a not-yet-visible item also flips view on (instead
+      // of being silently dropped by the "download requires view" rule).
+      let foundResult: ReturnType<typeof findItemAndParents> = null;
+      let previous: { view: boolean; download: boolean };
+      if (isRoot) {
+        const root = dataRef.current[0];
+        if (!root) return;
+        previous = {
+          view: root.permissions.view,
+          download: root.permissions.download,
+        };
+      } else {
+        foundResult = findItemAndParents(dataRef.current, id);
+        if (!foundResult) return;
+        previous = {
+          view: foundResult.item.permissions.view,
+          download: foundResult.item.permissions.download,
+        };
       }
+      const resolved = resolveToggleIntent(previous, rawPermissions);
+      const normalized = resolved.view
+        ? resolved
+        : { view: false, download: false };
 
-      // Handle root-level permissions (affects all items)
       if (isRoot) {
         setData((prevData) => {
           const updateAllItems = (items: FileOrFolder[]): FileOrFolder[] => {
-            return items.map((currentItem) => {
-              if (currentItem.id === "__dataroom_root__") {
-                return {
-                  ...currentItem,
-                  permissions: {
-                    view: updatedPermissions.view,
-                    download: updatedPermissions.download,
-                    partialView: false,
-                    partialDownload: false,
-                  },
-                  subItems: currentItem.subItems
-                    ? updateAllItems(currentItem.subItems)
-                    : undefined,
-                };
-              }
-
-              const updatedItem = {
-                ...currentItem,
-                permissions: {
-                  view: updatedPermissions.view,
-                  download: updatedPermissions.download,
-                  partialView: false,
-                  partialDownload: false,
-                },
-                subItems: currentItem.subItems
-                  ? updateAllItems(currentItem.subItems)
-                  : undefined,
-              };
-
-              return updatedItem;
-            });
+            return items.map((currentItem) => ({
+              ...currentItem,
+              permissions: {
+                view: normalized.view,
+                download: normalized.download,
+                partialView: false,
+                partialDownload: false,
+              },
+              subItems: currentItem.subItems
+                ? updateAllItems(currentItem.subItems)
+                : undefined,
+            }));
           };
 
           return updateAllItems(prevData);
         });
 
-        // Collect changes for all items
-        const collectAllChanges = (items: FileOrFolder[]): ItemPermission => {
-          let changes: ItemPermission = {};
-
-          const processItems = (items: FileOrFolder[]) => {
-            items.forEach((item) => {
-              // Don't save the virtual __dataroom_root__ item to database
-              if (item.id !== "__dataroom_root__") {
-                changes[item.id] = {
-                  view: updatedPermissions.view,
-                  download: updatedPermissions.download,
-                  itemType: item.itemType,
-                };
-              }
-
-              if (item.subItems) {
-                processItems(item.subItems);
-              }
-            });
-          };
-
-          processItems(items);
-          return changes;
-        };
-
-        const rootChanges = collectAllChanges(dataRef.current);
-        setPendingChanges((prev) => ({
-          ...prev,
-          ...rootChanges,
-        }));
-
+        const rootChanges = collectChangesForRoot(dataRef.current, normalized);
+        setPendingChanges((prev) => ({ ...prev, ...rootChanges }));
         return;
       }
 
+      const { item, parents } = foundResult!;
+
       setData((prevData) => {
+        const updateSubItems = (
+          items: FileOrFolder[],
+          viewState: boolean,
+          downloadState: boolean,
+        ): FileOrFolder[] => {
+          return items.map((subItem) => ({
+            ...subItem,
+            permissions: {
+              ...subItem.permissions,
+              view: viewState,
+              partialView: false,
+              partialDownload: false,
+              download: downloadState,
+            },
+            subItems: subItem.subItems
+              ? updateSubItems(subItem.subItems, viewState, downloadState)
+              : undefined,
+          }));
+        };
+
+        const recalculateParentPermissions = (
+          parent: FileOrFolder,
+          subItems: FileOrFolder[],
+        ): FileOrFolder => {
+          const isParentRoot = parent.id === VIRTUAL_ROOT_ID;
+
+          if (isParentRoot) {
+            const flattenItems = (items: FileOrFolder[]): FileOrFolder[] =>
+              items.reduce((acc, current) => {
+                if (current.id !== VIRTUAL_ROOT_ID) acc.push(current);
+                if (current.subItems) acc.push(...flattenItems(current.subItems));
+                return acc;
+              }, [] as FileOrFolder[]);
+
+            const allItems = flattenItems(subItems);
+            const viewableItems = allItems.filter((i) => i.permissions.view);
+            const downloadableItems = allItems.filter(
+              (i) => i.permissions.download,
+            );
+            return {
+              ...parent,
+              permissions: {
+                view: viewableItems.length > 0,
+                partialView:
+                  viewableItems.length > 0 &&
+                  viewableItems.length < allItems.length,
+                download: downloadableItems.length > 0,
+                partialDownload:
+                  downloadableItems.length > 0 &&
+                  downloadableItems.length < allItems.length,
+              },
+              subItems,
+            };
+          }
+
+          // Same aggregation rule as `buildTree` — propagate `partialView`
+          // and `partialDownload` so an ancestor stays partial when any
+          // descendant (not just an immediate child) is hidden.
+          const aggregated = aggregateFolderPermissions(
+            subItems.map((sub) => sub.permissions),
+          ) ?? {
+            view: parent.permissions.view,
+            download: parent.permissions.download,
+            partialView: false,
+            partialDownload: false,
+          };
+
+          return {
+            ...parent,
+            permissions: aggregated,
+            subItems,
+          };
+        };
+
         const updateItemInTree = (items: FileOrFolder[]): FileOrFolder[] => {
           return items.map((currentItem) => {
             if (currentItem.id === id) {
               const updatedItem = {
                 ...currentItem,
                 permissions: {
-                  view: updatedPermissions.view,
-                  download: updatedPermissions.download,
+                  view: normalized.view,
+                  download: normalized.download,
                   partialView: false,
                   partialDownload: false,
                 },
               };
 
-              // If it's a folder, update all subitems
               if (updatedItem.itemType === ItemType.DATAROOM_FOLDER) {
                 updatedItem.subItems = updateSubItems(
                   updatedItem.subItems || [],
-                  updatedPermissions.view,
-                  updatedPermissions.download,
+                  normalized.view,
+                  normalized.download,
                 );
               }
 
               return updatedItem;
             }
 
-            // if the current item is a parent of the updated item, update the parent's permissions
             if (parents.some((parent) => parent.id === currentItem.id)) {
               const updatedSubItems = currentItem.subItems
                 ? updateItemInTree(currentItem.subItems)
                 : [];
-              return updateParentPermissions(currentItem, updatedSubItems);
+              return recalculateParentPermissions(currentItem, updatedSubItems);
             }
 
-            // if the current item has subitems, update the subitems
             if (currentItem.subItems) {
               return {
                 ...currentItem,
@@ -538,186 +544,11 @@ export default function ExpandableTable({
           });
         };
 
-        const updateSubItems = (
-          items: FileOrFolder[],
-          viewState: boolean,
-          downloadState: boolean,
-        ): FileOrFolder[] => {
-          return items.map((item) => ({
-            ...item,
-            permissions: {
-              ...item.permissions,
-              view: viewState,
-              partialView: false,
-              partialDownload: false,
-              download: downloadState,
-            },
-            subItems: item.subItems
-              ? updateSubItems(item.subItems, viewState, downloadState)
-              : undefined,
-          }));
-        };
-
-        const updateParentPermissions = (
-          parent: FileOrFolder,
-          subItems: FileOrFolder[],
-        ): FileOrFolder => {
-          const isParentRoot = parent.id === "__dataroom_root__";
-
-          // For root folder, calculate based on all descendants
-          const calculatePermissions = (items: FileOrFolder[]) => {
-            const flattenItems = (items: FileOrFolder[]): FileOrFolder[] => {
-              return items.reduce((acc, item) => {
-                if (item.id !== "__dataroom_root__") {
-                  acc.push(item);
-                }
-                if (item.subItems) {
-                  acc.push(...flattenItems(item.subItems));
-                }
-                return acc;
-              }, [] as FileOrFolder[]);
-            };
-
-            const allItems = flattenItems(items);
-            const viewableItems = allItems.filter(
-              (item) => item.permissions.view,
-            );
-            const downloadableItems = allItems.filter(
-              (item) => item.permissions.download,
-            );
-
-            return {
-              view: viewableItems.length > 0,
-              partialView:
-                viewableItems.length > 0 &&
-                viewableItems.length < allItems.length,
-              download: downloadableItems.length > 0,
-              partialDownload:
-                downloadableItems.length > 0 &&
-                downloadableItems.length < allItems.length,
-            };
-          };
-
-          if (isParentRoot) {
-            const rootPermissions = calculatePermissions(subItems);
-            return {
-              ...parent,
-              permissions: rootPermissions,
-              subItems,
-            };
-          }
-
-          // For regular folders
-          const someSubItemViewable = subItems.some(
-            (subItem) => subItem.permissions.view,
-          );
-          const allSubItemsViewable = subItems.every(
-            (subItem) => subItem.permissions.view,
-          );
-          const someSubItemDownloadable = subItems.some(
-            (subItem) => subItem.permissions.download,
-          );
-          const allSubItemsDownloadable = subItems.every(
-            (subItem) => subItem.permissions.download,
-          );
-
-          return {
-            ...parent,
-            permissions: {
-              view: someSubItemViewable,
-              partialView: someSubItemViewable && !allSubItemsViewable,
-              download: someSubItemDownloadable,
-              partialDownload:
-                someSubItemDownloadable && !allSubItemsDownloadable,
-            },
-            subItems,
-          };
-        };
-
         return updateItemInTree(prevData);
       });
 
-      // Collect changes for database update
-      const collectChanges = (
-        item: FileOrFolder,
-        parents: FileOrFolder[],
-      ): ItemPermission => {
-        let changes: ItemPermission = {};
-
-        // Don't save the virtual __dataroom_root__ item to database
-        if (item.id !== "__dataroom_root__") {
-          changes[item.id] = {
-            view: updatedPermissions.view,
-            download: updatedPermissions.download,
-            itemType: item.itemType,
-          };
-        }
-
-        // Collect changes for all subitems
-        const collectSubItemChanges = (
-          subItems: FileOrFolder[] | undefined,
-        ) => {
-          if (!subItems) return;
-          subItems.forEach((subItem) => {
-            // Don't save the virtual __dataroom_root__ item to database
-            if (subItem.id !== "__dataroom_root__") {
-              changes[subItem.id] = {
-                view: updatedPermissions.view,
-                download: updatedPermissions.download,
-                itemType: subItem.itemType,
-              };
-            }
-            collectSubItemChanges(subItem.subItems);
-          });
-        };
-
-        collectSubItemChanges(item.subItems);
-
-        // Ensure all parent folders are viewable if the item is being set to viewable
-        if (updatedPermissions.view || updatedPermissions.download) {
-          parents.forEach((parent) => {
-            // Don't save the virtual __dataroom_root__ item to database
-            if (parent.id !== "__dataroom_root__") {
-              changes[parent.id] = {
-                view: true,
-                download: updatedPermissions.download
-                  ? true
-                  : parent.permissions.download,
-                itemType: parent.itemType,
-              };
-            }
-          });
-        } else {
-          // If turning off view, recalculate parent permissions
-          [...parents].reverse().forEach((parent) => {
-            // Don't save the virtual __dataroom_root__ item to database
-            if (parent.id !== "__dataroom_root__") {
-              const otherChildren =
-                parent.subItems?.filter((subItem) => subItem.id !== item.id) ||
-                [];
-              const someSubItemViewable = otherChildren.some(
-                (subItem) => subItem.permissions.view,
-              );
-              const someSubItemDownloadable = otherChildren.some(
-                (subItem) => subItem.permissions.download,
-              );
-
-              changes[parent.id] = {
-                view: someSubItemViewable,
-                download: someSubItemDownloadable,
-                itemType: parent.itemType,
-              };
-            }
-          });
-        }
-
-        return changes;
-      };
-
-      setPendingChanges((prev) => ({
-        ...prev,
-        ...collectChanges(item, parents),
-      }));
+      const changes = collectChangesForItem(item, parents, normalized);
+      setPendingChanges((prev) => ({ ...prev, ...changes }));
     },
     [],
   );
