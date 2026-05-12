@@ -120,6 +120,7 @@ export default async function handle(
         enableChangeNotifications,
         enableVisitorUploadChangeNotifications,
         defaultPermissionStrategy,
+        defaultGroupPermissionStrategy,
         allowBulkDownload,
         showLastUpdated,
         tags,
@@ -132,6 +133,7 @@ export default async function handle(
         enableChangeNotifications?: boolean;
         enableVisitorUploadChangeNotifications?: boolean;
         defaultPermissionStrategy?: DefaultPermissionStrategy;
+        defaultGroupPermissionStrategy?: DefaultPermissionStrategy;
         allowBulkDownload?: boolean;
         showLastUpdated?: boolean;
         tags?: string[];
@@ -180,6 +182,9 @@ export default async function handle(
               enableVisitorUploadChangeNotifications,
             }),
             ...(defaultPermissionStrategy && { defaultPermissionStrategy }),
+            ...(defaultGroupPermissionStrategy && {
+              defaultGroupPermissionStrategy,
+            }),
             ...(typeof allowBulkDownload === "boolean" && {
               allowBulkDownload,
             }),

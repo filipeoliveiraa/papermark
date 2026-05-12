@@ -38,8 +38,15 @@ model Dataroom {
   enableChangeNotifications              Boolean @default(false)
   enableVisitorUploadChangeNotifications Boolean @default(false)
 
-  // unified permission strategy
+  // Default strategy applied to permission groups (link-level file permissions)
+  // when new documents/folders are added to this dataroom.
   defaultPermissionStrategy DefaultPermissionStrategy @default(INHERIT_FROM_PARENT)
+
+  // Default strategy applied to viewer groups (group file permissions) when
+  // new documents/folders are added. Kept separate from
+  // `defaultPermissionStrategy` so admins can have, for example, links default
+  // to inheriting permissions while groups default to hidden.
+  defaultGroupPermissionStrategy DefaultPermissionStrategy @default(INHERIT_FROM_PARENT)
 
   // bulk download setting
   allowBulkDownload Boolean @default(true) // Allow bulk download of entire dataroom

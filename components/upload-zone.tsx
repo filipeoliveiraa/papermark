@@ -53,6 +53,8 @@ interface FileWithPaths extends File {
   topLevelItemFolderCount?: number;
   /** Server-generated slug path for the top-level folder (e.g. "folder-with-100-subfolders") */
   topLevelItemFolderPath?: string;
+  /** Database id of the top-level folder in the dataroom (only set in dataroom uploads) */
+  topLevelDataroomFolderId?: string;
 }
 
 export interface RejectedFile {
@@ -113,6 +115,13 @@ async function processWithConcurrency<T>(
   return results;
 }
 
+export interface UploadedTopLevelFolder {
+  /** Database id of the dataroom folder */
+  dataroomFolderId: string;
+  /** Folder name shown to the user */
+  name: string;
+}
+
 interface UploadZoneProps extends React.PropsWithChildren {
   onUploadBatchStart: (batch: UploadBatchState, cancelFn: () => void) => void;
   onUploadBatchUpdate: (batchId: string, update: Partial<UploadBatchState>) => void;
@@ -122,7 +131,10 @@ interface UploadZoneProps extends React.PropsWithChildren {
       fileName: string;
       documentId: string;
       dataroomDocumentId: string;
+      /** Set when this file was uploaded as part of a top-level dataroom folder */
+      topLevelDataroomFolderId?: string;
     }[],
+    folders?: UploadedTopLevelFolder[],
   ) => void;
   onTraversalStart?: (
     preliminaryItems?: { name: string; isFolder: boolean }[],
@@ -433,6 +445,7 @@ export default function UploadZone({
           isFolder: boolean;
           folderCount: number;
           folderSlugPath?: string;
+          dataroomFolderId?: string;
           files: FileWithPaths[];
         }
       >();
@@ -447,6 +460,7 @@ export default function UploadZone({
             isFolder: file.topLevelItemIsFolder ?? false,
             folderCount: file.topLevelItemFolderCount ?? 0,
             folderSlugPath: file.topLevelItemFolderPath,
+            dataroomFolderId: file.topLevelDataroomFolderId,
             files: [file],
           });
         }
@@ -731,7 +745,12 @@ export default function UploadZone({
             ? (await dataroomResponse.json()).id
             : null;
 
-          return { ...document, dataroomDocumentId: dataroomDocumentId };
+          return {
+            ...document,
+            dataroomDocumentId: dataroomDocumentId,
+            topLevelDataroomFolderId: file.topLevelDataroomFolderId,
+            topLevelItemIsFolder: file.topLevelItemIsFolder,
+          };
         } catch (error) {
           failedCount++;
           parentItem.failedEntries++;
@@ -761,8 +780,25 @@ export default function UploadZone({
           documentId: document.id,
           dataroomDocumentId: document.dataroomDocumentId,
           fileName: document.name,
+          topLevelDataroomFolderId: document.topLevelDataroomFolderId,
         }));
-        onUploadSuccess?.(dataroomDocuments);
+
+        // Collect every top-level folder the user dropped so the caller can
+        // offer one-shot folder-level permission configuration instead of
+        // walking through every uploaded file individually.
+        const uploadedFolders: UploadedTopLevelFolder[] = Array.from(
+          itemGroups.values(),
+        )
+          .filter(
+            (group) =>
+              group.isFolder && !!group.dataroomFolderId,
+          )
+          .map((group) => ({
+            dataroomFolderId: group.dataroomFolderId!,
+            name: group.name,
+          }));
+
+        onUploadSuccess?.(dataroomDocuments, uploadedFolders);
       } catch (error) {
         console.error("Upload batch failed:", error);
       }
@@ -868,6 +904,7 @@ export default function UploadZone({
         folderCounter?: { count: number },
         folderPathCapture?: { value?: string },
         topLevelName?: string,
+        folderIdCapture?: { value?: string },
       ): Promise<FileWithPaths[]> => {
         /**
          * Summary of this function:
@@ -959,6 +996,7 @@ export default function UploadZone({
                     folderCounter,
                     folderPathCapture,
                     topLevelName,
+                    folderIdCapture,
                   )),
                 );
               }
@@ -981,22 +1019,26 @@ export default function UploadZone({
                 await getOrCreateDataroomFolder();
               }
 
-              const { dataroomPath, mainDocsPath } = await createFolderInBoth({
-                teamId: teamInfo.currentTeam.id,
-                dataroomId,
-                name: entry.name,
-                parentMainDocsPath: targetParentMainDocsPath,
-                parentDataroomPath: targetParentDataroomPath,
-                setRejectedFiles,
-                analytics,
-                replicateDataroomFolders,
-              });
+              const { dataroomPath, dataroomFolderId, mainDocsPath } =
+                await createFolderInBoth({
+                  teamId: teamInfo.currentTeam.id,
+                  dataroomId,
+                  name: entry.name,
+                  parentMainDocsPath: targetParentMainDocsPath,
+                  parentDataroomPath: targetParentDataroomPath,
+                  setRejectedFiles,
+                  analytics,
+                  replicateDataroomFolders,
+                });
 
               if (folderCounter) folderCounter.count++;
               if (folderPathCapture && folderPathCapture.value === undefined) {
                 folderPathCapture.value = dataroomPath.startsWith("/")
                   ? dataroomPath.slice(1)
                   : dataroomPath;
+              }
+              if (folderIdCapture && folderIdCapture.value === undefined) {
+                folderIdCapture.value = dataroomFolderId;
               }
 
               const dirReader = (
@@ -1029,6 +1071,7 @@ export default function UploadZone({
                     folderCounter,
                     folderPathCapture,
                     topLevelName,
+                    folderIdCapture,
                   )),
                 );
               }
@@ -1135,6 +1178,7 @@ export default function UploadZone({
             if (!entry) return [];
             const counter = { count: 0 };
             const pathCapture: { value?: string } = {};
+            const folderIdCapture: { value?: string } = {};
             return traverseFolder(
               entry,
               folderPathName,
@@ -1142,12 +1186,14 @@ export default function UploadZone({
               counter,
               pathCapture,
               entry.name,
+              folderIdCapture,
             ).then((files) => {
               for (const f of files) {
                 f.topLevelItemName = entry.name;
                 f.topLevelItemIsFolder = entry.isDirectory;
                 f.topLevelItemFolderCount = counter.count;
                 f.topLevelItemFolderPath = pathCapture.value;
+                f.topLevelDataroomFolderId = folderIdCapture.value;
               }
               return files;
             });

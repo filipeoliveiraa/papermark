@@ -33,9 +33,7 @@ export default function PermissionsSettings() {
           </p>
         </div>
 
-        <div className="grid gap-6">
-          <PermissionSettings dataroomId={dataroom.id} />
-        </div>
+        <PermissionSettings dataroomId={dataroom.id} />
       </main>
     </AppLayout>
   );

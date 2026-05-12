@@ -10,6 +10,7 @@ import {
   ClipboardCopyIcon,
   CopyIcon,
   EyeOffIcon,
+  FileSlidersIcon,
   FolderIcon,
   FolderInputIcon,
   FolderPenIcon,
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { MoveToDataroomFolderModal } from "../datarooms/move-dataroom-folder-modal";
+import { SetUnifiedPermissionsModal } from "../datarooms/groups/set-unified-permissions-modal";
 import { EditFolderModal } from "../folders/edit-folder-modal";
 import { AddFolderToDataroomModal } from "./add-folder-to-dataroom-modal";
 import { MoveToFolderModal } from "./move-folder-modal";
@@ -76,6 +78,8 @@ export default function FolderCard({
   const [openFolder, setOpenFolder] = useState<boolean>(false);
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
   const [addDataroomOpen, setAddDataroomOpen] = useState<boolean>(false);
+  const [groupPermissionOpen, setGroupPermissionOpen] =
+    useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Get hierarchical display name for dataroom folders
@@ -346,6 +350,18 @@ export default function FolderCard({
                   ? "Copy folder to other dataroom"
                   : "Add folder to dataroom"}
               </DropdownMenuItem>
+              {isDataroom && dataroomId ? (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setGroupPermissionOpen(true);
+                  }}
+                >
+                  <FileSlidersIcon className="mr-2 h-4 w-4" />
+                  Set Group Permissions
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem
                 onClick={(e) => {
                   e.preventDefault();
@@ -436,6 +452,20 @@ export default function FolderCard({
           folderIds={[folder.id]}
           folderParentId={folder.parentId!}
           itemName={folder.name}
+        />
+      ) : null}
+      {groupPermissionOpen && isDataroom && dataroomId ? (
+        <SetUnifiedPermissionsModal
+          open={groupPermissionOpen}
+          setOpen={setGroupPermissionOpen}
+          dataroomId={dataroomId}
+          uploadedFiles={[
+            {
+              dataroomFolderId: folder.id,
+              fileName: folder.name,
+              itemType: "folder",
+            },
+          ]}
         />
       ) : null}
     </>

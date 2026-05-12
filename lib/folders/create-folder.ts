@@ -10,6 +10,7 @@ export function isSystemFile(name: string): boolean {
 }
 
 interface CreateFolderResponse {
+  id: string;
   path: string;
   parentFolderPath?: string;
   name: string;
@@ -114,7 +115,11 @@ export async function createFolderInBoth({
   setRejectedFiles: (files: { fileName: string; message: string }[]) => void;
   analytics: any;
   replicateDataroomFolders?: boolean;
-}): Promise<{ dataroomPath: string; mainDocsPath: string | undefined }> {
+}): Promise<{
+  dataroomPath: string;
+  dataroomFolderId: string;
+  mainDocsPath: string | undefined;
+}> {
   try {
     // Always create folder in dataroom
     const dataroomResponse = await createFolderInDataroom({
@@ -165,6 +170,7 @@ export async function createFolderInBoth({
 
     return {
       dataroomPath: dataroomResponse.path,
+      dataroomFolderId: dataroomResponse.id,
       mainDocsPath: mainDocsResponse?.path,
     };
   } catch (error) {

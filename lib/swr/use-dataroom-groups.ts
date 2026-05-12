@@ -17,8 +17,13 @@ import { LinkWithViews } from "../types";
 
 export default function useDataroomGroups({
   documentId,
+  folderId,
   dataroomId: dataroomIdOverride,
-}: { documentId?: string; dataroomId?: string } = {}) {
+}: {
+  documentId?: string;
+  folderId?: string;
+  dataroomId?: string;
+} = {}) {
   const teamInfo = useTeam();
   const router = useRouter();
 
@@ -37,6 +42,14 @@ export default function useDataroomGroups({
     };
   };
 
+  // Build the optional scope query — at most one of documentId/folderId is
+  // expected (the API picks the first one it sees).
+  const scopeQuery = documentId
+    ? `?documentId=${documentId}`
+    : folderId
+      ? `?folderId=${folderId}`
+      : "";
+
   const {
     data: viewerGroups,
     error,
@@ -45,9 +58,7 @@ export default function useDataroomGroups({
     teamInfo?.currentTeam?.id &&
       id &&
       isDataroom &&
-      `/api/teams/${teamInfo?.currentTeam?.id}/datarooms/${id}/groups${
-        documentId ? `?documentId=${documentId}` : ""
-      }`,
+      `/api/teams/${teamInfo?.currentTeam?.id}/datarooms/${id}/groups${scopeQuery}`,
     fetcher,
     { dedupingInterval: 30000 },
   );

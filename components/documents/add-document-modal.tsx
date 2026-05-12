@@ -166,11 +166,20 @@ export function AddDocumentModal({
 
     if (!hasAnyGroups) return;
 
-    const strategy =
+    const groupStrategy =
+      dataroom?.defaultGroupPermissionStrategy ||
+      DefaultPermissionStrategy.INHERIT_FROM_PARENT;
+    const linkStrategy =
       dataroom?.defaultPermissionStrategy ||
       DefaultPermissionStrategy.INHERIT_FROM_PARENT;
 
-    if (strategy === DefaultPermissionStrategy.ASK_EVERY_TIME) {
+    // If either side wants to ask, surface the unified modal so the user can
+    // configure group and/or link permissions in one place.
+    const shouldAsk =
+      groupStrategy === DefaultPermissionStrategy.ASK_EVERY_TIME ||
+      linkStrategy === DefaultPermissionStrategy.ASK_EVERY_TIME;
+
+    if (shouldAsk) {
       setShowGroupPermissions(true);
       setUploadedFiles([
         {
@@ -179,28 +188,39 @@ export function AddDocumentModal({
           fileName: document.name,
         },
       ]);
-    } else if (strategy === DefaultPermissionStrategy.INHERIT_FROM_PARENT) {
-      const isRootLevel = !currentFolderPath || currentFolderPath.length === 0;
+      return;
+    }
 
-      try {
-        const result = await applyPermissions(
-          dataroomId!,
-          [document.id],
-          "INHERIT_FROM_PARENT",
-          isRootLevel ? undefined : currentFolderPath?.join("/"),
-          toastErrorMessage,
-        );
+    // No interactive prompt needed — defer to the server, which will apply
+    // each strategy independently to viewer groups vs. permission groups.
+    // HIDDEN_BY_DEFAULT for both sides becomes a no-op server-side, so we can
+    // skip the round-trip entirely in that case.
+    if (
+      groupStrategy === DefaultPermissionStrategy.HIDDEN_BY_DEFAULT &&
+      linkStrategy === DefaultPermissionStrategy.HIDDEN_BY_DEFAULT
+    ) {
+      return;
+    }
 
-        if (!result.success) {
-          console.error("Failed to apply permissions:", result.error);
-          toastErrorMessage();
-        }
-      } catch (error) {
-        console.error("Failed to apply permissions:", error);
+    const isRootLevel = !currentFolderPath || currentFolderPath.length === 0;
+
+    try {
+      const result = await applyPermissions(
+        dataroomId!,
+        [document.id],
+        { groupStrategy, linkStrategy },
+        isRootLevel ? undefined : currentFolderPath?.join("/"),
+        toastErrorMessage,
+      );
+
+      if (!result.success) {
+        console.error("Failed to apply permissions:", result.error);
         toastErrorMessage();
       }
+    } catch (error) {
+      console.error("Failed to apply permissions:", error);
+      toastErrorMessage();
     }
-    // strategy === DefaultPermissionStrategy.HIDDEN_BY_DEFAULT - do nothing, documents remain hidden
   };
 
   const handleFileUpload = async (

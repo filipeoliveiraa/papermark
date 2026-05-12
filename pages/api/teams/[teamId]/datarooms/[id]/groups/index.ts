@@ -26,6 +26,7 @@ export default async function handle(
       id: string;
     };
     const documentId = req.query?.documentId as string;
+    const folderId = req.query?.folderId as string;
     const userId = (session.user as CustomUser).id;
 
     try {
@@ -59,6 +60,14 @@ export default async function handle(
         return res.status(404).end("Dataroom not found");
       }
 
+      // When the caller scopes the query to a specific item we return the
+      // matching access controls so the UI can render existing toggle state.
+      const accessControlFilter = documentId
+        ? { itemId: documentId, itemType: ItemType.DATAROOM_DOCUMENT }
+        : folderId
+          ? { itemId: folderId, itemType: ItemType.DATAROOM_FOLDER }
+          : null;
+
       // Then, get viewer groups with optimized separate queries
       const viewerGroups = await prisma.viewerGroup.findMany({
         where: {
@@ -68,13 +77,10 @@ export default async function handle(
           createdAt: "desc",
         },
         include: {
-          ...(documentId
+          ...(accessControlFilter
             ? {
                 accessControls: {
-                  where: {
-                    itemId: documentId,
-                    itemType: ItemType.DATAROOM_DOCUMENT,
-                  },
+                  where: accessControlFilter,
                   select: {
                     id: true,
                     canView: true,
