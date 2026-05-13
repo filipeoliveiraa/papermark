@@ -32,6 +32,12 @@ export function getSupportedContentType(contentType: string): string | null {
       return "image";
     case "application/zip":
     case "application/x-zip-compressed":
+    case "application/vnd.rar":
+    case "application/x-rar-compressed":
+    case "application/x-tar":
+    case "application/gzip":
+    case "application/x-gzip":
+    case "application/x-compressed-tar":
       return "zip";
     case "video/mp4":
     case "video/quicktime":
@@ -159,6 +165,19 @@ export function getExtensionFromContentType(
       return "sbx";
     case "application/x-mapserver-qix":
       return "qix";
+    case "application/zip":
+    case "application/x-zip-compressed":
+      return "zip";
+    case "application/vnd.rar":
+    case "application/x-rar-compressed":
+      return "rar";
+    case "application/x-tar":
+      return "tar";
+    case "application/gzip":
+    case "application/x-gzip":
+      return "gz";
+    case "application/x-compressed-tar":
+      return "tar.gz";
     default:
       return null;
   }

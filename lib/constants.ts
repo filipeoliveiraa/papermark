@@ -103,6 +103,12 @@ export const SUPPORTED_DOCUMENT_MIME_TYPES = [
   "image/jpg", // .jpg
   "application/zip", // .zip
   "application/x-zip-compressed", // .zip
+  "application/vnd.rar", // .rar
+  "application/x-rar-compressed", // .rar (older MIME type)
+  "application/x-tar", // .tar
+  "application/gzip", // .gz, .tar.gz, .tgz
+  "application/x-gzip", // .gz, .tar.gz, .tgz (older MIME type)
+  "application/x-compressed-tar", // .tar.gz, .tgz (custom - sometimes returned by browsers)
   "video/mp4", // .mp4
   "video/quicktime", // .mov
   "video/x-msvideo", // .avi
@@ -168,6 +174,12 @@ export const FULL_PLAN_ACCEPTED_FILE_TYPES = {
   "image/jpg": [], // ".jpg"
   "application/zip": [], // ".zip"
   "application/x-zip-compressed": [], // ".zip"
+  "application/vnd.rar": [".rar"], // ".rar"
+  "application/x-rar-compressed": [".rar"], // ".rar"
+  "application/x-tar": [".tar"], // ".tar"
+  "application/gzip": [".gz", ".tar.gz", ".tgz"], // ".gz", ".tar.gz", ".tgz"
+  "application/x-gzip": [".gz", ".tar.gz", ".tgz"], // ".gz", ".tar.gz", ".tgz"
+  "application/x-compressed-tar": [".tar.gz", ".tgz"], // ".tar.gz", ".tgz"
   "video/mp4": [".mp4"], // ".mp4"
   "video/quicktime": [".mov"], // ".mov"
   "video/x-msvideo": [".avi"], // ".avi"
@@ -219,6 +231,12 @@ export const VIEWER_ACCEPTED_FILE_TYPES = {
   "image/jpg": [], // ".jpg"
   "application/zip": [".zip"], // ".zip"
   "application/x-zip-compressed": [".zip"], // ".zip"
+  "application/vnd.rar": [".rar"], // ".rar"
+  "application/x-rar-compressed": [".rar"], // ".rar"
+  "application/x-tar": [".tar"], // ".tar"
+  "application/gzip": [".gz", ".tar.gz", ".tgz"], // ".gz", ".tar.gz", ".tgz"
+  "application/x-gzip": [".gz", ".tar.gz", ".tgz"], // ".gz", ".tar.gz", ".tgz"
+  "application/x-compressed-tar": [".tar.gz", ".tgz"], // ".tar.gz", ".tgz"
   "application/vnd.ms-outlook": [".msg"], // ".msg"
   "message/rfc822": [".eml"], // ".eml"
 };

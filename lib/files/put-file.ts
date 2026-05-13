@@ -113,6 +113,11 @@ const putFileInS3 = async ({
     ".sbx",
     ".qix",
     ".cpg",
+    ".rar",
+    ".tar",
+    ".tar.gz",
+    ".tgz",
+    ".gz",
   ];
   const lowerName = file.name.toLowerCase();
   if (
