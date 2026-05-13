@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { mutate } from "swr";
 
+import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { usePlan } from "@/lib/swr/use-billing";
 import { useDataroom } from "@/lib/swr/use-dataroom";
 import { useDataroomGroup } from "@/lib/swr/use-dataroom-groups";
@@ -60,8 +61,10 @@ export default function GroupMemberTable({
     uninvitedEmails,
     mutate: mutateUninvited,
   } = useUninvitedMembers(dataroomId, groupId);
-  const { isDataroomsPlus } = usePlan();
-  const canInviteViewers = isDataroomsPlus;
+  const { isDatarooms, isDataroomsPlus } = usePlan();
+  const { isFeatureEnabled } = useFeatureFlags();
+  const canInviteViewers =
+    isDataroomsPlus || (isDatarooms && isFeatureEnabled("dataroomInvitations"));
 
   const [addMembersOpen, setAddMembersOpen] = useState<boolean>(false);
   const [inviteOpen, setInviteOpen] = useState<boolean>(false);
@@ -196,10 +199,7 @@ export default function GroupMemberTable({
                 <SendIcon className="h-4 w-4" />
                 Invite via email
                 {canInviteViewers && uninvitedCount > 0 ? (
-                  <Badge
-                    variant="notification"
-                    className="ml-1"
-                  >
+                  <Badge variant="notification" className="ml-1">
                     {uninvitedCount}
                   </Badge>
                 ) : null}
@@ -387,10 +387,10 @@ export default function GroupMemberTable({
         onSuccess={() => {
           if (groupKey) {
             mutate(groupKey);
-            }
-            mutateUninvited();
-          }}
-        />
+          }
+          mutateUninvited();
+        }}
+      />
     </>
   );
 }

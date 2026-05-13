@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { mutate } from "swr";
 import z from "zod";
 
+import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { usePlan } from "@/lib/swr/use-billing";
 import useLimits from "@/lib/swr/use-limits";
 import { LinkWithViews, WatermarkConfig } from "@/lib/types";
@@ -303,7 +304,7 @@ export default function LinksTable({
 
   const now = Date.now();
   const router = useRouter();
-  const { isFree, isTrial, isDataroomsPlus } = usePlan();
+  const { isFree, isTrial, isDatarooms, isDataroomsPlus } = usePlan();
   const { currentTeamId } = useTeam();
   const { id: targetId, groupId } = router.query as {
     id: string;
@@ -311,7 +312,9 @@ export default function LinksTable({
   };
 
   const { isMobile } = useMediaQuery();
-  const canInviteViewers = isDataroomsPlus;
+  const { isFeatureEnabled } = useFeatureFlags();
+  const canInviteViewers =
+    isDataroomsPlus || (isDatarooms && isFeatureEnabled("dataroomInvitations"));
 
   let processedLinks = useMemo(() => {
     if (!links?.length) return [];
@@ -452,7 +455,9 @@ export default function LinksTable({
       uploadFolderIds: Array.isArray(link.uploadFolderIds)
         ? link.uploadFolderIds
         : [],
-      uploadFolders: Array.isArray(link.uploadFolders) ? link.uploadFolders : [],
+      uploadFolders: Array.isArray(link.uploadFolders)
+        ? link.uploadFolders
+        : [],
       enableIndexFile: link.enableIndexFile ?? false,
       permissionGroupId: link.permissionGroupId ?? null,
       welcomeMessage: link.welcomeMessage ?? null,

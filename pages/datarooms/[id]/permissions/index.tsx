@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic";
+
 import { useState } from "react";
 
 import { InviteViewersModal } from "@/ee/features/dataroom-invitations/components/invite-viewers-modal";
@@ -10,6 +11,7 @@ import {
   SendIcon,
 } from "lucide-react";
 
+import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { usePlan } from "@/lib/swr/use-billing";
 import { useDataroom, useDataroomLinks } from "@/lib/swr/use-dataroom";
 
@@ -37,8 +39,10 @@ const BulkImportLinksModal = dynamic(
 export default function DataroomLinksPage() {
   const { dataroom } = useDataroom();
   const { links } = useDataroomLinks();
-  const { isDataroomsPlus } = usePlan();
-  const canInviteViewers = isDataroomsPlus;
+  const { isDatarooms, isDataroomsPlus } = usePlan();
+  const { isFeatureEnabled } = useFeatureFlags();
+  const canInviteViewers =
+    isDataroomsPlus || (isDatarooms && isFeatureEnabled("dataroomInvitations"));
   const [isLinkSheetOpen, setIsLinkSheetOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
