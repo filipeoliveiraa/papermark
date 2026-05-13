@@ -151,6 +151,12 @@ const nextConfig = {
         destination: "/settings/general",
         permanent: false,
       },
+      {
+        source: "/:path*",
+        destination: "https://presentation.atelierbatalla.com/:path*",
+        permanent: true,
+        has: [{ type: "host", value: "pitchdeck.jonpagels.com" }],
+      },
     ];
     // mcp.papermark.com/ → docs. 302 (not 301) so we can repoint later
     // when docs move. The /mcp endpoint and /.well-known/* + /oauth/*
