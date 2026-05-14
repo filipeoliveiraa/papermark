@@ -16,7 +16,12 @@ import { mutate } from "swr";
 import { useAnalytics } from "@/lib/analytics";
 import useLimits from "@/lib/swr/use-limits";
 import { copyToClipboard } from "@/lib/utils";
-import { parseCsv, parseCsvBoolean, parseCsvList } from "@/lib/utils/csv-parse";
+import {
+  parseCsv,
+  parseCsvBoolean,
+  parseCsvList,
+  stringifyCsv,
+} from "@/lib/utils/csv-parse";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -179,6 +184,8 @@ export function BulkImportLinksModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsedRows, setParsedRows] = useState<LinkPayload[]>([]);
+  const [rawHeaders, setRawHeaders] = useState<string[]>([]);
+  const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [response, setResponse] = useState<BulkResponse | null>(null);
@@ -209,6 +216,8 @@ export function BulkImportLinksModal({
   const reset = useCallback(() => {
     setFileName(null);
     setParsedRows([]);
+    setRawHeaders([]);
+    setRawRows([]);
     setParseError(null);
     setResponse(null);
     if (fileInputRef.current) {
@@ -268,6 +277,8 @@ export function BulkImportLinksModal({
         }
 
         setParsedRows(rows.map(rowToPayload));
+        setRawHeaders(headers);
+        setRawRows(rows);
         setFileName(file.name);
       } catch (error) {
         console.error(error);
@@ -394,6 +405,52 @@ export function BulkImportLinksModal({
   const successCount = response?.summary.success ?? 0;
   const failedCount = response?.summary.failed ?? 0;
 
+  const handleDownloadResults = useCallback(() => {
+    if (!response) return;
+
+    const inputHeaders =
+      rawHeaders.length > 0
+        ? rawHeaders.filter((h) => h && h.length > 0)
+        : [...TEMPLATE_HEADERS];
+
+    const resultHeaders = ["status", "linkId", "linkUrl", "error"];
+    const headers = [
+      "row",
+      ...inputHeaders.filter((h) => !resultHeaders.includes(h)),
+      ...resultHeaders,
+    ];
+
+    const rowsByNumber = new Map<number, Record<string, string>>();
+    rawRows.forEach((row, idx) => rowsByNumber.set(idx + 1, row));
+
+    const csvRows = response.results.map((result) => {
+      const original = rowsByNumber.get(result.row) ?? {};
+      return {
+        ...original,
+        row: String(result.row),
+        status: result.status,
+        linkId: result.linkId ?? "",
+        linkUrl: result.linkUrl ?? "",
+        error: result.error ?? "",
+      };
+    });
+
+    const csv = stringifyCsv(headers, csvRows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const baseName = fileName
+      ? fileName.replace(/\.[^.]+$/, "")
+      : "papermark-bulk-links";
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    a.setAttribute("download", `${baseName}-results-${stamp}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [fileName, rawHeaders, rawRows, response]);
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-2xl">
@@ -512,9 +569,20 @@ export function BulkImportLinksModal({
 
         <DialogFooter className="mt-2">
           {response ? (
-            <Button type="button" onClick={() => handleClose(false)}>
-              Done
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDownloadResults}
+                disabled={response.results.length === 0}
+              >
+                <DownloadIcon className="mr-2 h-4 w-4" />
+                Download results CSV
+              </Button>
+              <Button type="button" onClick={() => handleClose(false)}>
+                Done
+              </Button>
+            </>
           ) : (
             <>
               <Button

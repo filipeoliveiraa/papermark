@@ -126,3 +126,46 @@ export function parseCsvList(value: string | undefined): string[] | undefined {
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
 }
+
+/**
+ * Quote a single CSV field per RFC 4180 when it contains a delimiter, quote,
+ * or line break. Plain values are returned unmodified to keep output compact.
+ */
+export function escapeCsvField(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  let str =
+    typeof value === "string"
+      ? value
+      : Array.isArray(value)
+        ? value.join(";")
+        : typeof value === "boolean" || typeof value === "number"
+          ? String(value)
+          : String(value);
+
+  // Neutralize spreadsheet formula injection: prefix risky leading chars
+  // with a single quote so Excel/Sheets treats the cell as literal text.
+  if (str.length > 0 && /^[=+\-@]/.test(str)) {
+    str = "'" + str;
+  }
+
+  if (/[",\r\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/**
+ * Serialise an array of records into a CSV string with the supplied header
+ * order. Missing fields render as empty cells. Uses CRLF line endings for
+ * maximum compatibility with Excel.
+ */
+export function stringifyCsv(
+  headers: string[],
+  rows: Array<Record<string, unknown>>,
+): string {
+  const lines = [headers.map(escapeCsvField).join(",")];
+  for (const row of rows) {
+    lines.push(headers.map((h) => escapeCsvField(row[h])).join(","));
+  }
+  return lines.join("\r\n") + "\r\n";
+}
