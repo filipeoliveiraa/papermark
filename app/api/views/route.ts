@@ -40,7 +40,6 @@ export async function POST(request: NextRequest) {
     // POST /api/views
     const {
       linkId,
-      documentId,
       userId,
       documentVersionId,
       documentName,
@@ -50,7 +49,6 @@ export async function POST(request: NextRequest) {
       ...data
     } = body as {
       linkId: string;
-      documentId: string;
       userId: string | null;
       documentVersionId: string;
       documentName: string;
@@ -162,6 +160,41 @@ export async function POST(request: NextRequest) {
         { status: 404 },
       );
     }
+
+    if (!link.documentId) {
+      return NextResponse.json(
+        { message: "Unauthorized access." },
+        { status: 403 },
+      );
+    }
+
+    if (!documentVersionId || typeof documentVersionId !== "string") {
+      return NextResponse.json(
+        { message: "documentVersionId is required." },
+        { status: 400 },
+      );
+    }
+
+    const requestedVersion = await prisma.documentVersion.findUnique({
+      where: { id: documentVersionId },
+      select: { documentId: true },
+    });
+
+    if (!requestedVersion) {
+      return NextResponse.json(
+        { message: "Document version not found." },
+        { status: 404 },
+      );
+    }
+
+    if (requestedVersion.documentId !== link.documentId) {
+      return NextResponse.json(
+        { message: "Unauthorized access." },
+        { status: 403 },
+      );
+    }
+
+    const documentId = link.documentId;
 
     let isEmailVerified: boolean = false;
     let hashedVerificationToken: string | null = null;
