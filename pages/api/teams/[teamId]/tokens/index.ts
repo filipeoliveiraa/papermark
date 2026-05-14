@@ -107,8 +107,10 @@ export default async function handle(
     };
 
     try {
-      // Check if user is in team
-      const { role } = await prisma.userTeam.findUniqueOrThrow({
+      // Membership check — any role in the team can create a token. The
+      // resulting key is still scoped to the team and limited by the scopes
+      // selected on creation.
+      const userTeam = await prisma.userTeam.findUnique({
         where: {
           userId_teamId: {
             userId,
@@ -119,13 +121,8 @@ export default async function handle(
           role: true,
         },
       });
-
-      // Only admins and managers can create tokens
-      if (role !== "ADMIN" && role !== "MANAGER") {
-        return res.status(403).json({
-          error:
-            "You don't have the permissions to create a token. Please contact your administrator or manager.",
-        });
+      if (!userTeam) {
+        return res.status(403).json({ error: "Unauthorized" });
       }
 
       // Validate name up front so a missing / non-string / whitespace-only
