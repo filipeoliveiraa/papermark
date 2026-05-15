@@ -101,7 +101,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
       };
     }
 
-    const { linkType, link, brand } = result;
+    const { linkType, link, brand, dataroomIndexEnabled } = result;
 
     if (!linkType) {
       return {
@@ -268,9 +268,8 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
 
       const { teamId } = link.dataroom;
 
-      // Check feature flags
+      // `dataroomIndexEnabled` is resolved server-side by `fetchLinkDataById`.
       const featureFlags = await getFeatureFlags({ teamId });
-      const dataroomIndexEnabled = featureFlags.dataroomIndex;
       const annotationsEnabled = featureFlags.annotations;
       const textSelectionEnabled = featureFlags.textSelection;
 

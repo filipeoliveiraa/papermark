@@ -9,6 +9,7 @@ import {
   ViewerGroupAccessControls,
 } from "@prisma/client";
 
+import { getFeatureFlags } from "@/lib/featureFlags";
 import prisma from "@/lib/prisma";
 import { sortItemsByIndexAndName } from "@/lib/utils/sort-items-by-index-name";
 
@@ -16,7 +17,13 @@ import { sortItemsByIndexAndName } from "@/lib/utils/sort-items-by-index-name";
 // Types
 // ============================================================================
 
-type LinkFetchStatus = "ok" | "not_found" | "archived" | "deleted" | "free" | "frozen";
+type LinkFetchStatus =
+  | "ok"
+  | "not_found"
+  | "archived"
+  | "deleted"
+  | "free"
+  | "frozen";
 
 export type LinkFetchResult =
   | {
@@ -25,6 +32,7 @@ export type LinkFetchResult =
       link: any;
       brand: Partial<Brand> | Partial<DataroomBrand> | null;
       linkId?: string;
+      dataroomIndexEnabled?: boolean;
     }
   | {
       status: Exclude<LinkFetchStatus, "ok">;
@@ -744,11 +752,29 @@ async function processLinkData(
   const serializedLink = JSON.parse(JSON.stringify(returnLink));
   const serializedBrand = brand ? JSON.parse(JSON.stringify(brand)) : null;
 
+  // Mirrors the rebuild gate in `calculate-indexes.ts`. Computed here
+  // because `link.team` is stripped from the payload below.
+  let dataroomIndexEnabled: boolean | undefined;
+  if (linkType === "DATAROOM_LINK" && link.teamId) {
+    const hasDataroomsPlusPlan =
+      teamPlan === "datarooms-plus" ||
+      teamPlan === "datarooms-plus+old" ||
+      teamPlan === "datarooms-premium" ||
+      teamPlan === "datarooms-unlimited";
+    if (hasDataroomsPlusPlan) {
+      dataroomIndexEnabled = true;
+    } else {
+      const featureFlags = await getFeatureFlags({ teamId: link.teamId });
+      dataroomIndexEnabled = featureFlags.dataroomIndex;
+    }
+  }
+
   return {
     status: "ok",
     linkType,
     link: serializedLink,
     brand: serializedBrand,
+    dataroomIndexEnabled,
   };
 }
 

@@ -33,12 +33,12 @@ import {
   resolveToggleIntent,
   type PermissionChanges,
 } from "@/lib/dataroom/permissions-tree";
-import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { useDataroomFoldersTree } from "@/lib/swr/use-dataroom";
 import { cn } from "@/lib/utils";
 import {
   HIERARCHICAL_DISPLAY_STYLE,
   getHierarchicalDisplayName,
+  useDataroomIndexEnabled,
 } from "@/lib/utils/hierarchical-display";
 
 import CloudDownloadOff from "@/components/shared/icons/cloud-download-off";
@@ -60,8 +60,7 @@ import {
 } from "@/components/ui/tooltip";
 
 const PermissionItemName = ({ item }: { item: FileOrFolder }) => {
-  const { isFeatureEnabled } = useFeatureFlags();
-  const isDataroomIndexEnabled = isFeatureEnabled("dataroomIndex");
+  const isDataroomIndexEnabled = useDataroomIndexEnabled();
 
   const displayName = getHierarchicalDisplayName(
     item.name,
