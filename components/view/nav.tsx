@@ -393,7 +393,7 @@ export default function Nav({
               </div>
             )}
 
-            {pageNumber && numPages ? (
+            {pageNumber && numPages && numPages > 1 ? (
               <div className="flex h-8 items-center space-x-1 rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white sm:h-10 sm:px-4 sm:py-2 sm:text-sm">
                 <span style={{ fontVariantNumeric: "tabular-nums" }}>
                   {pageNumber}
