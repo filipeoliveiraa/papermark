@@ -147,7 +147,7 @@ export default function DocumentsCard({
     const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
 
     const endpoint = currentFolderPath
-      ? `/folders/documents/${currentFolderPath.join("/")}`
+      ? `/folder-documents/${currentFolderPath.join("/")}`
       : `/documents${queryString}`;
 
     toast.promise(
@@ -221,7 +221,7 @@ export default function DocumentsCard({
       ).then(() => {
         mutate(`/api/teams/${teamInfo?.currentTeam?.id}/documents`);
         mutate(
-          `/api/teams/${teamInfo?.currentTeam?.id}/folders/documents/${currentFolderPath?.join("/")}`,
+          `/api/teams/${teamInfo?.currentTeam?.id}/folder-documents/${currentFolderPath?.join("/")}`,
         );
       }),
       {
@@ -249,7 +249,7 @@ export default function DocumentsCard({
     const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
 
     const endpoint = currentFolderPath
-      ? `/folders/documents/${currentFolderPath.join("/")}`
+      ? `/folder-documents/${currentFolderPath.join("/")}`
       : `/documents${queryString}`;
 
     toast.promise(

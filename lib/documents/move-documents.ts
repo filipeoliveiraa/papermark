@@ -19,7 +19,7 @@ export const moveDocumentToFolder = async ({
     return;
   }
 
-  const key = `/api/teams/${teamId}${folderPathName ? `/folders/documents/${folderPathName.join("/")}` : "/documents"}`;
+  const key = `/api/teams/${teamId}${folderPathName ? `/folder-documents/${folderPathName.join("/")}` : "/documents"}`;
   // Optimistically update the UI by removing the documents from current folder
   mutate(
     key,
@@ -85,7 +85,7 @@ export const moveDocumentToFolder = async ({
     );
     // update documents in new folder (or home)
     mutate(
-      `/api/teams/${teamId}${newPath ? `/folders/documents/${newPath}` : "/documents"}`,
+      `/api/teams/${teamId}${newPath ? `/folder-documents/${newPath}` : "/documents"}`,
     );
     toast.success(
       `${updatedCount} document${updatedCount > 1 ? "s" : ""} moved successfully`,

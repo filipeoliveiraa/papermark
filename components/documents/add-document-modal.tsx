@@ -131,7 +131,7 @@ export function AddDocumentModal({
         `/api/teams/${teamInfo?.currentTeam?.id}/datarooms/${dataroomId}/documents`,
       );
       mutate(
-        `/api/teams/${teamInfo?.currentTeam?.id}/datarooms/${dataroomId}/folders/documents/${folderPathName}`,
+        `/api/teams/${teamInfo?.currentTeam?.id}/datarooms/${dataroomId}/folder-documents/${folderPathName}`,
       );
 
       toast.success("Document added to dataroom successfully! 🎉");

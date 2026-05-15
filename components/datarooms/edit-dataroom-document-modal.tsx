@@ -188,7 +188,7 @@ export function EditDataroomDocumentModal({
 
       if (currentFolderPath) {
         mutate(
-          `${baseKey}/folders/documents/${currentFolderPath.join("/")}`,
+          `${baseKey}/folder-documents/${currentFolderPath.join("/")}`,
           null,
           {
             populateCache: (_, docs) =>

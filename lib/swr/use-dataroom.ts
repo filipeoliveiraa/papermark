@@ -123,7 +123,7 @@ export function useDataroomItems({
   >(
     teamId &&
       id &&
-      `/api/teams/${teamId}/datarooms/${id}${name ? `/folders/documents/${name.join("/")}` : "/documents"}`,
+      `/api/teams/${teamId}/datarooms/${id}${name ? `/folder-documents/${name.join("/")}` : "/documents"}`,
 
     fetcher,
     {
@@ -321,7 +321,7 @@ export function useDataroomFolderDocuments({ name }: { name: string[] }) {
     teamId &&
       id &&
       name &&
-      `/api/teams/${teamId}/datarooms/${id}/folders/documents/${name.join("/")}`,
+      `/api/teams/${teamId}/datarooms/${id}/folder-documents/${name.join("/")}`,
     fetcher,
     {
       revalidateOnFocus: false,

@@ -13,7 +13,14 @@ export default async function handle(
   res: NextApiResponse,
 ) {
   if (req.method === "GET") {
-    // GET /api/teams/:teamId/datarooms/:id/folders/documents/:name
+    // GET /api/teams/:teamId/datarooms/:id/folder-documents/:name
+    //
+    // Returns the documents directly inside the folder at the given path.
+    // Lives outside the `folders/` namespace because `folders/[...name]` is
+    // a catch-all — a literal `folders/documents/<path>` URL would otherwise
+    // be ambiguous (and Next.js would route it here instead of to the folder
+    // listing endpoint, breaking any folder whose top-level segment slugifies
+    // to "documents").
     const session = await getServerSession(req, res, authOptions);
     if (!session) {
       return res.status(401).end("Unauthorized");
@@ -39,16 +46,15 @@ export default async function handle(
     const path = "/" + validatedName.join("/"); // construct the materialized path
 
     try {
-      // Check if the user is part of the team
+      // Scope the dataroom through the team membership check to avoid IDORs
+      // where a valid team member supplies another team's dataroom id.
       const team = await prisma.team.findUnique({
         where: {
           id: teamId,
-          users: {
-            some: {
-              userId: userId,
-            },
-          },
+          users: { some: { userId } },
+          datarooms: { some: { id: dataroomId } },
         },
+        select: { id: true },
       });
 
       if (!team) {
@@ -113,6 +119,10 @@ export default async function handle(
           },
         },
       });
+
+      if (documents.length === 0) {
+        return res.status(200).json([]);
+      }
 
       const sortedDocuments = sortItemsByIndexAndName(documents);
 

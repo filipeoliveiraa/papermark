@@ -139,7 +139,7 @@ export default function DataroomDocumentCard({
     }
 
     const endpoint = currentFolderPath
-      ? `/folders/documents/${currentFolderPath.join("/")}`
+      ? `/folder-documents/${currentFolderPath.join("/")}`
       : "/documents";
 
     toast.promise(

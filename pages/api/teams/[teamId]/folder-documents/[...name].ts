@@ -12,7 +12,10 @@ export default async function handle(
   res: NextApiResponse,
 ) {
   if (req.method === "GET") {
-    // GET /api/teams/:teamId/folders/documents/:name
+    // GET /api/teams/:teamId/folder-documents/:name
+    //
+    // See dataroom variant for why this sits outside the `folders/`
+    // namespace.
     const session = await getServerSession(req, res, authOptions);
     if (!session) {
       return res.status(401).end("Unauthorized");
@@ -79,6 +82,9 @@ export default async function handle(
 
       // Then, get counts efficiently with separate GROUP BY queries
       const documentIds = documents.map((d) => d.id);
+      if (documentIds.length === 0) {
+        return res.status(200).json([]);
+      }
 
       const [linkCounts, viewCounts, versionCounts, dataroomCounts] =
         await Promise.all([

@@ -2,9 +2,9 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { DefaultPermissionStrategy, ItemType } from "@prisma/client";
-import { safeSlugify } from "@/lib/utils";
 import { getServerSession } from "next-auth/next";
 
+import { resolveFreeFolderPath } from "@/lib/folders/bulk-create";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
 
@@ -221,16 +221,14 @@ export default async function handle(
     };
 
     try {
-      // Check if the user is part of the team
+      // Check team membership and dataroom ownership together.
       const team = await prisma.team.findUnique({
         where: {
           id: teamId,
-          users: {
-            some: {
-              userId: userId,
-            },
-          },
+          users: { some: { userId } },
+          datarooms: { some: { id: dataroomId } },
         },
+        select: { id: true },
       });
 
       if (!team) {
@@ -436,16 +434,14 @@ export default async function handle(
     const parentFolderPath = path ? "/" + path : "/";
 
     try {
-      // Check if the user is part of the team
+      // Check team membership and dataroom ownership together.
       const team = await prisma.team.findUnique({
         where: {
           id: teamId,
-          users: {
-            some: {
-              userId: userId,
-            },
-          },
+          users: { some: { userId } },
+          datarooms: { some: { id: dataroomId } },
         },
+        select: { id: true },
       });
 
       if (!team) {
@@ -466,35 +462,19 @@ export default async function handle(
         },
       });
 
-      // Duplicate name handling
-      let folderName = name;
-      let counter = 1;
-      const MAX_RETRIES = 50;
-
-      // Split path into segments
-      // Slugify the final folder name
-      const pathSegments = path ? path.split("/").filter(Boolean) : [];
-      const basePath =
-        pathSegments.length > 0 ? "/" + pathSegments.join("/") + "/" : "/";
-
-      let childFolderPath = basePath + safeSlugify(folderName);
-
-      while (counter <= MAX_RETRIES) {
-        const existingFolder = await prisma.dataroomFolder.findUnique({
-          where: {
-            dataroomId_path: {
-              dataroomId: dataroomId,
-              path: childFolderPath,
-            },
-          },
-        });
-        if (!existingFolder) break;
-        folderName = `${name} (${counter})`;
-        childFolderPath = basePath + safeSlugify(folderName);
-        counter++;
-      }
-
-      if (counter > MAX_RETRIES) {
+      const resolved = await resolveFreeFolderPath({
+        name,
+        parentPath: parentFolderPath,
+        findExisting: (candidates) =>
+          prisma.dataroomFolder.findMany({
+            where: { dataroomId, path: { in: candidates } },
+            select: { path: true },
+          }),
+      }).catch((err) => {
+        if (err?.code === "SLUG_EXHAUSTED") return null;
+        throw err;
+      });
+      if (!resolved) {
         return res.status(400).json({
           error: "Failed to create folder",
           message: "Too many folders with similar names",
@@ -503,8 +483,8 @@ export default async function handle(
 
       const folder = await prisma.dataroomFolder.create({
         data: {
-          name: folderName,
-          path: childFolderPath,
+          name: resolved.name,
+          path: resolved.path,
           parentId: parentFolder?.id ?? null,
           dataroomId: dataroomId,
           icon: icon ?? null,
@@ -512,7 +492,7 @@ export default async function handle(
         },
       });
 
-      await applyFolderPermissions(dataroomId, folder.id, childFolderPath);
+      await applyFolderPermissions(dataroomId, folder.id, resolved.path);
 
       const folderWithDocs = {
         ...folder,
