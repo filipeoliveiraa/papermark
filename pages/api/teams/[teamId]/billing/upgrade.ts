@@ -91,7 +91,7 @@ export default async function handle(
       // team.plan format is "pro", "business", "pro+old", "business+old", etc.
       const planString = oldAccount ? `${plan.slug}+old` : plan.slug;
       couponId = getCouponFromPlan(planString, true);
-      
+
       // Verify coupon exists in Stripe (coupons might only exist in production, not test mode)
       const stripe = stripeInstance(oldAccount);
       try {
@@ -101,7 +101,7 @@ export default async function handle(
         if (error.code === "resource_missing") {
           console.warn(
             `[Upgrade] Coupon "${couponId}" not found in ${process.env.NEXT_PUBLIC_VERCEL_ENV || "test"} mode. ` +
-            `Continuing without discount. This is expected if the coupon only exists in production.`
+              `Continuing without discount. This is expected if the coupon only exists in production.`,
           );
           couponId = undefined;
         } else {

@@ -102,7 +102,7 @@ export default async function handle(
       const isUnlimitedPlan = plan?.slug === "datarooms-unlimited";
 
       const stripe = stripeInstance(isOldAccount(team.plan));
-      
+
       // Apply 30% discount for yearly plans before redirecting to billing portal
       // Same logic as retention flow: apply coupon directly to subscription
       if (applyYearlyDiscount && upgradePlan) {
@@ -112,7 +112,7 @@ export default async function handle(
           // team.plan format is "pro", "business", "pro+old", "business+old", etc.
           const planString = `${plan.slug}${isOldAccount(team.plan) ? "+old" : ""}`;
           const couponId = getCouponFromPlan(planString, true);
-          
+
           // Verify coupon exists before applying (coupons might only exist in production, not test mode)
           try {
             await stripe.coupons.retrieve(couponId);
@@ -125,7 +125,7 @@ export default async function handle(
             if (error.code === "resource_missing") {
               console.warn(
                 `[Manage] Coupon "${couponId}" not found in ${process.env.NEXT_PUBLIC_VERCEL_ENV || "test"} mode. ` +
-                `Skipping discount application. This is expected if the coupon only exists in production.`
+                  `Skipping discount application. This is expected if the coupon only exists in production.`,
               );
             } else {
               // Re-throw other errors

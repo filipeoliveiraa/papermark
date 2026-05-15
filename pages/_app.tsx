@@ -10,6 +10,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/pages";
 
 import { EXCLUDED_PATHS } from "@/lib/constants";
 
+import { PostHogGroupSync } from "@/components/providers/posthog-group-sync";
 import { PostHogCustomProvider } from "@/components/providers/posthog-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -82,6 +83,7 @@ export default function App({
                     <Component {...pageProps} />
                   ) : (
                     <TeamProvider>
+                      <PostHogGroupSync />
                       <UploadProgressProvider>
                         <Component {...pageProps} />
                       </UploadProgressProvider>
