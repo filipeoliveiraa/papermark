@@ -17,12 +17,14 @@ import { usePlan } from "@/lib/swr/use-billing";
 import useLimits from "@/lib/swr/use-limits";
 import { useSlackIntegration } from "@/lib/swr/use-slack-integration";
 import { PlanEnum } from "@/ee/stripe/constants";
+import { Team } from "@/lib/types";
 import { cn, nFormatter } from "@/lib/utils";
 
 import { UpgradePlanModal } from "@/components/billing/upgrade-plan-modal";
 import { Progress } from "@/components/ui/progress";
 
 import { SlackIcon } from "../shared/icons/slack-icon";
+import { MobileTeamSwitcher } from "./mobile-team-switcher";
 
 interface MobileMoreMenuProps {
   open: boolean;
@@ -31,7 +33,7 @@ interface MobileMoreMenuProps {
 
 export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
   const router = useRouter();
-  const { currentTeam } = useTeam() || {};
+  const { currentTeam, teams, setCurrentTeam } = useTeam() || {};
   const { isFree, isTrial } = usePlan();
   const { limits } = useLimits();
   const { isAdmin } = useIsAdmin();
@@ -41,6 +43,13 @@ export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
   const [settingsExpanded, setSettingsExpanded] = useState(
     () => router.pathname.includes("settings"),
   );
+
+  const switchTeam = (team: Pick<Team, "id" | "name">) => {
+    const target = teams?.find((t) => t.id === team.id);
+    if (!target || target.id === currentTeam?.id) return;
+    setCurrentTeam?.(target);
+    onClose();
+  };
 
   useEffect(() => {
     if (open) {
@@ -87,6 +96,14 @@ export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
+        {currentTeam && teams && teams.length > 0 && (
+          <MobileTeamSwitcher
+            currentTeam={currentTeam}
+            teams={teams}
+            onSwitch={switchTeam}
+          />
+        )}
+
         <div className="space-y-1">
           {isFree && !isTrial ? (
             <UpgradePlanModal
