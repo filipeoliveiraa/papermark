@@ -54,7 +54,15 @@ export const getFeatureFlags = async ({ teamId }: { teamId?: string }) => {
   try {
     betaFeatures = await get("betaFeatures");
   } catch (e) {
-    console.error(`Error getting beta features: ${e}`);
+    const msg = e instanceof Error ? e.message : String(e);
+    // Invalid or local EDGE_CONFIG tokens surface as Unauthorized; flags stay off.
+    if (msg.includes("Unauthorized") || msg.includes("403")) {
+      console.warn(
+        "[featureFlags] Edge Config unavailable; beta flags default to off. Fix EDGE_CONFIG or unset it for local dev.",
+      );
+    } else {
+      console.error(`Error getting beta features: ${e}`);
+    }
   }
 
   if (betaFeatures) {
