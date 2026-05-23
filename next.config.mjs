@@ -34,6 +34,11 @@ const nextConfig = {
         source: "/.well-known/oauth-protected-resource",
         destination: "/api/well-known/oauth-protected-resource",
       },
+      // ChatGPT app submission domain ownership challenge.
+      {
+        source: "/.well-known/openai-apps-challenge",
+        destination: "/api/well-known/openai-apps-challenge",
+      },
     ];
     const beforeFiles = [];
     const apiHost = process.env.NEXT_PUBLIC_API_BASE_HOST;
@@ -105,6 +110,12 @@ const nextConfig = {
         {
           source: "/.well-known/oauth-protected-resource",
           destination: "/api/well-known/oauth-protected-resource",
+          has: [{ type: "host", value: mcpHost }],
+        },
+        // ChatGPT app submission domain ownership challenge.
+        {
+          source: "/.well-known/openai-apps-challenge",
+          destination: "/api/well-known/openai-apps-challenge",
           has: [{ type: "host", value: mcpHost }],
         },
         // Custom OIDC discovery doc: issuer stays on app domain but
