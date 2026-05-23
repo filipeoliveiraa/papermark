@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import React from "react";
 
+import { ConfidentialViewOverlay } from "@/ee/features/permissions/components/confidential-view/confidential-view-overlay";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -35,6 +36,7 @@ export default function PagesHorizontalViewer({
   pages,
   feedbackEnabled,
   screenshotProtectionEnabled,
+  confidentialViewEnabled,
   versionNumber,
   showPoweredByBanner,
   showAccountCreationSlide,
@@ -61,6 +63,7 @@ export default function PagesHorizontalViewer({
   }[];
   feedbackEnabled: boolean;
   screenshotProtectionEnabled: boolean;
+  confidentialViewEnabled?: boolean;
   versionNumber: number;
   showPoweredByBanner?: boolean;
   showAccountCreationSlide?: boolean;
@@ -594,9 +597,19 @@ export default function PagesHorizontalViewer({
                 ref={containerRef}
               >
                 <div className="h-full w-full overflow-auto">
-                  {/* Sizer defines the scrollable layout size at current scale */}
+                  {/* Sizer defines the scrollable layout size at current scale.
+                      On mobile at default zoom we vertically center the page
+                      so it aligns with the next/prev controls (which sit at
+                      vertical-center of the viewport) instead of being pinned
+                      to the top — short/landscape pages would otherwise leave
+                      a large empty band underneath. */}
                   <div
-                    className="mx-auto"
+                    className={cn(
+                      "mx-auto",
+                      isMobile &&
+                        scale <= 1 &&
+                        "flex min-h-full items-center justify-center",
+                    )}
                     style={{
                       // Keep default zoom responsive to viewport changes.
                       // Only lock dimensions when zoomed in to preserve a stable scroll area.
@@ -809,11 +822,17 @@ export default function PagesHorizontalViewer({
                 </div>
               </div>
 
-              {/* Navigation arrows with hover zones */}
+              {/* Navigation arrows with hover zones.
+                  Stacked at z-50 so they sit ABOVE the confidential-view
+                  overlay (z-40) and its slice-handle. Without this, the
+                  slice-handle on touch devices intercepts taps inside the
+                  visible window and the user can't reach the chevrons.
+                  Visually this also keeps the chevrons readable when the
+                  fence sweeps over them. */}
               {pageNumber > 1 && (
                 <div
                   className={cn(
-                    "group absolute left-0 top-0 z-[1] flex h-full items-center",
+                    "group absolute left-0 top-0 z-50 flex h-full items-center",
                     isMobile ? "w-1/6" : "w-32",
                     isMobile ? "justify-start pl-1" : "justify-start pl-4",
                   )}
@@ -836,7 +855,7 @@ export default function PagesHorizontalViewer({
               {pageNumber < numPagesWithAccountCreation && (
                 <div
                   className={cn(
-                    "group absolute right-0 top-0 z-[1] flex h-full items-center",
+                    "group absolute right-0 top-0 z-50 flex h-full items-center",
                     isMobile ? "w-1/6" : "w-32",
                     isMobile ? "justify-end pr-1" : "justify-end pr-4",
                   )}
@@ -865,6 +884,7 @@ export default function PagesHorizontalViewer({
               ) : null}
 
               {screenshotProtectionEnabled ? <ScreenProtector /> : null}
+              {confidentialViewEnabled ? <ConfidentialViewOverlay /> : null}
               {showPoweredByBanner ? <PoweredBy linkId={linkId} /> : null}
               <AwayPoster
                 isVisible={isInactive}

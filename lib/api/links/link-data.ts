@@ -54,6 +54,7 @@ const linkSelect = {
   allowDownload: true,
   enableFeedback: true,
   enableScreenshotProtection: true,
+  enableConfidentialView: true,
   password: true,
   isArchived: true,
   deletedAt: true,

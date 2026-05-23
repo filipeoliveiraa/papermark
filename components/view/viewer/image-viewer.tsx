@@ -3,6 +3,8 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import React from "react";
 
+import { ConfidentialViewOverlay } from "@/ee/features/permissions/components/confidential-view/confidential-view-overlay";
+
 import { useSafePageViewTracker } from "@/lib/tracking/safe-page-view-tracker";
 import { getTrackingOptions } from "@/lib/tracking/tracking-config";
 import { WatermarkConfig } from "@/lib/types";
@@ -19,6 +21,7 @@ import "@/styles/custom-viewer-styles.css";
 export default function ImageViewer({
   file,
   screenshotProtectionEnabled,
+  confidentialViewEnabled,
   versionNumber,
   showPoweredByBanner,
   viewerEmail,
@@ -29,6 +32,7 @@ export default function ImageViewer({
 }: {
   file: string;
   screenshotProtectionEnabled: boolean;
+  confidentialViewEnabled?: boolean;
   versionNumber: number;
   showPoweredByBanner?: boolean;
   viewerEmail?: string;
@@ -39,7 +43,8 @@ export default function ImageViewer({
 }) {
   const router = useRouter();
 
-  const { isPreview, linkId, documentId, viewId, dataroomId } = navData;
+  const { isMobile, isPreview, linkId, documentId, viewId, dataroomId } =
+    navData;
 
   const numPages = 1;
   const pageNumber = 1;
@@ -327,9 +332,18 @@ export default function ImageViewer({
         >
           {/* Scroll Container */}
           <div className="h-full w-full overflow-auto">
-            {/* Sizer defines scrollable dimensions at current scale */}
+            {/* Sizer defines scrollable dimensions at current scale.
+                On mobile at default zoom we vertically center the image so
+                it sits at the visual center of the viewport (landscape or
+                short images would otherwise be pinned to the top with a big
+                empty band underneath). */}
             <div
-              className="mx-auto"
+              className={cn(
+                "mx-auto",
+                isMobile &&
+                  scale <= 1 &&
+                  "flex min-h-full items-center justify-center",
+              )}
               style={{
                 width:
                   imageDimensions && scale > 1
@@ -397,6 +411,7 @@ export default function ImageViewer({
         </div>
 
         {screenshotProtectionEnabled ? <ScreenProtector /> : null}
+        {confidentialViewEnabled ? <ConfidentialViewOverlay /> : null}
         {showPoweredByBanner ? <PoweredBy linkId={linkId} /> : null}
       </div>
       <AwayPoster

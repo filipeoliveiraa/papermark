@@ -55,6 +55,7 @@ const LinkSchema = z.object({
   enableNotification: z.boolean().optional(),
   enableFeedback: z.boolean().optional(),
   enableScreenshotProtection: z.boolean().optional(),
+  enableConfidentialView: z.boolean().optional(),
   showBanner: z.boolean().optional(),
   audienceType: z.enum(["GENERAL", "GROUP", "TEAM"]).optional(),
   groupId: z.string().optional(),
@@ -629,6 +630,8 @@ async function handleDocumentCreate(
           link.enableNotification ?? preset?.enableNotification ?? false,
         enableFeedback: link.enableFeedback,
         enableScreenshotProtection: link.enableScreenshotProtection,
+        enableConfidentialView:
+          link.enableConfidentialView ?? preset?.enableConfidentialView ?? false,
         showBanner: link.showBanner ?? preset?.showBanner ?? false,
         audienceType: link.audienceType,
         groupId: isGroupAudience ? link.groupId : null,
@@ -1007,6 +1010,8 @@ async function handleLinkCreate(
           link.enableNotification ?? preset?.enableNotification ?? false,
         enableFeedback: link.enableFeedback,
         enableScreenshotProtection: link.enableScreenshotProtection,
+        enableConfidentialView:
+          link.enableConfidentialView ?? preset?.enableConfidentialView ?? false,
         showBanner: link.showBanner ?? preset?.showBanner ?? false,
         audienceType: link.audienceType,
         groupId: isGroupAudience ? link.groupId : null,
@@ -1261,6 +1266,10 @@ async function handleLinkUpdate(
       data.enableScreenshotProtection = link.enableScreenshotProtection;
     }
 
+    if (has("enableConfidentialView")) {
+      data.enableConfidentialView = link.enableConfidentialView;
+    }
+
     if (has("showBanner")) {
       data.showBanner = link.showBanner;
     } else if (preset?.showBanner != null) {
@@ -1503,6 +1512,8 @@ async function handleDataroomCreate(
             link.enableNotification ?? preset?.enableNotification ?? false,
           enableFeedback: link.enableFeedback,
           enableScreenshotProtection: link.enableScreenshotProtection,
+          enableConfidentialView:
+            link.enableConfidentialView ?? preset?.enableConfidentialView ?? false,
           showBanner: link.showBanner ?? preset?.showBanner ?? false,
           audienceType: link.audienceType,
           groupId: isGroupAudience ? link.groupId : null,

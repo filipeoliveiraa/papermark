@@ -77,7 +77,8 @@ export const DEFAULT_LINK_PROPS = (
   enableNotification: true,
   enableFeedback: false,
   enableScreenshotProtection: false,
-    enableCustomMetatag: false,
+  enableConfidentialView: false,
+  enableCustomMetatag: false,
   metaTitle: null,
   metaDescription: null,
   metaImage: null,
@@ -122,6 +123,7 @@ export type DEFAULT_LINK_TYPE = {
   enableNotification: boolean;
   enableFeedback: boolean;
   enableScreenshotProtection: boolean;
+  enableConfidentialView: boolean;
   enableCustomMetatag: boolean; // metatags
   metaTitle: string | null; // metatags
   metaDescription: string | null; // metatags
@@ -354,6 +356,8 @@ export default function LinkSheet({
         agreementId: preset.agreementId || prev.agreementId,
         enableScreenshotProtection:
           preset.enableScreenshotProtection || prev.enableScreenshotProtection,
+        enableConfidentialView:
+          preset.enableConfidentialView ?? prev.enableConfidentialView,
         enableNotification: !!preset.enableNotification,
         showBanner: preset.showBanner ?? prev.showBanner,
       };
@@ -522,6 +526,7 @@ export default function LinkSheet({
         "enableNotification",
         "enableFeedback",
         "enableScreenshotProtection",
+        "enableConfidentialView",
         "enableCustomMetatag",
         "metaTitle",
         "metaDescription",

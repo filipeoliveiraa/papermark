@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import React from "react";
 
+import { ConfidentialViewOverlay } from "@/ee/features/permissions/components/confidential-view/confidential-view-overlay";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 
 import { useSafePageViewTracker } from "@/lib/tracking/safe-page-view-tracker";
@@ -61,6 +62,7 @@ export default function PagesVerticalViewer({
   pages,
   feedbackEnabled,
   screenshotProtectionEnabled,
+  confidentialViewEnabled,
   versionNumber,
   showPoweredByBanner,
   enableQuestion = false,
@@ -86,6 +88,7 @@ export default function PagesVerticalViewer({
   }[];
   feedbackEnabled: boolean;
   screenshotProtectionEnabled: boolean;
+  confidentialViewEnabled?: boolean;
   versionNumber: number;
   showPoweredByBanner?: boolean;
   enableQuestion?: boolean | null;
@@ -1043,39 +1046,50 @@ export default function PagesVerticalViewer({
               </div>
             </div>
 
-            {/* Up arrow - hide on first page */}
-            <div
-              className={cn(
-                "absolute left-0 right-0 top-0 flex h-24 items-start justify-center pt-4 transition-opacity duration-200",
-                pageNumber <= 1 ? "hidden" : "opacity-0 hover:opacity-100",
-              )}
-              onClick={goToPreviousPage}
-            >
-              <button
-                disabled={pageNumber <= 1}
-                className="rounded-full bg-gray-950/50 p-1 hover:bg-gray-950/75"
-              >
-                <ChevronUpIcon className="h-10 w-10 text-white" />
-              </button>
-            </div>
+            {/* Up/down chevron tap-zones are a desktop-hover affordance
+                (`opacity-0 hover:opacity-100`). On touch devices `hover:`
+                is unreliable and the strips become invisible-but-tap-active
+                — every attempt to scroll near the top/bottom 96px would
+                fire a page jump instead. We render them on non-mobile only.
+                On mobile the user navigates by scrolling, which is now the
+                natural gesture both inside and outside the fence. */}
+            {!isMobile && (
+              <>
+                {/* Up arrow - hide on first page */}
+                <div
+                  className={cn(
+                    "absolute left-0 right-0 top-0 flex h-24 items-start justify-center pt-4 transition-opacity duration-200",
+                    pageNumber <= 1 ? "hidden" : "opacity-0 hover:opacity-100",
+                  )}
+                  onClick={goToPreviousPage}
+                >
+                  <button
+                    disabled={pageNumber <= 1}
+                    className="rounded-full bg-gray-950/50 p-1 hover:bg-gray-950/75"
+                  >
+                    <ChevronUpIcon className="h-10 w-10 text-white" />
+                  </button>
+                </div>
 
-            {/* Down arrow - hide on last page unless there's an account creation page */}
-            <div
-              className={cn(
-                "absolute bottom-0 left-0 right-0 flex h-24 items-end justify-center pb-4 transition-opacity duration-200",
-                pageNumber >= numPagesWithAccountCreation
-                  ? "hidden"
-                  : "opacity-0 hover:opacity-100",
-              )}
-              onClick={goToNextPage}
-            >
-              <button
-                disabled={pageNumber >= numPagesWithAccountCreation}
-                className="rounded-full bg-gray-950/50 p-1 hover:bg-gray-950/75"
-              >
-                <ChevronDownIcon className="h-10 w-10 text-white" />
-              </button>
-            </div>
+                {/* Down arrow - hide on last page unless there's an account creation page */}
+                <div
+                  className={cn(
+                    "absolute bottom-0 left-0 right-0 flex h-24 items-end justify-center pb-4 transition-opacity duration-200",
+                    pageNumber >= numPagesWithAccountCreation
+                      ? "hidden"
+                      : "opacity-0 hover:opacity-100",
+                  )}
+                  onClick={goToNextPage}
+                >
+                  <button
+                    disabled={pageNumber >= numPagesWithAccountCreation}
+                    className="rounded-full bg-gray-950/50 p-1 hover:bg-gray-950/75"
+                  >
+                    <ChevronDownIcon className="h-10 w-10 text-white" />
+                  </button>
+                </div>
+              </>
+            )}
 
             {feedbackEnabled && pageNumber <= numPages ? (
               <Toolbar
@@ -1086,6 +1100,7 @@ export default function PagesVerticalViewer({
             ) : null}
 
             {screenshotProtectionEnabled ? <ScreenProtector /> : null}
+            {confidentialViewEnabled ? <ConfidentialViewOverlay /> : null}
             {showPoweredByBanner ? <PoweredBy linkId={linkId} /> : null}
             <AwayPoster
               isVisible={isInactive}

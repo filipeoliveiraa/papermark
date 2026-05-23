@@ -319,6 +319,7 @@ export default async function handler(
             enableNotification: linkData.enableNotification,
             enableFeedback: linkData.enableFeedback,
             enableScreenshotProtection: linkData.enableScreenshotProtection,
+            enableConfidentialView: linkData.enableConfidentialView,
             enableCustomMetatag: linkData.enableCustomMetatag,
             metaTitle: linkData.metaTitle || null,
             metaDescription: linkData.metaDescription || null,

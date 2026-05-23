@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
 
+import { ConfidentialViewOverlay } from "@/ee/features/permissions/components/confidential-view/confidential-view-overlay";
 import { Slash } from "lucide-react";
 import { ExtendedRecordMap } from "notion-types";
 import { parsePageId } from "notion-utils";
@@ -124,6 +125,7 @@ export const NotionPage = ({
   versionNumber,
   theme,
   screenshotProtectionEnabled,
+  confidentialViewEnabled,
   textSelectionEnabled,
   navData,
 }: {
@@ -131,6 +133,7 @@ export const NotionPage = ({
   versionNumber: number;
   theme?: NotionTheme | null;
   screenshotProtectionEnabled: boolean;
+  confidentialViewEnabled?: boolean;
   textSelectionEnabled: boolean;
   navData: TNavData;
 }) => {
@@ -283,9 +286,7 @@ export const NotionPage = ({
           const firstBlockId = Object.keys(currentRecordMap.block)[0];
           const firstBlock = currentRecordMap.block[firstBlockId];
           const blockValue = firstBlock?.value as Record<string, any>;
-          setSubTitle(
-            blockValue?.properties?.title?.[0]?.[0] || "Untitled",
-          );
+          setSubTitle(blockValue?.properties?.title?.[0]?.[0] || "Untitled");
           window.scrollTo({ top: 0, behavior: "smooth" });
           return;
         }
@@ -305,9 +306,7 @@ export const NotionPage = ({
           const firstBlockId = Object.keys(newRecordMap.block)[0];
           const firstBlock = newRecordMap.block[firstBlockId];
           const blockValue = firstBlock?.value as Record<string, any>;
-          setSubTitle(
-            blockValue?.properties?.title?.[0]?.[0] || "Untitled",
-          );
+          setSubTitle(blockValue?.properties?.title?.[0]?.[0] || "Untitled");
           window.scrollTo({ top: 0, behavior: "smooth" });
         } catch (error) {
           console.error("Error fetching subpage:", error);

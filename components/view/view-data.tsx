@@ -175,6 +175,7 @@ export default function ViewData({
             versionNumber={document.versions[0].versionNumber}
             theme={notionData.theme}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
+            confidentialViewEnabled={!!link.enableConfidentialView}
             textSelectionEnabled={textSelectionEnabled ?? false}
             navData={navData}
           />
@@ -197,6 +198,7 @@ export default function ViewData({
             versionNumber={document.versions[0].versionNumber}
             sheetData={viewData.sheetData}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
+            confidentialViewEnabled={!!link.enableConfidentialView}
             navData={navData}
           />
         ) : viewData.fileType === "sheet" && useAdvancedExcelViewer ? (
@@ -209,6 +211,7 @@ export default function ViewData({
           <ImageViewer
             file={viewData.file!}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
+            confidentialViewEnabled={!!link.enableConfidentialView}
             versionNumber={document.versions[0].versionNumber}
             showPoweredByBanner={showPoweredByBanner}
             viewerEmail={viewerEmail}
@@ -226,6 +229,7 @@ export default function ViewData({
             pages={lazyPages}
             feedbackEnabled={link.enableFeedback!}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
+            confidentialViewEnabled={!!link.enableConfidentialView}
             versionNumber={document.versions[0].versionNumber}
             showPoweredByBanner={showPoweredByBanner}
             showAccountCreationSlide={showAccountCreationSlide}
@@ -247,6 +251,7 @@ export default function ViewData({
             pages={lazyPages}
             feedbackEnabled={link.enableFeedback!}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
+            confidentialViewEnabled={!!link.enableConfidentialView}
             versionNumber={document.versions[0].versionNumber}
             showPoweredByBanner={showPoweredByBanner}
             enableQuestion={link.enableQuestion}
@@ -266,6 +271,7 @@ export default function ViewData({
           <VideoViewer
             file={viewData.file!}
             screenshotProtectionEnabled={link.enableScreenshotProtection!}
+            confidentialViewEnabled={!!link.enableConfidentialView}
             versionNumber={document.versions[0].versionNumber}
             navData={navData}
           />

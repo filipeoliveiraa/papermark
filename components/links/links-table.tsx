@@ -430,6 +430,9 @@ export default function LinksTable({
       enableScreenshotProtection: link.enableScreenshotProtection
         ? link.enableScreenshotProtection
         : false,
+      enableConfidentialView: link.enableConfidentialView
+        ? link.enableConfidentialView
+        : false,
       enableCustomMetatag: link.enableCustomMetatag
         ? link.enableCustomMetatag
         : false,

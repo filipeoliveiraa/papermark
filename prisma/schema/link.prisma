@@ -39,6 +39,7 @@ model Link {
   enableFeedback             Boolean?   @default(false) // Optional give user a option to enable the reactions toolbar
   enableQuestion             Boolean?   @default(false) // Optional give user a option to enable the question feedback
   enableScreenshotProtection Boolean?   @default(false) // Optional give user a option to enable the screenshot protection
+  enableConfidentialView     Boolean?   @default(false) // Optional give user a option to enable the confidential view
   feedback                   Feedback?
   enableAgreement            Boolean?   @default(false) // Optional give user a option to enable the terms and conditions
   agreement                  Agreement? @relation(fields: [agreementId], references: [id], onDelete: SetNull)
@@ -137,6 +138,7 @@ model LinkPreset {
   denyList                   String[]
   expiresIn                  Int? // how many days from link creation until it expires in seconds
   enableScreenshotProtection Boolean?  @default(false)
+  enableConfidentialView     Boolean?  @default(false)
   expiresAt                  DateTime?
   enablePassword             Boolean?  @default(false)
   password                   String?
