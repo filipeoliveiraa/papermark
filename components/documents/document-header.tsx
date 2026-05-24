@@ -846,8 +846,7 @@ export default function DocumentHeader({
 
               {/* Download latest version */}
               {primaryVersion.type !== "notion" &&
-                primaryVersion.type !== "link" &&
-                primaryVersion.type !== "video" && (
+                primaryVersion.type !== "link" && (
                   <DropdownMenuItem
                     onClick={() => downloadDocument(primaryVersion)}
                   >
