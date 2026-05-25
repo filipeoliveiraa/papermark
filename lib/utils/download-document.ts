@@ -1,23 +1,12 @@
 /**
- * Trigger a document download from one of the link-scoped download
- * endpoints (`/api/links/download` or `/api/links/download/dataroom-document`).
+ * Trigger a document download from one of the link-scoped download endpoints.
  *
- * The server returns one of two response shapes:
- *
- *  1. A buffered binary response (currently only watermarked PDFs that need
- *     mupdf annotation) with `Content-Disposition` set to the desired
- *     filename. We turn it into a blob + `<a download>` to save it.
- *
- *  2. A JSON response of the form `{ downloadUrl, fileName }`. The URL is
- *     a CloudFront / S3 presigned URL with `Content-Disposition: attachment`
- *     baked into the object metadata, so the browser will save it directly.
- *     We hand it to a hidden iframe instead of `<a download>` because the
- *     `download` attribute is silently ignored for cross-origin URLs in
- *     Chromium/Firefox/Safari, which would otherwise navigate the top-level
- *     page to the CloudFront URL.
- *
- * `fallbackFileName` is used only when the buffered response is missing
- * its `Content-Disposition` header (shouldn't happen in practice).
+ * Handles two response shapes:
+ *  1. Buffered binary (watermarked PDFs) -> save as blob via `<a download>`.
+ *  2. JSON `{ downloadUrl }` -> hand to a hidden iframe. We can't use
+ *     `<a download>` here because the `download` attribute is ignored for
+ *     cross-origin URLs, which would turn the click into a top-level
+ *     navigation to the CloudFront URL.
  */
 export async function downloadFromLinkEndpoint({
   endpoint,
