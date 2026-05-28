@@ -1,15 +1,11 @@
-import { PlanEnum } from "@/ee/stripe/constants";
-
 import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { useIsAdmin } from "@/lib/hooks/use-is-admin";
-import { usePlan } from "@/lib/swr/use-billing";
 
 import { NavMenu } from "../navigation-menu";
 
 export function SettingsHeader() {
   const { features } = useFeatureFlags();
   const { isAdmin } = useIsAdmin();
-  const { isDataroomsPlus, isTrial } = usePlan();
 
   return (
     <header>
@@ -65,9 +61,6 @@ export function SettingsHeader() {
             label: "Notifications",
             href: `/settings/notifications`,
             segment: "notifications",
-            limited: !isDataroomsPlus && !isTrial,
-            clickedPlan: PlanEnum.DataRoomsPlus,
-            highlightItem: ["invite"],
           },
           {
             label: "Slack",
