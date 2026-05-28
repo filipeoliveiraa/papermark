@@ -314,7 +314,8 @@ export default function LinksTable({
   const { isMobile } = useMediaQuery();
   const { isFeatureEnabled } = useFeatureFlags();
   const canInviteViewers =
-    isDataroomsPlus || (isDatarooms && isFeatureEnabled("dataroomInvitations"));
+    isDataroomsPlus ||
+    ((isDatarooms || isTrial) && isFeatureEnabled("dataroomInvitations"));
 
   let processedLinks = useMemo(() => {
     if (!links?.length) return [];

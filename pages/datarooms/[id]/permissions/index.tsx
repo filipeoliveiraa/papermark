@@ -39,10 +39,11 @@ const BulkImportLinksModal = dynamic(
 export default function DataroomLinksPage() {
   const { dataroom } = useDataroom();
   const { links } = useDataroomLinks();
-  const { isDatarooms, isDataroomsPlus } = usePlan();
+  const { isDatarooms, isDataroomsPlus, isTrial } = usePlan();
   const { isFeatureEnabled } = useFeatureFlags();
   const canInviteViewers =
-    isDataroomsPlus || (isDatarooms && isFeatureEnabled("dataroomInvitations"));
+    isDataroomsPlus ||
+    ((isDatarooms || isTrial) && isFeatureEnabled("dataroomInvitations"));
   const [isLinkSheetOpen, setIsLinkSheetOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
