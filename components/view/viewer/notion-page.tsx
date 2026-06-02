@@ -267,7 +267,20 @@ export const NotionPage = ({
     if (!screenshotProtectionEnabled) return;
 
     const handleFocus = () => setIsWindowFocused(true);
-    const handleBlur = () => setIsWindowFocused(false);
+    const handleBlur = () => {
+      // When the user interacts with an embedded iframe (e.g. a YouTube video),
+      // focus moves into the iframe and the window emits a "blur" event. This is
+      // not the window actually losing focus, so we must not blur the page —
+      // otherwise the video would be unplayable behind a blur overlay.
+      const activeElement = document.activeElement;
+      if (
+        activeElement instanceof HTMLIFrameElement &&
+        notionContainerRef.current?.contains(activeElement)
+      ) {
+        return;
+      }
+      setIsWindowFocused(false);
+    };
 
     window.addEventListener("focus", handleFocus);
     window.addEventListener("blur", handleBlur);
