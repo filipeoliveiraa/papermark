@@ -12,6 +12,7 @@ import { NotionRenderer } from "react-notion-x";
 // core styles shared by all of react-notion-x (required)
 import "react-notion-x/src/styles.css";
 
+import { getExternalRelationLinks } from "@/lib/notion/external-relation-links";
 import { useSafePageViewTracker } from "@/lib/tracking/safe-page-view-tracker";
 import { getTrackingOptions } from "@/lib/tracking/tracking-config";
 import { NotionTheme } from "@/lib/types";
@@ -500,6 +501,31 @@ export const NotionPage = ({
       Collection,
       Code,
       PageLink: PageLinkComponent,
+      propertyRelationValue: (
+        props: { data?: any[] },
+        defaultValueFn: () => React.ReactNode,
+      ) => {
+        const externalLinks = getExternalRelationLinks(props.data);
+
+        if (!externalLinks) {
+          return defaultValueFn();
+        }
+
+        return externalLinks.map((link, index) => (
+          <React.Fragment key={`${link.url}-${index}`}>
+            {index > 0 ? ", " : null}
+            <a
+              className="notion-link"
+              href={link.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {link.text}
+            </a>
+          </React.Fragment>
+        ));
+      },
     }),
     [PageLinkComponent],
   );

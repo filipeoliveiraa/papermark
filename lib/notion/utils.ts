@@ -8,9 +8,7 @@ import notion from "./index";
  * Extracts all page reference IDs from rich text decorations in the recordMap.
  * This handles the "p" decorator which is used for page mentions/links.
  */
-function extractPageReferencesFromRichText(
-  value: any[] | undefined,
-): string[] {
+function extractPageReferencesFromRichText(value: any[] | undefined): string[] {
   if (!value || !Array.isArray(value)) return [];
 
   const pageIds: string[] = [];
@@ -41,6 +39,83 @@ function extractPageReferencesFromRichText(
   }
 
   return pageIds;
+}
+
+function getExternalObjectLinkTarget(block: any): {
+  title: string;
+  url: string;
+} | null {
+  if (block?.type !== "external_object_instance_page") return null;
+
+  const url = block.format?.uri;
+  if (typeof url !== "string" || !url) return null;
+
+  const title = block.format?.attributes?.find(
+    (attribute: any) => attribute?.id === "title",
+  )?.values?.[0];
+
+  return {
+    title: typeof title === "string" && title ? title : url,
+    url,
+  };
+}
+
+function getLinkedExternalObjectTarget(
+  decorator: any[],
+  recordMap: ExtendedRecordMap,
+): ReturnType<typeof getExternalObjectLinkTarget> {
+  if (decorator[0] === "p" && decorator[1]) {
+    return getExternalObjectLinkTarget(
+      (recordMap.block[decorator[1]] as any)?.value,
+    );
+  }
+
+  if (decorator[0] === "\u2023" && Array.isArray(decorator[1])) {
+    const [, id] = decorator[1];
+    if (id) {
+      return getExternalObjectLinkTarget((recordMap.block[id] as any)?.value);
+    }
+  }
+
+  return null;
+}
+
+function linkExternalObjectMentions(recordMap: ExtendedRecordMap): void {
+  for (const blockEntry of Object.values(recordMap.block)) {
+    const block = blockEntry?.value as any;
+    if (!block?.properties) continue;
+
+    for (const propKey of Object.keys(block.properties)) {
+      const propValue = block.properties[propKey];
+      if (!Array.isArray(propValue)) continue;
+
+      block.properties[propKey] = propValue.map((segment: any) => {
+        if (!Array.isArray(segment)) return segment;
+
+        const [text, decorations] = segment;
+        if (!Array.isArray(decorations)) return segment;
+
+        const linkTarget = decorations
+          .map((decoration) =>
+            Array.isArray(decoration)
+              ? getLinkedExternalObjectTarget(decoration, recordMap)
+              : null,
+          )
+          .find(Boolean);
+
+        if (!linkTarget) return segment;
+
+        const nextDecorations = decorations
+          .filter((decoration) => {
+            if (!Array.isArray(decoration)) return true;
+            return !getLinkedExternalObjectTarget(decoration, recordMap);
+          })
+          .concat([["a", linkTarget.url]]);
+
+        return [text === "\u2023" ? linkTarget.title : text, nextDecorations];
+      });
+    }
+  }
 }
 
 /**
@@ -138,7 +213,10 @@ export async function fetchMissingPageReferences(
     (id) => !recordMap.block[id],
   );
 
-  if (missingPageIds.length === 0) return;
+  if (missingPageIds.length === 0) {
+    linkExternalObjectMentions(recordMap);
+    return;
+  }
 
   try {
     const newBlocks = await notion.getBlocks(missingPageIds);
@@ -149,6 +227,7 @@ export async function fetchMissingPageReferences(
       };
     }
     normalizeRecordMap(recordMap);
+    linkExternalObjectMentions(recordMap);
   } catch (err) {
     console.warn("Failed to fetch missing page references:", err);
   }
@@ -161,7 +240,12 @@ export const addSignedUrls: NotionAPI["addSignedUrls"] = async ({
   recordMap.signed_urls = {};
 
   if (!contentBlockIds) {
-    contentBlockIds = getPageContentBlockIds(recordMap);
+    contentBlockIds = Array.from(
+      new Set([
+        ...getPageContentBlockIds(recordMap),
+        ...Object.keys(recordMap.block),
+      ]),
+    );
   }
 
   const allFileInstances = contentBlockIds.flatMap((blockId) => {
