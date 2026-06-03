@@ -95,7 +95,6 @@ export function SettingsHeader() {
             label: "Billing",
             href: `/settings/billing`,
             segment: "billing",
-            disabled: !isAdmin,
           },
         ]}
       />

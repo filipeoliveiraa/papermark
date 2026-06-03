@@ -68,7 +68,7 @@ export function AppSidebarContent() {
   // Check feature flags
   const { features } = useFeatureFlags();
 
-  // Check if current user is admin (for gating Security & Billing)
+  // Check if current user is admin (for gating Security)
   const { isAdmin } = useIsAdmin();
 
   // Fetch datarooms for the current team (simple mode - no filters or extra data)
@@ -207,13 +207,13 @@ export function AppSidebarContent() {
                   url: "/settings/security",
                   current: router.pathname.includes("settings/security"),
                 },
-                {
-                  title: "Billing",
-                  url: "/settings/billing",
-                  current: router.pathname.includes("settings/billing"),
-                },
               ]
             : []),
+          {
+            title: "Billing",
+            url: "/settings/billing",
+            current: router.pathname.includes("settings/billing"),
+          },
         ],
       },
     ],

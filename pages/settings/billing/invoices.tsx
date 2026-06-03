@@ -1,10 +1,7 @@
 import { useRouter } from "next/router";
 
-import { useEffect } from "react";
-
 import { Download, FileText, Loader2 } from "lucide-react";
 
-import { useIsAdmin } from "@/lib/hooks/use-is-admin";
 import { useInvoices } from "@/lib/swr/use-invoices";
 
 import AppLayout from "@/components/layouts/app";
@@ -23,14 +20,6 @@ import {
 export default function Invoices() {
   const router = useRouter();
   const { invoices, loading, error } = useInvoices();
-  const { isAdmin, loading: isAdminLoading } = useIsAdmin();
-
-  // Redirect non-admin users to general settings
-  useEffect(() => {
-    if (!isAdminLoading && !isAdmin) {
-      router.replace("/settings/general");
-    }
-  }, [isAdmin, isAdminLoading, router]);
 
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat("en-US", {
@@ -58,15 +47,6 @@ export default function Invoices() {
       window.open(hostedInvoiceUrl, "_blank");
     }
   };
-
-  // Show nothing while checking admin status
-  if (isAdminLoading || !isAdmin) {
-    return (
-      <AppLayout>
-        <div />
-      </AppLayout>
-    );
-  }
 
   return (
     <AppLayout>

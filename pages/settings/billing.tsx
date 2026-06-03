@@ -7,7 +7,6 @@ import { sendGTMEvent } from "@next/third-parties/google";
 import { toast } from "sonner";
 
 import { useAnalytics } from "@/lib/analytics";
-import { useIsAdmin } from "@/lib/hooks/use-is-admin";
 import { usePlan } from "@/lib/swr/use-billing";
 
 import UpgradePlanContainer from "@/components/billing/upgrade-plan-container";
@@ -24,14 +23,6 @@ export default function Billing() {
   const teamId = teamInfo?.currentTeam?.id;
 
   const { plan } = usePlan();
-  const { isAdmin, loading: isAdminLoading } = useIsAdmin();
-
-  // Redirect non-admin users to general settings
-  useEffect(() => {
-    if (!isAdminLoading && !isAdmin) {
-      router.replace("/settings/general");
-    }
-  }, [isAdmin, isAdminLoading, router]);
 
   useEffect(() => {
     if (router.query.success) {
@@ -57,15 +48,6 @@ export default function Billing() {
       router.replace("/settings/billing", undefined, { shallow: true });
     }
   }, [router.query]);
-
-  // Show nothing while checking admin status
-  if (isAdminLoading || !isAdmin) {
-    return (
-      <AppLayout>
-        <div />
-      </AppLayout>
-    );
-  }
 
   return (
     <>

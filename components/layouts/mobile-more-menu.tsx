@@ -74,12 +74,8 @@ export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
     { label: "Notifications", href: "/settings/notifications" },
     { label: "Webhooks", href: "/settings/webhooks" },
     { label: "Slack", href: "/settings/slack" },
-    ...(isAdmin
-      ? [
-          { label: "Security", href: "/settings/security" },
-          { label: "Billing", href: "/settings/billing" },
-        ]
-      : []),
+    ...(isAdmin ? [{ label: "Security", href: "/settings/security" }] : []),
+    { label: "Billing", href: "/settings/billing" },
   ];
 
   return (
