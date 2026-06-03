@@ -12,8 +12,10 @@ import {
   BadgeCheckIcon,
   BadgeInfoIcon,
   DownloadCloudIcon,
+  DownloadIcon,
   FileBadgeIcon,
   FileDigitIcon,
+  FileSignatureIcon,
   MoreHorizontalIcon,
   ServerIcon,
   ThumbsDownIcon,
@@ -24,6 +26,10 @@ import { mutate } from "swr";
 
 import { usePlan } from "@/lib/swr/use-billing";
 import { useDocumentVisits } from "@/lib/swr/use-document";
+import {
+  buildTeamSignedAgreementDownloadUrl,
+  downloadSignedAgreement,
+} from "@/lib/signing/download";
 import { durationFormat, timeAgo } from "@/lib/utils";
 
 import ChevronDown from "@/components/shared/icons/chevron-down";
@@ -66,6 +72,32 @@ import VisitorUserAgent from "./visitor-useragent";
 import VisitorUserAgentPlaceholder from "./visitor-useragent-placeholder";
 import VisitorVideoChart from "./visitor-video-chart";
 
+type AgreementResponseSummary = {
+  id: string;
+  agreementId: string;
+  signingStatus: string;
+  agreement: {
+    name: string;
+    contentType: string;
+    signingProvider: string;
+  };
+};
+
+const isSignedAgreementResponse = (
+  response: AgreementResponseSummary | null | undefined,
+) => {
+  if (!response) return false;
+  const isSigningAgreement =
+    response.agreement.signingProvider === "DOCUMENSO" ||
+    response.agreement.contentType === "SIGNING";
+
+  return (
+    isSigningAgreement &&
+    (response.signingStatus === "SIGNED" ||
+      response.signingStatus === "COMPLETED")
+  );
+};
+
 export default function VisitorsTable({
   primaryVersion,
   isVideo = false,
@@ -91,6 +123,44 @@ export default function VisitorsTable({
   const handlePageSizeChange = (newSize: number) => {
     setPageSize(newSize);
     setCurrentPage(1);
+  };
+
+  const handleDownloadSignedAgreement = async ({
+    teamId,
+    agreementId,
+    responseId,
+    agreementName,
+  }: {
+    teamId: string;
+    agreementId: string;
+    responseId: string;
+    agreementName: string;
+  }) => {
+    const url = buildTeamSignedAgreementDownloadUrl({
+      teamId,
+      agreementId,
+      responseId,
+    });
+
+    const safeName = agreementName
+      .replace(/[^a-z0-9\-_]/gi, "_")
+      .toLowerCase()
+      .substring(0, 50);
+
+    await toast.promise(
+      downloadSignedAgreement({
+        url,
+        fallbackFilename: `${safeName || "agreement"}_signed.pdf`,
+      }),
+      {
+        loading: "Preparing signed NDA...",
+        success: "Signed NDA downloaded",
+        error: (error: unknown) =>
+          error instanceof Error
+            ? error.message
+            : "Failed to download the signed NDA.",
+      },
+    );
   };
 
   const handleArchiveView = async (
@@ -364,10 +434,22 @@ export default function VisitorsTable({
                                         )}
                                         {view.agreementResponse && (
                                           <BadgeTooltip
-                                            content={`Agreed to ${view.agreementResponse.agreement.name}`}
+                                            content={
+                                              isSignedAgreementResponse(
+                                                view.agreementResponse,
+                                              )
+                                                ? `Signed ${view.agreementResponse.agreement.name}`
+                                                : `Agreed to ${view.agreementResponse.agreement.name}`
+                                            }
                                             key={`agreement-${view.id}`}
                                           >
-                                            <FileBadgeIcon className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />
+                                            {isSignedAgreementResponse(
+                                              view.agreementResponse,
+                                            ) ? (
+                                              <FileSignatureIcon className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />
+                                            ) : (
+                                              <FileBadgeIcon className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />
+                                            )}
                                           </BadgeTooltip>
                                         )}
                                         {view.downloadedAt && (
@@ -518,6 +600,77 @@ export default function VisitorsTable({
                                   Version {view.versionNumber}
                                 </div>
                               </div>
+
+                              {isSignedAgreementResponse(
+                                view.agreementResponse,
+                              ) && teamId ? (
+                                <div className="pb-0.5 pl-0.5 md:pb-1 md:pl-1">
+                                  <div className="flex items-center justify-between gap-2 px-1">
+                                    <div className="flex min-w-0 items-center gap-x-1.5">
+                                      <FileSignatureIcon className="size-4 shrink-0 text-emerald-500" />
+                                      <span className="truncate">
+                                        Signed{" "}
+                                        {
+                                          view.agreementResponse!.agreement
+                                            .name
+                                        }
+                                      </span>
+                                      {view.agreementResponse!.signedAt ||
+                                      view.agreementResponse!.completedAt ? (
+                                        <TimestampTooltip
+                                          timestamp={new Date(
+                                            view.agreementResponse!.signedAt ||
+                                              view.agreementResponse!
+                                                .completedAt!,
+                                          )}
+                                          side="right"
+                                          rows={["local", "utc", "unix"]}
+                                        >
+                                          <time
+                                            className="select-none text-xs text-muted-foreground"
+                                            dateTime={new Date(
+                                              view.agreementResponse!
+                                                .signedAt ||
+                                                view.agreementResponse!
+                                                  .completedAt!,
+                                            ).toISOString()}
+                                          >
+                                            {timeAgo(
+                                              new Date(
+                                                view.agreementResponse!
+                                                  .signedAt ||
+                                                  view.agreementResponse!
+                                                    .completedAt!,
+                                              ),
+                                            )}
+                                          </time>
+                                        </TimestampTooltip>
+                                      ) : null}
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 gap-1 px-2 text-xs"
+                                      onClick={() =>
+                                        handleDownloadSignedAgreement({
+                                          teamId,
+                                          agreementId:
+                                            view.agreementResponse!
+                                              .agreementId,
+                                          responseId:
+                                            view.agreementResponse!.id,
+                                          agreementName:
+                                            view.agreementResponse!.agreement
+                                              .name,
+                                        })
+                                      }
+                                    >
+                                      <DownloadIcon className="size-3.5" />
+                                      <span>Download signed NDA</span>
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : null}
 
                               {isVideo ? (
                                 <VisitorVideoChart

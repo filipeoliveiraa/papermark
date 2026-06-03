@@ -1,3 +1,5 @@
+import { resolvePublicLinkMeta } from "@/ee/features/branding/lib/resolve-public-link-meta";
+import type { ResolvedPublicLinkMeta } from "@/ee/features/branding/lib/resolve-public-link-meta";
 import {
   Brand,
   DataroomBrand,
@@ -10,10 +12,8 @@ import {
 } from "@prisma/client";
 
 import { getFeatureFlags } from "@/lib/featureFlags";
-import prisma from "@/lib/prisma";
 import { resolveDataroomIndexEnabledForViewer } from "@/lib/featureFlags/dataroom-index-viewer";
-import { resolvePublicLinkMeta } from "@/ee/features/branding/lib/resolve-public-link-meta";
-import type { ResolvedPublicLinkMeta } from "@/ee/features/branding/lib/resolve-public-link-meta";
+import prisma from "@/lib/prisma";
 import { sortItemsByIndexAndName } from "@/lib/utils/sort-items-by-index-name";
 
 // ============================================================================
@@ -781,7 +781,6 @@ async function processLinkData(
     }
   }
 
-  // Only include agreement if enabled (no need to expose it otherwise)
   const sanitizedAgreement =
     link.enableAgreement && link.agreement
       ? {
@@ -789,6 +788,7 @@ async function processLinkData(
           name: link.agreement.name,
           content: link.agreement.content,
           contentType: link.agreement.contentType,
+          signingProvider: link.agreement.signingProvider,
           requireName: link.agreement.requireName,
         }
       : null;
@@ -907,11 +907,10 @@ async function processLinkData(
 
   let dataroomIndexEnabledForViewer: boolean | undefined;
   if (linkType === "DATAROOM_LINK" && link.teamId) {
-    dataroomIndexEnabledForViewer =
-      await resolveDataroomIndexEnabledForViewer({
-        teamId: link.teamId,
-        teamPlan,
-      });
+    dataroomIndexEnabledForViewer = await resolveDataroomIndexEnabledForViewer({
+      teamId: link.teamId,
+      teamPlan,
+    });
   }
 
   // Serialize to convert Date objects to strings (required for Next.js getStaticProps)

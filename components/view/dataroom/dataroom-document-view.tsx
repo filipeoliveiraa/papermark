@@ -385,11 +385,14 @@ export default function DataroomDocumentView({
         requireEmail={emailProtected}
         requirePassword={!!linkPassword}
         requireAgreement={enableAgreement!}
+        agreementId={link.agreement?.id}
         agreementName={link.agreement?.name}
         agreementContent={link.agreement?.content}
         agreementContentType={link.agreement?.contentType}
+        signingProvider={link.agreement?.signingProvider}
         requireName={link.agreement?.requireName}
         isLoading={isLoading}
+        linkId={link.id}
         disableEditEmail={disableEditEmail}
         useCustomAccessForm={useCustomAccessForm}
         brand={brand}

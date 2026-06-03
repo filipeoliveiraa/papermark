@@ -2,11 +2,11 @@ import { useRouter } from "next/router";
 
 import React, { useEffect, useRef, useState } from "react";
 
+import { PendingUploadsProvider } from "@/context/pending-uploads-context";
 import { DataroomBrand } from "@prisma/client";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 
-import { PendingUploadsProvider } from "@/context/pending-uploads-context";
 import { useAnalytics } from "@/lib/analytics";
 import { SUPPORTED_DOCUMENT_SIMPLE_TYPES } from "@/lib/constants";
 import { useDisablePrint } from "@/lib/hooks/use-disable-print";
@@ -279,11 +279,14 @@ export default function DataroomView({
         requireEmail={emailProtected}
         requirePassword={!!linkPassword}
         requireAgreement={enableAgreement!}
+        agreementId={link.agreement?.id}
         agreementName={link.agreement?.name}
         agreementContent={link.agreement?.content}
         agreementContentType={link.agreement?.contentType}
+        signingProvider={link.agreement?.signingProvider}
         requireName={link.agreement?.requireName}
         isLoading={isLoading}
+        linkId={link.id}
         disableEditEmail={disableEditEmail}
         useCustomAccessForm={useCustomAccessForm}
         brand={brand}

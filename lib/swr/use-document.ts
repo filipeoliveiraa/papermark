@@ -106,8 +106,13 @@ interface ViewWithDuration extends View {
   agreementResponse: {
     id: string;
     agreementId: string;
+    signingStatus: string;
+    signedAt: string | null;
+    completedAt: string | null;
     agreement: {
       name: string;
+      contentType: string;
+      signingProvider: string;
     };
   } | null;
   versionNumber: number;

@@ -39,6 +39,11 @@ export const processDocumentForAIQueue = queue({
   concurrencyLimit: 10,
 });
 
+export const signingTemplateSetupQueue = queue({
+  name: "signing-template-setup",
+  concurrencyLimit: 5,
+});
+
 export const addFileToVectorStoreQueue = queue({
   name: "add-file-to-vector-store",
   concurrencyLimit: 10,

@@ -76,9 +76,14 @@ export default async function handle(
                 select: {
                   id: true,
                   agreementId: true,
+                  signingStatus: true,
+                  signedAt: true,
+                  completedAt: true,
                   agreement: {
                     select: {
                       name: true,
+                      contentType: true,
+                      signingProvider: true,
                     },
                   },
                 },

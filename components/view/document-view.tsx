@@ -285,12 +285,15 @@ export default function DocumentView({
         requireEmail={emailProtected}
         requirePassword={!!linkPassword}
         requireAgreement={enableAgreement!}
+        agreementId={link.agreement?.id}
         agreementName={link.agreement?.name}
         agreementContent={link.agreement?.content}
         agreementContentType={link.agreement?.contentType}
+        signingProvider={link.agreement?.signingProvider}
         requireName={link.agreement?.requireName}
         isLoading={isLoading}
         brand={brand}
+        linkId={link.id}
         disableEditEmail={disableEditEmail}
         useCustomAccessForm={useCustomAccessForm}
         customFields={link.customFields}

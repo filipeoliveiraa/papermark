@@ -1,11 +1,14 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useTeam } from "@/context/team-context";
 import { PlanEnum } from "@/ee/stripe/constants";
 import { CircleHelpIcon, FileTextIcon, PlusIcon } from "lucide-react";
 import { mutate } from "swr";
 
-import { useAgreements } from "@/lib/swr/use-agreements";
+import {
+  AgreementWithLinksCount,
+  useAgreements,
+} from "@/lib/swr/use-agreements";
 import { usePlan } from "@/lib/swr/use-billing";
 
 import AgreementCard from "@/components/agreements/agreement-card";
@@ -29,17 +32,55 @@ export default function NdaAgreements() {
   const { isTrial, isBusiness, isDatarooms, isDataroomsPlus } = usePlan();
 
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [editingAgreement, setEditingAgreement] =
+    useState<AgreementWithLinksCount | null>(null);
 
   const activeAgreements = useMemo(() => {
     return agreements?.filter((agreement) => !agreement.deletedAt) || [];
   }, [agreements]);
 
-  const handleAgreementDeletion = (deletedAgreementId: string) => {
-    mutate(
-      `/api/teams/${teamInfo?.currentTeam?.id}/agreements`,
-      agreements?.filter((agreement) => agreement.id !== deletedAgreementId),
-      false,
-    );
+  const displayedAgreements = useMemo(
+    () => [...activeAgreements].reverse(),
+    [activeAgreements],
+  );
+
+  const teamId = teamInfo?.currentTeam?.id;
+
+  const handleAgreementDeletion = useCallback(
+    (deletedAgreementId: string) => {
+      mutate(
+        `/api/teams/${teamId}/agreements`,
+        (current?: AgreementWithLinksCount[]) =>
+          current?.filter((agreement) => agreement.id !== deletedAgreementId),
+        false,
+      );
+    },
+    [teamId],
+  );
+
+  const handleAgreementEdit = useCallback(
+    (agreement: AgreementWithLinksCount) => {
+      setEditingAgreement(agreement);
+      setIsOpen(true);
+    },
+    [],
+  );
+
+  const handleSheetOpenChange: React.Dispatch<
+    React.SetStateAction<boolean>
+  > = (value) => {
+    setIsOpen((prev) => {
+      const next = typeof value === "function" ? value(prev) : value;
+      if (!next) {
+        setEditingAgreement(null);
+      }
+      return next;
+    });
+  };
+
+  const handleCreateNew = () => {
+    setEditingAgreement(null);
+    setIsOpen(true);
   };
 
   return (
@@ -67,7 +108,7 @@ export default function NdaAgreements() {
             </div>
             <ul className="flex items-center justify-between gap-4">
               {isTrial || isBusiness || isDatarooms || isDataroomsPlus ? (
-                <Button variant="outline" onClick={() => setIsOpen(true)}>
+                <Button variant="outline" onClick={handleCreateNew}>
                   <FileTextIcon className="h-4 w-4" />
                   Create agreement
                 </Button>
@@ -98,11 +139,12 @@ export default function NdaAgreements() {
           ) : activeAgreements.length !== 0 ? (
             <div>
               <ul>
-                {[...activeAgreements].reverse().map((agreement) => (
+                {displayedAgreements.map((agreement) => (
                   <li key={agreement.id} className="mt-4">
                     <AgreementCard
                       agreement={agreement}
                       onDelete={handleAgreementDeletion}
+                      onEdit={handleAgreementEdit}
                     />
                   </li>
                 ))}
@@ -120,7 +162,7 @@ export default function NdaAgreements() {
                 </p>
               </div>
               {(isTrial || isBusiness || isDatarooms || isDataroomsPlus) && (
-                <Button variant="outline" onClick={() => setIsOpen(true)}>
+                <Button variant="outline" onClick={handleCreateNew}>
                   <FileTextIcon className="h-4 w-4" />
                   Create NDA agreement
                 </Button>
@@ -129,7 +171,11 @@ export default function NdaAgreements() {
           )}
         </div>
       </main>
-      <AgreementSheet isOpen={isOpen} setIsOpen={setIsOpen} />
+      <AgreementSheet
+        isOpen={isOpen}
+        setIsOpen={handleSheetOpenChange}
+        editAgreement={editingAgreement}
+      />
     </AppLayout>
   );
 }

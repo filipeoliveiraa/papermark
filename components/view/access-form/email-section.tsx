@@ -1,10 +1,10 @@
 import {
+  type CSSProperties,
   Dispatch,
   SetStateAction,
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
 } from "react";
 
 import { Brand, DataroomBrand } from "@prisma/client";
@@ -37,15 +37,19 @@ export default function EmailSection({
   const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
+    if (disableEditEmail) {
+      return;
+    }
+
     // Load email from localStorage when the component mounts
     const storedEmail = window.localStorage.getItem("papermark.email");
     if (storedEmail) {
       setData((prevData) => ({
         ...prevData,
-        email: storedEmail.toLowerCase(),
+        email: prevData.email ?? storedEmail.toLowerCase(),
       }));
     }
-  }, [setData]);
+  }, [disableEditEmail, setData]);
 
   const handleInvalid = (e: React.InvalidEvent<HTMLInputElement>) => {
     e.preventDefault(); // Prevent default browser validation popup
@@ -120,15 +124,15 @@ export default function EmailSection({
           "notranslate flex w-full cursor-text rounded-md border-0 bg-black py-1.5 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-600 placeholder:text-[var(--access-placeholder)] focus:ring-2 focus:ring-inset focus:ring-[var(--access-input-focus)] sm:text-sm sm:leading-6",
           emailError && isDirty && "ring-red-500",
         )}
-        style={{
-          backgroundColor: theme.controlBgColor,
-          borderColor: theme.controlBorderColor,
-          "--access-placeholder": theme.controlPlaceholderColor,
-          "--access-input-focus": theme.controlBorderStrongColor,
-          color: disableEditEmail
-            ? theme.subtleTextColor
-            : theme.textColor,
-        } as CSSProperties}
+        style={
+          {
+            backgroundColor: theme.controlBgColor,
+            borderColor: theme.controlBorderColor,
+            "--access-placeholder": theme.controlPlaceholderColor,
+            "--access-input-focus": theme.controlBorderStrongColor,
+            color: disableEditEmail ? theme.subtleTextColor : theme.textColor,
+          } as CSSProperties
+        }
         value={email || ""}
         placeholder="Enter email"
         onChange={handleEmailChange}

@@ -49,7 +49,14 @@ type ViewWithExtras = View & {
   agreementResponse: {
     id: string;
     agreementId: string;
-    agreement: { name: string };
+    signingStatus: string;
+    signedAt: Date | null;
+    completedAt: Date | null;
+    agreement: {
+      name: string;
+      contentType: string;
+      signingProvider: string;
+    };
   } | null;
 };
 
@@ -301,9 +308,14 @@ export default async function handle(
             select: {
               id: true,
               agreementId: true,
+              signingStatus: true,
+              signedAt: true,
+              completedAt: true,
               agreement: {
                 select: {
                   name: true,
+                  contentType: true,
+                  signingProvider: true,
                 },
               },
             },

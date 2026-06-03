@@ -369,10 +369,15 @@ model FeedbackResponse {
 }
 
 model Agreement {
-  id          String @id @default(cuid())
-  name        String // Easily identifiable name for the agreement
-  content     String // This will store the agreement content (URL or text)
-  contentType String @default("LINK") // "LINK" or "TEXT" - determines how content should be displayed
+  id              String @id @default(cuid())
+  name            String // Easily identifiable name for the agreement
+  content         String // This will store the agreement content (URL or text)
+  contentType     String @default("LINK") // "LINK" or "TEXT" - determines how content should be displayed
+  signingProvider String @default("LEGACY")
+
+  signingExternalId String? @unique
+  signingEnvelopeId String?
+  signingTemplateId String?
 
   links     Link[]
   responses AgreementResponse[]
@@ -395,14 +400,35 @@ model AgreementResponse {
   id          String    @id @default(cuid())
   agreementId String
   agreement   Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
-  viewId      String    @unique
-  view        View      @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  viewId      String?   @unique
+  view        View?     @relation(fields: [viewId], references: [id], onDelete: Cascade)
+
+  linkId String?
+
+  signerEmail String?
+  signerName  String?
+
+  signingStatus     String    @default("PENDING")
+  signingExternalId String?   @unique
+  signingEnvelopeId String?
+  signingDocumentId Int?
+  signedAt          DateTime?
+  completedAt       DateTime?
+
+  // Papermark-side mirror of the signed PDF. Populated by the signing webhook
+  // once the document is final so downloads can be served from our own storage
+  // without depending on Documenso's uptime.
+  signedFileKey         String?
+  signedFileName        String?
+  signedFileStorageType DocumentStorageType?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([agreementId])
   @@index([viewId])
+  @@index([linkId])
+  @@index([signerEmail])
 }
 
 model IncomingWebhook {

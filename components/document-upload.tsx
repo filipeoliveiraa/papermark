@@ -25,9 +25,15 @@ import { getPagesCount } from "@/lib/utils/get-page-number-count";
 export default function DocumentUpload({
   currentFile,
   setCurrentFile,
+  pdfOnly = false,
+  maxSizeBytes,
+  maxSizeErrorMessage,
 }: {
   currentFile: File | null;
   setCurrentFile: React.Dispatch<React.SetStateAction<File | null>>;
+  pdfOnly?: boolean;
+  maxSizeBytes?: number;
+  maxSizeErrorMessage?: string;
 }) {
   const router = useRouter();
   const { theme, systemTheme } = useTheme();
@@ -36,7 +42,6 @@ export default function DocumentUpload({
   const { isFree, isTrial } = usePlan();
   const { limits } = useLimits();
 
-  // Get file size limits
   const fileSizeLimits = useMemo(
     () =>
       getFileSizeLimits({
@@ -47,9 +52,16 @@ export default function DocumentUpload({
     [limits, isFree, isTrial],
   );
 
+  // When an explicit byte limit is provided (e.g. NDA signing template), use it instead of the plan limit.
+  const maxSizeMB =
+    typeof maxSizeBytes === "number"
+      ? Math.floor(maxSizeBytes / (1024 * 1024))
+      : undefined;
+
   const { getRootProps, getInputProps } = useDropzone({
-    accept:
-      isFree && !isTrial
+    accept: pdfOnly
+      ? { "application/pdf": [".pdf"] }
+      : isFree && !isTrial
         ? FREE_PLAN_ACCEPTED_FILE_TYPES
         : FULL_PLAN_ACCEPTED_FILE_TYPES,
     multiple: false,
@@ -60,11 +72,14 @@ export default function DocumentUpload({
       const file = acceptedFiles[0];
       const fileType = file.type;
       const fileSizeLimitMB = getFileSizeLimit(fileType, fileSizeLimits); // in MB
-      const fileSizeLimit = fileSizeLimitMB * 1024 * 1024; // in bytes
+      const limitMB = maxSizeMB ?? fileSizeLimitMB; // displayed limit
+      const fileSizeLimit = maxSizeBytes ?? fileSizeLimitMB * 1024 * 1024; // in bytes
 
       if (file.size > fileSizeLimit) {
-        const message = `File size too big for ${fileType} (max. ${fileSizeLimitMB} MB)`;
-        if (isFree && !isTrial) {
+        const message =
+          maxSizeErrorMessage ||
+          `File size too big for ${fileType} (max. ${limitMB} MB)`;
+        if (!maxSizeErrorMessage && isFree && !isTrial) {
           toast.error(message, {
             description: "Upgrade to a paid plan to increase the limit",
             action: {
@@ -105,9 +120,10 @@ export default function DocumentUpload({
       const { errors, file } = fileRejections[0];
       let message;
       if (errors[0].code === "file-too-large") {
-        const fileSizeLimitMB = getFileSizeLimit(file.type, fileSizeLimits);
-        message = `File size too big (max. ${fileSizeLimitMB} MB)`;
-        if (isFree && !isTrial) {
+        const limitMB = maxSizeMB ?? getFileSizeLimit(file.type, fileSizeLimits);
+        message =
+          maxSizeErrorMessage || `File size too big (max. ${limitMB} MB)`;
+        if (!maxSizeErrorMessage && isFree && !isTrial) {
           toast.error(message, {
             description: "Upgrade to a paid plan to increase the limit",
             action: {
@@ -137,6 +153,7 @@ export default function DocumentUpload({
       }
       toast.error(message);
     },
+    maxSize: maxSizeBytes,
   });
 
   const imageBlobUrl = useMemo(
@@ -190,9 +207,11 @@ export default function DocumentUpload({
             <p className="text-xs leading-5 text-gray-500">
               {currentFile
                 ? "Replace file?"
-                : isFree && !isTrial
-                  ? `Only *.pdf, *.xls, *.xlsx, *.csv, *.tsv, *.ods, *.png, *.jpeg, *.jpg`
-                  : `Only *.pdf, *.pptx, *.docx, *.xlsx, *.xls, *.xlsm, *.csv, *.tsv, *.ods, *.ppt, *.odp, *.doc, *.odt, *.rtf, *.txt, *.dwg, *.dxf, *.png, *.jpg, *.jpeg, *.mp4, *.mov, *.avi, *.webm, *.ogg, *.log`}
+                : pdfOnly
+                  ? `Only *.pdf`
+                  : isFree && !isTrial
+                    ? `Only *.pdf, *.xls, *.xlsx, *.csv, *.tsv, *.ods, *.png, *.jpeg, *.jpg`
+                    : `Only *.pdf, *.pptx, *.docx, *.xlsx, *.xls, *.xlsm, *.csv, *.tsv, *.ods, *.ppt, *.odp, *.doc, *.odt, *.rtf, *.txt, *.dwg, *.dxf, *.png, *.jpg, *.jpeg, *.mp4, *.mov, *.avi, *.webm, *.ogg, *.log`}
             </p>
           </div>
         </div>

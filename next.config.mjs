@@ -312,6 +312,15 @@ const nextConfig = {
     ];
   },
   experimental: {
+    // Rewrite barrel imports (e.g. `import { Icon } from "lucide-react"`) to
+    // direct submodule imports at build time. Cuts dev boot, cold starts and
+    // HMR for these large re-export packages without losing ergonomic imports.
+    optimizePackageImports: [
+      "lucide-react",
+      "@tremor/react",
+      "date-fns",
+      "lodash",
+    ],
     outputFileTracingIncludes: {
       "/api/mupdf/*": ["./node_modules/mupdf/dist/*.wasm"],
       // Jackson SAML routes need jose + openid-client for crypto

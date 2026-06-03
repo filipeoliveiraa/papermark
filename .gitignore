@@ -71,3 +71,5 @@ changelog
 
 # Local sync workflow dry-run output
 _public/
+
+.opencode
