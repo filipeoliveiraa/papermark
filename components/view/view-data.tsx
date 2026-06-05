@@ -205,6 +205,7 @@ export default function ViewData({
           <AdvancedExcelViewer
             file={viewData.file!}
             versionNumber={document.versions[0].versionNumber}
+            screenshotProtectionEnabled={link.enableScreenshotProtection!}
             navData={navData}
           />
         ) : viewData.fileType === "image" ? (

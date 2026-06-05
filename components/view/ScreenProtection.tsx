@@ -15,12 +15,31 @@ export const ScreenProtector = () => {
     event.stopPropagation();
   };
 
-  // Windows screenshot shortcuts
+  // PrintScreen-based shortcuts (Windows + Linux).
+  // The PrintScreen key only emits a `keyup` event in browsers (no `keydown`),
+  // so these must be registered with `keyup` enabled to be detected at all.
   useHotkeys(
     [
       "printscreen", // PrintScreen key
       "alt+printscreen", // Alt + PrintScreen (active window)
       "meta+printscreen", // Win + PrintScreen (save to file)
+      "ctrl+printscreen", // Ctrl + PrintScreen
+      "shift+printscreen", // Shift + PrintScreen (selection in some Linux distros)
+      "ctrl+alt+printscreen", // Ctrl + Alt + PrintScreen (some Linux distros)
+    ],
+    handleScreenshotAttempt,
+    {
+      preventDefault: true,
+      enableOnFormTags: true,
+      enableOnContentEditable: true,
+      keyup: true,
+      keydown: true,
+    },
+  );
+
+  // Windows snipping/recording shortcuts (these emit `keydown`)
+  useHotkeys(
+    [
       "meta+shift+s", // Win + Shift + S (Snipping Tool)
       "meta+g", // Win + G (Game Bar)
     ],
@@ -35,25 +54,10 @@ export const ScreenProtector = () => {
   // macOS screenshot shortcuts
   useHotkeys(
     [
-      "meta+shift",
       "meta+shift+3", // Cmd + Shift + 3 (full screen)
       "meta+shift+4", // Cmd + Shift + 4 (selection)
       "meta+shift+5", // Cmd + Shift + 5 (screenshot utility)
       "meta+shift+4+space", // Cmd + Shift + 4 + Space (window)
-    ],
-    handleScreenshotAttempt,
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-  );
-
-  // Linux screenshot shortcuts
-  useHotkeys(
-    [
-      "shift+printscreen", // Shift + PrintScreen (selection in some Linux distros)
-      "ctrl+alt+printscreen", // Ctrl + Alt + PrintScreen (some Linux distros)
     ],
     handleScreenshotAttempt,
     {
