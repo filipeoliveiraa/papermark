@@ -58,6 +58,17 @@ const SearchBox = forwardRef(
 
     const onKeyDown = useCallback((e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+
+      // Cmd+K (macOS) / Ctrl+K (Windows/Linux) focuses the search input and
+      // selects any existing text so the field is highlighted. This works
+      // even while typing in another input, just like a global command.
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+        return;
+      }
+
       // only focus on filter input when:
       // - user is not typing in an input or textarea
       // - there is no existing modal backdrop (i.e. no other modal is open)
