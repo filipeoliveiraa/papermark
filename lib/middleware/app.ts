@@ -66,8 +66,12 @@ export default async function AppMiddleware(req: NextRequest) {
     const loginUrl = new URL(LOGIN_PATH, req.url);
     // Append "next" parameter only if not navigating to the root
     if (path !== "/") {
-      const nextPath =
-        path === "/auth/confirm-email-change" ? `${path}${url.search}` : path;
+      // Some destinations carry meaningful query params (e.g. the allow-list
+      // action link identifies the link and visitor email). Preserve the full
+      // search string for those so it survives the login round-trip.
+      const preserveSearch =
+        path === "/auth/confirm-email-change" || path.startsWith("/access/");
+      const nextPath = preserveSearch ? `${path}${url.search}` : path;
 
       loginUrl.searchParams.set("next", nextPath);
     }
