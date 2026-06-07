@@ -1,11 +1,14 @@
 import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { useIsAdmin } from "@/lib/hooks/use-is-admin";
+import { usePlan } from "@/lib/swr/use-billing";
 
 import { NavMenu } from "../navigation-menu";
 
 export function SettingsHeader() {
   const { features } = useFeatureFlags();
   const { isAdmin } = useIsAdmin();
+  const { isDatarooms, isTrial } = usePlan();
+  const hasTokensAccess = isDatarooms || isTrial;
 
   return (
     <header>
@@ -77,7 +80,7 @@ export function SettingsHeader() {
             label: "Tokens",
             href: `/settings/tokens`,
             segment: "tokens",
-            disabled: !features?.tokens,
+            disabled: !hasTokensAccess,
           },
           {
             label: "API",

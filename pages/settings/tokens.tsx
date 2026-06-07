@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import useSWR from "swr";
 
+import { usePlan } from "@/lib/swr/use-billing";
 import { cn, fetcher, timeAgo } from "@/lib/utils";
 
 import AppLayout from "@/components/layouts/app";
@@ -62,17 +63,17 @@ export default function TokenSettings() {
   const teamId = teamInfo?.currentTeam?.id;
   const router = useRouter();
 
-  const { data: features } = useSWR<{ tokens: boolean }>(
-    teamId ? `/api/feature-flags?teamId=${teamId}` : null,
-    fetcher,
-  );
+  const { isDatarooms, isTrial, loading: planLoading } = usePlan();
+  const hasTokensAccess = isDatarooms || isTrial;
 
   useEffect(() => {
-    if (features && !features.tokens) {
+    // `planLoading` is only meaningful once we have a teamId.
+    if (!teamId || planLoading) return;
+    if (!hasTokensAccess) {
       router.push("/settings/general");
-      toast.error("This feature is not available for your team");
+      toast.error("This feature requires a Data Rooms plan or higher");
     }
-  }, [features, router]);
+  }, [teamId, planLoading, hasTokensAccess, router]);
 
   const {
     data: tokens,
