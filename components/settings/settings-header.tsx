@@ -8,7 +8,7 @@ export function SettingsHeader() {
   const { features } = useFeatureFlags();
   const { isAdmin } = useIsAdmin();
   const { isDatarooms, isTrial } = usePlan();
-  const hasTokensAccess = isDatarooms || isTrial;
+  const hasTokensAccess = isDatarooms || isTrial || !!features?.tokens;
 
   return (
     <header>

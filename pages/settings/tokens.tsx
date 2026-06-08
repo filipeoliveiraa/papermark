@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import useSWR from "swr";
 
+import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { usePlan } from "@/lib/swr/use-billing";
 import { cn, fetcher, timeAgo } from "@/lib/utils";
 
@@ -64,16 +65,18 @@ export default function TokenSettings() {
   const router = useRouter();
 
   const { isDatarooms, isTrial, loading: planLoading } = usePlan();
-  const hasTokensAccess = isDatarooms || isTrial;
+  const { features, isLoading: featuresLoading } = useFeatureFlags();
+  const hasTokensAccess = isDatarooms || isTrial || !!features?.tokens;
 
   useEffect(() => {
-    // `planLoading` is only meaningful once we have a teamId.
-    if (!teamId || planLoading) return;
+    // `planLoading` is only meaningful once we have a teamId. Wait for the
+    // feature flags too so we don't redirect a flag-enabled team prematurely.
+    if (!teamId || planLoading || featuresLoading) return;
     if (!hasTokensAccess) {
       router.push("/settings/general");
       toast.error("This feature requires a Data Rooms plan or higher");
     }
-  }, [teamId, planLoading, hasTokensAccess, router]);
+  }, [teamId, planLoading, featuresLoading, hasTokensAccess, router]);
 
   const {
     data: tokens,

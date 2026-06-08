@@ -8,6 +8,7 @@ import {
   parseRestrictedTokenSubjectType,
 } from "@/lib/api/auth/restricted-tokens";
 import { hashToken } from "@/lib/api/auth/token";
+import { getFeatureFlags } from "@/lib/featureFlags";
 import { newId } from "@/lib/id-helper";
 import { GRANULAR_SCOPES, PRESET_SCOPES } from "@/lib/oauth/scopes";
 import prisma from "@/lib/prisma";
@@ -35,14 +36,20 @@ export default async function handle(
     return res.status(403).json({ error: "Unauthorized" });
   }
 
-  // Tokens require a Data Rooms plan or higher (or a Data Rooms trial).
+  // Tokens require a Data Rooms plan or higher (or a Data Rooms trial), or the
+  // `tokens` beta feature flag enabled for the team. Only hit Edge Config for
+  // the flag when the plan check fails, so paid teams skip that latency.
   const team = await prisma.team.findUnique({
     where: { id: teamId },
     select: { plan: true },
   });
   const plan = team?.plan ?? "";
-  const hasTokensAccess =
+  let hasTokensAccess =
     plan.includes("datarooms") || plan.includes("drtrial");
+  if (!hasTokensAccess) {
+    const features = await getFeatureFlags({ teamId });
+    hasTokensAccess = Boolean(features.tokens);
+  }
   if (!hasTokensAccess) {
     return res
       .status(403)
