@@ -31,6 +31,8 @@ export function fileIcon({
     case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
     case "application/msword":
     case "application/vnd.oasis.opendocument.text":
+    case "text/plain":
+    case "text/markdown":
     case "docs":
       return <DocsIcon className={className} isLight={isLight} />;
     case "application/vnd.openxmlformats-officedocument.presentationml.presentation":

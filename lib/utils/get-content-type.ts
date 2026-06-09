@@ -16,6 +16,7 @@ export function getSupportedContentType(contentType: string): string | null {
     case "application/rtf":
     case "text/rtf":
     case "text/plain":
+    case "text/markdown":
       return "docs";
     case "application/vnd.ms-powerpoint":
     case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
@@ -111,6 +112,8 @@ export function getExtensionFromContentType(
       return "rtf";
     case "text/plain":
       return "txt";
+    case "text/markdown":
+      return "md";
     case "image/vnd.dwg":
       return "dwg";
     case "image/vnd.dxf":

@@ -104,6 +104,14 @@ export default function ViewerUploadZone({
         let contentType = uploadResult.fileType;
         let supportedFileType = getSupportedContentType(contentType) ?? "";
 
+        if (
+          uploadResult.fileName.toLowerCase().endsWith(".md") ||
+          uploadResult.fileName.toLowerCase().endsWith(".markdown")
+        ) {
+          supportedFileType = "docs";
+          contentType = "text/markdown";
+        }
+
         if (uploadResult.fileName.endsWith(".xlsm")) {
           supportedFileType = "sheet";
           contentType = "application/vnd.ms-excel.sheet.macroEnabled.12";
