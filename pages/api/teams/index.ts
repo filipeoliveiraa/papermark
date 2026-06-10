@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
+import { canCreateUnlimitedTeam } from "@/ee/limits/can-create-unlimited-team";
+import { DATAROOMS_UNLIMITED_PLAN_LIMITS } from "@/ee/limits/constants";
 import { getServerSession } from "next-auth";
 
 import { errorhandler } from "@/lib/errorHandler";
@@ -95,9 +97,17 @@ export default async function handle(
     const user = session.user as CustomUser;
 
     try {
+      const grantUnlimited = await canCreateUnlimitedTeam(user.id);
+
       const newTeam = await prisma.team.create({
         data: {
           name: team,
+          ...(grantUnlimited
+            ? {
+                plan: "datarooms-unlimited",
+                limits: structuredClone(DATAROOMS_UNLIMITED_PLAN_LIMITS),
+              }
+            : {}),
           users: {
             create: {
               userId: user.id,
