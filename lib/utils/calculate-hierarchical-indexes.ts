@@ -218,3 +218,35 @@ export async function calculateAndUpdateHierarchicalIndexes(
     throw new Error("Failed to calculate and update hierarchical indexes");
   }
 }
+
+/**
+ * Clears (removes) hierarchical indexes for all folders and documents in a dataroom
+ * by setting their `hierarchicalIndex` back to null.
+ */
+export async function clearHierarchicalIndexes(
+  dataroomId: string,
+): Promise<{ foldersUpdated: number; documentsUpdated: number }> {
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        const foldersResult = await tx.dataroomFolder.updateMany({
+          where: { dataroomId, hierarchicalIndex: { not: null } },
+          data: { hierarchicalIndex: null },
+        });
+        const documentsResult = await tx.dataroomDocument.updateMany({
+          where: { dataroomId, hierarchicalIndex: { not: null } },
+          data: { hierarchicalIndex: null },
+        });
+
+        return {
+          foldersUpdated: foldersResult.count,
+          documentsUpdated: documentsResult.count,
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  } catch (error) {
+    console.error("Error clearing hierarchical indexes for", dataroomId, error);
+    throw new Error("Failed to clear hierarchical indexes");
+  }
+}
