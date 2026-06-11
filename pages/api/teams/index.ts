@@ -1,7 +1,14 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
+import {
+  PREMIUM_TEAM_LIMIT,
+  getPremiumTeamEligibility,
+} from "@/ee/limits/can-create-premium-team";
 import { canCreateUnlimitedTeam } from "@/ee/limits/can-create-unlimited-team";
-import { DATAROOMS_UNLIMITED_PLAN_LIMITS } from "@/ee/limits/constants";
+import {
+  DATAROOMS_PREMIUM_PLAN_LIMITS,
+  DATAROOMS_UNLIMITED_PLAN_LIMITS,
+} from "@/ee/limits/constants";
 import { getServerSession } from "next-auth";
 
 import { errorhandler } from "@/lib/errorHandler";
@@ -99,6 +106,26 @@ export default async function handle(
     try {
       const grantUnlimited = await canCreateUnlimitedTeam(user.id);
 
+      // Datarooms-premium admins can provision their own teams (same
+      // principle as datarooms-unlimited), but are capped at
+      // PREMIUM_TEAM_LIMIT teams. Unlimited takes precedence.
+      const premiumEligibility = grantUnlimited
+        ? null
+        : await getPremiumTeamEligibility(user.id);
+
+      if (
+        premiumEligibility?.isPremiumAdmin &&
+        !premiumEligibility.canCreate
+      ) {
+        return res
+          .status(403)
+          .json(
+            `You have reached the limit of ${PREMIUM_TEAM_LIMIT} teams for your plan.`,
+          );
+      }
+
+      const grantPremium = premiumEligibility?.canCreate ?? false;
+
       const newTeam = await prisma.team.create({
         data: {
           name: team,
@@ -107,7 +134,12 @@ export default async function handle(
                 plan: "datarooms-unlimited",
                 limits: structuredClone(DATAROOMS_UNLIMITED_PLAN_LIMITS),
               }
-            : {}),
+            : grantPremium
+              ? {
+                  plan: "datarooms-premium",
+                  limits: structuredClone(DATAROOMS_PREMIUM_PLAN_LIMITS),
+                }
+              : {}),
           users: {
             create: {
               userId: user.id,
