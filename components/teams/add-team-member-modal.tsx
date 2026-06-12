@@ -7,6 +7,7 @@ import { mutate } from "swr";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -126,82 +127,90 @@ export function AddTeamMembers({
             You can easily add team members.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <Label htmlFor="email" className="opacity-80">
-            Email
-          </Label>
-          <Input
-            id="email"
-            placeholder="team@member.com"
-            className="mb-4 mt-1 w-full"
-            onChange={(e) => setEmail(e.target.value)}
-          />
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="email" className="opacity-80">
+              Email
+            </Label>
+            <Input
+              id="email"
+              placeholder="team@member.com"
+              className="w-full"
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-          <Label htmlFor="role" className="opacity-80">
-            Role
-          </Label>
-          <Select
-            value={role}
-            onValueChange={(value) => setRole(value as InviteRole)}
-          >
-            <SelectTrigger id="role" className="mb-4 mt-1 w-full">
-              <SelectValue placeholder="Select a role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-              <SelectItem value="MANAGER">Manager</SelectItem>
-              <SelectItem value="MEMBER">Member</SelectItem>
-              <SelectItem
-                value="DATAROOM_MEMBER"
-                disabled={!isDatarooms}
-                trailingContent={
-                  !isDatarooms ? (
-                    <span className="ml-auto pl-3 text-xs text-muted-foreground">
-                      Data Rooms plan
-                    </span>
-                  ) : undefined
-                }
-              >
-                Data room member
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="grid gap-1.5">
+            <Label htmlFor="role" className="opacity-80">
+              Role
+            </Label>
+            <Select
+              value={role}
+              onValueChange={(value) => setRole(value as InviteRole)}
+            >
+              <SelectTrigger id="role" className="w-full">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="MANAGER">Manager</SelectItem>
+                <SelectItem value="MEMBER">Member</SelectItem>
+                <SelectItem
+                  value="DATAROOM_MEMBER"
+                  disabled={!isDatarooms}
+                  trailingContent={
+                    !isDatarooms ? (
+                      <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                        Data Rooms plan
+                      </span>
+                    ) : undefined
+                  }
+                >
+                  Data room member
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {role === "DATAROOM_MEMBER" ? (
-            <div className="mb-8">
-              <Label className="opacity-80">Data rooms</Label>
-              <p className="mb-2 mt-1 text-xs text-muted-foreground">
-                The member can only manage the selected data rooms.
-              </p>
-              <div className="max-h-44 space-y-1 overflow-y-auto rounded-md border p-2">
+            <div className="grid gap-1.5">
+              <div className="space-y-1">
+                <Label className="opacity-80">Data rooms</Label>
+                <p className="text-xs text-muted-foreground">
+                  The member can only manage the selected data rooms.
+                </p>
+              </div>
+              <div className="max-h-44 space-y-0.5 overflow-y-auto rounded-md border p-1">
                 {datarooms && datarooms.length > 0 ? (
                   datarooms.map((dataroom) => (
-                    <label
+                    <div
                       key={dataroom.id}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted"
+                      className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
+                        id={`add-dataroom-${dataroom.id}`}
                         checked={selectedDataroomIds.includes(dataroom.id)}
-                        onChange={() => toggleDataroom(dataroom.id)}
+                        onCheckedChange={() => toggleDataroom(dataroom.id)}
+                        className="h-4 w-4"
                       />
-                      <span className="truncate">
+                      <label
+                        htmlFor={`add-dataroom-${dataroom.id}`}
+                        className="flex-1 cursor-pointer truncate"
+                      >
                         {dataroom.internalName || dataroom.name}
-                      </span>
-                    </label>
+                      </label>
+                    </div>
                   ))
                 ) : (
-                  <p className="px-2 py-1 text-sm text-muted-foreground">
+                  <p className="px-2 py-1.5 text-sm text-muted-foreground">
                     No data rooms available.
                   </p>
                 )}
               </div>
             </div>
-          ) : (
-            <div className="mb-8" />
-          )}
+          ) : null}
 
-          <DialogFooter>
+          <DialogFooter className="mt-2">
             <Button type="submit" className="h-9 w-full">
               {loading ? "Sending email..." : "Add member"}
             </Button>

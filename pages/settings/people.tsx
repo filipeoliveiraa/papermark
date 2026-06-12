@@ -26,6 +26,7 @@ import Folder from "@/components/shared/icons/folder";
 import MoreVertical from "@/components/shared/icons/more-vertical";
 import { AddTeamMembers } from "@/components/teams/add-team-member-modal";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -615,30 +616,36 @@ function ChangeRoleDialog({
         </RadioGroup>
 
         {role === "DATAROOM_MEMBER" ? (
-          <div className="space-y-1">
-            <Label className="opacity-80">Data rooms</Label>
-            <p className="text-xs text-muted-foreground">
-              Select the data rooms {member.name} can manage.
-            </p>
-            <div className="mt-1 max-h-44 space-y-1 overflow-y-auto rounded-md border p-2">
+          <div className="grid gap-1.5">
+            <div className="space-y-1">
+              <Label className="opacity-80">Data rooms</Label>
+              <p className="text-xs text-muted-foreground">
+                Select the data rooms {member.name} can manage.
+              </p>
+            </div>
+            <div className="max-h-44 space-y-0.5 overflow-y-auto rounded-md border p-1">
               {datarooms && datarooms.length > 0 ? (
                 datarooms.map((dataroom) => (
-                  <label
+                  <div
                     key={dataroom.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted"
+                    className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
+                      id={`role-dataroom-${dataroom.id}`}
                       checked={selected.includes(dataroom.id)}
-                      onChange={() => toggle(dataroom.id)}
+                      onCheckedChange={() => toggle(dataroom.id)}
+                      className="h-4 w-4"
                     />
-                    <span className="truncate">
+                    <label
+                      htmlFor={`role-dataroom-${dataroom.id}`}
+                      className="flex-1 cursor-pointer truncate"
+                    >
                       {dataroom.internalName || dataroom.name}
-                    </span>
-                  </label>
+                    </label>
+                  </div>
                 ))
               ) : (
-                <p className="px-2 py-1 text-sm text-muted-foreground">
+                <p className="px-2 py-1.5 text-sm text-muted-foreground">
                   No data rooms available.
                 </p>
               )}
