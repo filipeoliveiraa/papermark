@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { useDataroom } from "@/lib/swr/use-dataroom";
+import { useDataroomDocumentOverview } from "@/lib/swr/use-dataroom-document";
 import { useDocument } from "@/lib/swr/use-document";
 import { useFolderWithParents } from "@/lib/swr/use-folders";
 import useViewer from "@/lib/swr/use-viewer";
@@ -197,6 +198,41 @@ const SingleDataroomBreadcrumb = ({ path }: { path: string }) => {
         <BreadcrumbSeparator />
         <BreadcrumbItem>
           <BreadcrumbPage>{title}</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+};
+
+const SingleDataroomDocumentBreadcrumb = () => {
+  const { dataroom, document } = useDataroomDocumentOverview();
+
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild>
+            <Link href="/datarooms">Datarooms</Link>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <TruncatedBreadcrumbLink
+            href={`/datarooms/${dataroom?.id}/documents`}
+            text={dataroom?.name}
+          />
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild>
+            <Link href={`/datarooms/${dataroom?.id}/documents`}>Documents</Link>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbPage className="max-w-[200px] truncate">
+            {document?.name || "Loading..."}
+          </BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>
@@ -509,6 +545,11 @@ export const AppBreadcrumb = () => {
     // Dataroom document routes
     if (path === "/datarooms/[id]/documents/[...name]" && id) {
       return <DataroomBreadcrumb />;
+    }
+
+    // Single dataroom document route
+    if (path === "/datarooms/[id]/document/[documentId]" && id) {
+      return <SingleDataroomDocumentBreadcrumb />;
     }
 
     // Single dataroom route

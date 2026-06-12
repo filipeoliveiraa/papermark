@@ -6,6 +6,7 @@ import { Check, CircleHelpIcon, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 
+import { useSelfMembership } from "@/lib/hooks/use-self-membership";
 import { useDataroom } from "@/lib/swr/use-dataroom";
 
 import DataroomTagSection from "@/components/datarooms/settings/dataroom-tag-section";
@@ -28,6 +29,7 @@ export default function Settings() {
   const { dataroom } = useDataroom();
   const teamInfo = useTeam();
   const teamId = teamInfo?.currentTeam?.id;
+  const { isDataroomMember } = useSelfMembership();
   const [isCopied, setIsCopied] = useState(false);
 
   if (!dataroom) {
@@ -168,7 +170,9 @@ export default function Settings() {
               vectorStoreId={dataroom.vectorStoreId}
             />
 
-            <DuplicateDataroom dataroomId={dataroom.id} teamId={teamId} />
+            {!isDataroomMember && (
+              <DuplicateDataroom dataroomId={dataroom.id} teamId={teamId} />
+            )}
             <Card className="bg-transparent">
               <CardHeader>
                 <CardTitle>Dataroom ID</CardTitle>

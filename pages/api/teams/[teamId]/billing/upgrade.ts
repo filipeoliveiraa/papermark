@@ -8,6 +8,7 @@ import { waitUntil } from "@vercel/functions";
 import { getServerSession } from "next-auth/next";
 
 import { identifyUser, trackAnalytics } from "@/lib/analytics";
+import { enforceDataroomMemberScope } from "@/lib/api/rbac/guard";
 import { getDubDiscountForExternalUserId } from "@/lib/dub";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
@@ -53,6 +54,11 @@ export default async function handle(
     };
 
     const { id: userId, email: userEmail } = session.user as CustomUser;
+
+    // Billing is a team-level action: dataroom-scoped members cannot upgrade.
+    if (await enforceDataroomMemberScope({ userId, teamId, res })) {
+      return;
+    }
 
     const team = await prisma.team.findUnique({
       where: {

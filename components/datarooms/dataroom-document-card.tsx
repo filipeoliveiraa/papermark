@@ -196,7 +196,7 @@ export default function DataroomDocumentCard({
       e.stopPropagation();
       return;
     }
-    router.push(`/documents/${dataroomDocument.document.id}`);
+    router.push(`/datarooms/${dataroomId}/document/${dataroomDocument.id}`);
   };
 
   return (
@@ -262,7 +262,7 @@ export default function DataroomDocumentCard({
               onClick={(e) => {
                 e.stopPropagation();
               }}
-              href={`/documents/${dataroomDocument.document.id}`}
+              href={`/datarooms/${dataroomId}/document/${dataroomDocument.id}`}
               className="z-10 flex shrink-0 items-center space-x-1 rounded-md bg-gray-200 px-1.5 py-0.5 transition-all duration-75 hover:scale-105 active:scale-100 dark:bg-gray-700 sm:px-2"
             >
               <BarChart className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />

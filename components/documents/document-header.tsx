@@ -8,6 +8,7 @@ import { DocumentAIDialog } from "@/ee/features/ai/components/document-ai-dialog
 import { PlanEnum } from "@/ee/stripe/constants";
 import { Document, DocumentVersion } from "@prisma/client";
 import {
+  ArchiveXIcon,
   ArrowRightIcon,
   BetweenHorizontalStartIcon,
   ChevronRight,
@@ -28,6 +29,7 @@ import { toast } from "sonner";
 import { mutate } from "swr";
 
 import { getFile } from "@/lib/files/get-file";
+import { useSelfMembership } from "@/lib/hooks/use-self-membership";
 import { usePlan } from "@/lib/swr/use-billing";
 import useDataroomsSimple from "@/lib/swr/use-datarooms-simple";
 import { useTeamAI } from "@/lib/swr/use-team-ai";
@@ -78,16 +80,30 @@ export default function DocumentHeader({
   teamId,
   actions,
   onBulkImportLinks,
+  dataroomId,
+  dataroomDocumentId,
 }: {
   prismaDocument: DocumentWithVersion;
   primaryVersion: DocumentVersion;
   teamId: string;
   actions?: React.ReactNode[];
   onBulkImportLinks?: () => void;
+  /**
+   * When the header is rendered inside a data room (the dataroom document
+   * page), these identify the DataroomDocument so dataroom members can remove
+   * it from the room instead of deleting the underlying document.
+   */
+  dataroomId?: string;
+  dataroomDocumentId?: string;
 }) {
   const router = useRouter();
   const teamInfo = useTeam();
   const { datarooms } = useDataroomsSimple();
+  const { isDataroomMember } = useSelfMembership();
+  // Data room members may only remove a document from the room, never delete
+  // the underlying document. Requires the dataroom context to be provided.
+  const canRemoveFromDataroom = Boolean(dataroomId && dataroomDocumentId);
+  const showRemoveFromDataroom = isDataroomMember && canRemoveFromDataroom;
   const { theme, systemTheme } = useTheme();
   const isLight =
     theme === "light" || (theme === "system" && systemTheme === "light");
@@ -460,6 +476,45 @@ export default function DocumentHeader({
         error: (err) => err.message || "Failed to delete document. Try again.",
       },
     );
+  };
+
+  const handleRemoveFromDataroom = async () => {
+    if (!dataroomId || !dataroomDocumentId) return;
+
+    toast.promise(
+      fetch(
+        `/api/teams/${teamId}/datarooms/${dataroomId}/documents/${dataroomDocumentId}`,
+        {
+          method: "DELETE",
+        },
+      ).then(async (res) => {
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.message || "Failed to remove document");
+        }
+        setIsFirstClick(false);
+        setMenuOpen(false);
+        router.push(`/datarooms/${dataroomId}/documents`);
+      }),
+      {
+        loading: "Removing document...",
+        success: "Document removed from data room.",
+        error: (err) => err.message || "Failed to remove document. Try again.",
+      },
+    );
+  };
+
+  const handleRemoveButtonClick = (event: any) => {
+    event.stopPropagation();
+    event.preventDefault();
+
+    if (isFirstClick) {
+      handleRemoveFromDataroom();
+      setIsFirstClick(false);
+      setMenuOpen(false);
+    } else {
+      setIsFirstClick(true);
+    }
   };
 
   const handleMenuStateChange = (open: boolean) => {
@@ -857,13 +912,29 @@ export default function DocumentHeader({
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem
-                className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
-                onClick={(event) => handleButtonClick(event, prismaDocument.id)}
-              >
-                <TrashIcon className="mr-2 h-4 w-4" />
-                {isFirstClick ? "Really delete?" : "Delete document"}
-              </DropdownMenuItem>
+              {isDataroomMember ? (
+                // Data room members can only remove a document from the room,
+                // never delete the underlying document for the whole team.
+                showRemoveFromDataroom ? (
+                  <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
+                    onClick={handleRemoveButtonClick}
+                  >
+                    <ArchiveXIcon className="mr-2 h-4 w-4" />
+                    {isFirstClick ? "Really remove?" : "Remove from data room"}
+                  </DropdownMenuItem>
+                ) : null
+              ) : (
+                <DropdownMenuItem
+                  className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
+                  onClick={(event) =>
+                    handleButtonClick(event, prismaDocument.id)
+                  }
+                >
+                  <TrashIcon className="mr-2 h-4 w-4" />
+                  {isFirstClick ? "Really delete?" : "Delete document"}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

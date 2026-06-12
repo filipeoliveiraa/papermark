@@ -5,6 +5,12 @@ import { LinkAudienceType, Tag } from "@prisma/client";
 import { waitUntil } from "@vercel/functions";
 import { getServerSession } from "next-auth/next";
 
+import {
+  assertDocumentAccess,
+  canAccessDataroom,
+  getAllowedDataroomIds,
+} from "@/lib/api/rbac/entitlements";
+import { isDataroomScopedRole } from "@/lib/api/rbac/permissions";
 import { errorhandler } from "@/lib/errorHandler";
 import prisma from "@/lib/prisma";
 import { CustomUser, WatermarkConfigSchema } from "@/lib/types";
@@ -86,11 +92,37 @@ export default async function handler(
             teamId,
           },
         },
-        select: { teamId: true },
+        select: { teamId: true, role: true },
       });
 
       if (!teamAccess) {
         return res.status(401).json({ error: "Unauthorized." });
+      }
+
+      // Dataroom-scoped members may only create links for documents/datarooms
+      // within their assigned rooms.
+      if (isDataroomScopedRole(teamAccess.role)) {
+        const allowedIds = await getAllowedDataroomIds(userId, teamId);
+        if (dataroomLink) {
+          if (!canAccessDataroom(teamAccess.role, allowedIds, targetId)) {
+            return res
+              .status(403)
+              .json({ error: "You do not have access to this data room." });
+          }
+        } else if (documentLink) {
+          const hasAccess = await assertDocumentAccess({
+            role: teamAccess.role,
+            userId,
+            teamId,
+            documentId: targetId,
+            allowedIds,
+          });
+          if (!hasAccess) {
+            return res
+              .status(403)
+              .json({ error: "You do not have access to this document." });
+          }
+        }
       }
 
       // Check if team is paused

@@ -1,8 +1,10 @@
 import { useRouter } from "next/router";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import Cookies from "js-cookie";
+
+import { useSelfMembership } from "@/lib/hooks/use-self-membership";
 
 import { AppBreadcrumb } from "@/components/layouts/breadcrumb";
 import { MobileBottomNav } from "@/components/layouts/mobile-bottom-nav";
@@ -35,6 +37,46 @@ function getInitialSidebarState(isDataroom: boolean): boolean {
   return true;
 }
 
+/**
+ * UX-only redirect guard for dataroom-scoped members. The API wrapper is the
+ * real security boundary; this just keeps the scoped member from landing on
+ * pages they cannot use. Redirects off non-dataroom paths and off datarooms
+ * they are not assigned to, sending them to the datarooms list.
+ */
+function DataroomMemberRouteGuard() {
+  const router = useRouter();
+  const { isDataroomMember, allowedDataroomIds, loading } = useSelfMembership();
+
+  useEffect(() => {
+    if (loading || !isDataroomMember) return;
+
+    const path = router.pathname;
+    const onDataroomsArea =
+      path === "/datarooms" || path.startsWith("/datarooms/[id]");
+
+    if (!onDataroomsArea) {
+      router.replace("/datarooms");
+      return;
+    }
+
+    if (path.startsWith("/datarooms/[id]")) {
+      const id = String(router.query.id || "");
+      if (id && !allowedDataroomIds.includes(id)) {
+        router.replace("/datarooms");
+      }
+    }
+  }, [
+    router,
+    router.pathname,
+    router.query.id,
+    isDataroomMember,
+    loading,
+    allowedDataroomIds,
+  ]);
+
+  return null;
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isDataroom = router.pathname.startsWith("/datarooms/[id]");
@@ -52,6 +94,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarOpenChange}>
+      <DataroomMemberRouteGuard />
       {/* Single flex child of SidebarProvider so fixed mobile chrome is not laid out as extra row siblings (WebKit / in-app browsers). */}
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-x-1 overflow-x-hidden bg-gray-50 dark:bg-black md:flex-row">

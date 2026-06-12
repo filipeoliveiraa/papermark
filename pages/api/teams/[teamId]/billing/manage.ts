@@ -9,6 +9,7 @@ import { waitUntil } from "@vercel/functions";
 import { getServerSession } from "next-auth/next";
 
 import { identifyUser, trackAnalytics } from "@/lib/analytics";
+import { enforceDataroomMemberScope } from "@/lib/api/rbac/guard";
 import { errorhandler } from "@/lib/errorHandler";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
@@ -36,6 +37,13 @@ export default async function handle(
     const userEmail = (session.user as CustomUser).email;
 
     const { teamId } = req.query as { teamId: string };
+
+    // Billing management is a team-level action: dataroom-scoped members are
+    // denied (they cannot upgrade plans or otherwise manage billing).
+    if (await enforceDataroomMemberScope({ userId, teamId, res })) {
+      return;
+    }
+
     const {
       priceId,
       upgradePlan,

@@ -4,6 +4,7 @@ import { stripeInstance } from "@/ee/stripe";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { getServerSession } from "next-auth/next";
 
+import { enforceDataroomMemberScope } from "@/lib/api/rbac/guard";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
 
@@ -27,6 +28,11 @@ export default async function handle(
 
   const userId = (session.user as CustomUser).id;
   const { teamId } = req.query as { teamId: string };
+
+  // Billing is a team-level action: dataroom-scoped members cannot view invoices.
+  if (await enforceDataroomMemberScope({ userId, teamId, res })) {
+    return;
+  }
 
   try {
     // Get team with stripeId

@@ -5,6 +5,7 @@ import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { getServerSession } from "next-auth/next";
 
 import { hashToken } from "@/lib/api/auth/token";
+import { enforceDocumentMemberScope } from "@/lib/api/rbac/guard";
 import { copyFileToBucketServer } from "@/lib/files/copy-file-to-bucket-server";
 import prisma from "@/lib/prisma";
 import { convertFilesToPdfTask } from "@/lib/trigger/convert-files";
@@ -54,6 +55,13 @@ export default async function handle(
         return res.status(401).end("Unauthorized");
       }
       userId = (session.user as CustomUser).id;
+    }
+
+    // Scoped members may only add versions to documents in their rooms.
+    if (
+      await enforceDocumentMemberScope({ userId, teamId, documentId, res })
+    ) {
+      return;
     }
 
     // Validate request body using Zod schema for security

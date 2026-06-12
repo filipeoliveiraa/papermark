@@ -74,7 +74,14 @@ export default async function handle(
         return res.status(403).end("Unauthorized to access this team");
       }
 
-      return res.status(200).json(team);
+      // Attach per-member dataroom assignments so the client can render the
+      // scoped-member editor and derive the current user's allowed rooms.
+      const userDatarooms = await prisma.userDataroom.findMany({
+        where: { teamId },
+        select: { userId: true, dataroomId: true },
+      });
+
+      return res.status(200).json({ ...team, userDatarooms });
     } catch (error) {
       errorhandler(error, res);
     }

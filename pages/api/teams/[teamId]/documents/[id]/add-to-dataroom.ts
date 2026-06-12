@@ -5,61 +5,54 @@ import {
   processDocumentForAITask,
   SUPPORTED_AI_CONTENT_TYPES,
 } from "@/ee/features/ai/lib/trigger";
-import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { waitUntil } from "@vercel/functions";
-import { getServerSession } from "next-auth/next";
 
+import { withTeamApi } from "@/lib/api/auth/with-session-team";
+import { assertDocumentAccess } from "@/lib/api/rbac/entitlements";
+import { isDataroomScopedRole } from "@/lib/api/rbac/permissions";
 import { getFeatureFlags } from "@/lib/featureFlags";
 import { errorhandler } from "@/lib/errorHandler";
 import prisma from "@/lib/prisma";
-import { CustomUser } from "@/lib/types";
 
 export const config = {
   // in order to enable `waitUntil` function
   supportsResponseStreaming: true,
 };
 
-export default async function handle(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
-  if (req.method === "POST") {
-    // POST /api/teams/:teamId/documents/:id/add-to-dataroom
-    const session = await getServerSession(req, res, authOptions);
-    if (!session) {
-      return res.status(401).end("Unauthorized");
-    }
-
-    const { teamId, id: docId } = req.query as { teamId: string; id: string };
+// POST /api/teams/:teamId/documents/:id/add-to-dataroom
+const postHandler = withTeamApi(
+  async ({ req, res, teamId, userId, role, team, allowedDataroomIds }) => {
+    const { id: docId } = req.query as { id: string };
     const { dataroomId } = req.body as { dataroomId: string };
 
-    const userId = (session.user as CustomUser).id;
-
     try {
-      const team = await prisma.team.findUnique({
-        where: {
-          id: teamId,
-          users: {
-            some: {
-              userId,
-            },
-          },
-          documents: {
-            some: {
-              id: {
-                equals: docId,
-              },
-            },
-          },
-        },
-        select: {
-          id: true,
-          plan: true,
-        },
+      // The document must belong to the team.
+      const ownedByTeam = await prisma.document.findFirst({
+        where: { id: docId, teamId },
+        select: { id: true, ownerId: true },
       });
-
-      if (!team) {
+      if (!ownedByTeam) {
         return res.status(401).end("Unauthorized");
+      }
+
+      // Scoped members may only attach a document they own or that already
+      // lives in one of their assigned rooms.
+      if (isDataroomScopedRole(role)) {
+        const ownsDocument = ownedByTeam.ownerId === userId;
+        const hasRoomAccess =
+          ownsDocument ||
+          (await assertDocumentAccess({
+            role,
+            userId,
+            teamId,
+            documentId: docId,
+            allowedIds: allowedDataroomIds,
+          }));
+        if (!hasRoomAccess) {
+          return res
+            .status(403)
+            .json({ message: "You cannot add this document to a data room." });
+        }
       }
 
       if (
@@ -202,8 +195,22 @@ export default async function handle(
     } catch (error) {
       errorhandler(error, res);
     }
+  },
+  {
+    requiredPermissions: ["documents.write"],
+    // dataroomId arrives in the request body for this route.
+    resolveDataroomId: ({ req }) =>
+      (req as NextApiRequest).body?.dataroomId as string | undefined,
+  },
+);
+
+export default async function handle(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
+  if (req.method === "POST") {
+    return postHandler(req, res);
   } else {
-    // We only allow POST requests
     res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }

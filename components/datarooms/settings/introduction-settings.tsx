@@ -7,6 +7,7 @@ import { CrownIcon, EyeIcon } from "lucide-react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 
+import { useSelfMembership } from "@/lib/hooks/use-self-membership";
 import { usePlan } from "@/lib/swr/use-billing";
 import { cn, uploadImage } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { ButtonTooltip } from "@/components/ui/tooltip";
 
 interface IntroductionSettingsProps {
   dataroomId: string;
@@ -478,6 +480,7 @@ export default function IntroductionSettings({
   const teamInfo = useTeam();
   const teamId = teamInfo?.currentTeam?.id;
   const { isDataroomsPlus, isTrial } = usePlan();
+  const { isDataroomMember } = useSelfMembership();
 
   const [isFetching, setIsFetching] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -714,6 +717,20 @@ export default function IntroductionSettings({
                   : "Enable introduction page"
               }
             />
+          ) : isDataroomMember ? (
+            <ButtonTooltip content="Only team admins can upgrade the plan. Contact a team admin to enable this feature.">
+              <span tabIndex={0}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled
+                >
+                  <CrownIcon className="h-4 w-4" />
+                  Upgrade to enable
+                </Button>
+              </span>
+            </ButtonTooltip>
           ) : (
             <UpgradePlanModal
               clickedPlan={PlanEnum.DataRoomsPlus}

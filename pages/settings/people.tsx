@@ -10,11 +10,13 @@ import { mutate } from "swr";
 
 import { useAnalytics } from "@/lib/analytics";
 import { usePlan } from "@/lib/swr/use-billing";
+import useDataroomsSimple from "@/lib/swr/use-datarooms-simple";
 import { useInvitations } from "@/lib/swr/use-invitations";
 import useLimits from "@/lib/swr/use-limits";
 import { useGetTeam } from "@/lib/swr/use-team";
 import { useTeams } from "@/lib/swr/use-teams";
-import { CustomUser } from "@/lib/types";
+import { CustomUser, TeamRole } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 import { AddSeatModal } from "@/components/billing/add-seat-modal";
 import { UnlimitedPlanModal } from "@/components/billing/unlimited-plan-modal";
@@ -25,14 +27,49 @@ import MoreVertical from "@/components/shared/icons/more-vertical";
 import { AddTeamMembers } from "@/components/teams/add-team-member-modal";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UpgradeButton } from "@/components/ui/upgrade-button";
+
+const ROLE_LABELS: Record<TeamRole, string> = {
+  ADMIN: "Admin",
+  MANAGER: "Manager",
+  MEMBER: "Member",
+  DATAROOM_MEMBER: "Data Room Member",
+};
+
+const ROLE_DESCRIPTIONS: Record<TeamRole, string> = {
+  ADMIN: "Full access to the team, billing, and all settings.",
+  MANAGER: "Manage content and members, except admin-only settings.",
+  MEMBER: "Create and manage documents, links, and data rooms.",
+  DATAROOM_MEMBER: "Access limited to the specific data rooms you assign.",
+};
+
+const ASSIGNABLE_ROLES: TeamRole[] = [
+  "ADMIN",
+  "MANAGER",
+  "MEMBER",
+  "DATAROOM_MEMBER",
+];
+
+function formatRole(role: string): string {
+  return ROLE_LABELS[role as TeamRole] ?? role;
+}
 
 export default function Billing() {
   const [isTeamMemberInviteModalOpen, setTeamMemberInviteModalOpen] =
@@ -84,10 +121,19 @@ export default function Billing() {
     );
   };
 
+  // Member currently being edited in the change-role dialog.
+  const [roleMember, setRoleMember] = useState<{
+    userId: string;
+    teamId: string;
+    name: string;
+    role: TeamRole;
+  } | null>(null);
+
   const changeRole = async (
     teamId: string,
     userId: string,
-    role: "ADMIN" | "MANAGER" | "MEMBER",
+    role: "ADMIN" | "MANAGER" | "MEMBER" | "DATAROOM_MEMBER",
+    dataroomIds?: string[],
   ) => {
     const response = await fetch(`/api/teams/${teamId}/change-role`, {
       method: "PUT",
@@ -97,6 +143,9 @@ export default function Billing() {
       body: JSON.stringify({
         userToBeChanged: userId,
         role: role,
+        ...(role === "DATAROOM_MEMBER"
+          ? { dataroomIds: dataroomIds ?? [] }
+          : {}),
       }),
     });
 
@@ -254,11 +303,13 @@ export default function Billing() {
                 <h2 className="text-xl font-medium">Team</h2>
                 <p className="text-sm text-secondary-foreground">
                   Teammates that have access to this project.
-                  {!isDataroomsUnlimited && limits?.users && limits.users !== Infinity && (
-                    <span className="ml-1">
-                      ({limits.usage?.users ?? 0}/{limits.users} seats used)
-                    </span>
-                  )}
+                  {!isDataroomsUnlimited &&
+                    limits?.users &&
+                    limits.users !== Infinity && (
+                      <span className="ml-1">
+                        ({limits.usage?.users ?? 0}/{limits.users} seats used)
+                      </span>
+                    )}
                 </p>
               </div>
               {showUpgradePlanModal ? (
@@ -341,8 +392,8 @@ export default function Billing() {
                 </div>
                 <div className="flex items-center gap-12">
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-sm capitalize text-foreground">
-                      {member.role.toLowerCase()}
+                    <span className="text-sm text-foreground">
+                      {formatRole(member.role)}
                     </span>
                     {member.status === "BLOCKED_TRIAL_EXPIRED" && (
                       <span className="text-xs font-medium text-red-500">
@@ -375,48 +426,19 @@ export default function Billing() {
                         {isCurrentUserAdmin() &&
                         !isCurrentUser(member.userId) ? (
                           <>
-                            {member.role !== "ADMIN" && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  changeRole(
-                                    member.teamId,
-                                    member.userId,
-                                    "ADMIN",
-                                  )
-                                }
-                                className="hover:cursor-pointer"
-                              >
-                                Change role to ADMIN
-                              </DropdownMenuItem>
-                            )}
-                            {member.role !== "MANAGER" && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  changeRole(
-                                    member.teamId,
-                                    member.userId,
-                                    "MANAGER",
-                                  )
-                                }
-                                className="hover:cursor-pointer"
-                              >
-                                Change role to MANAGER
-                              </DropdownMenuItem>
-                            )}
-                            {member.role !== "MEMBER" && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  changeRole(
-                                    member.teamId,
-                                    member.userId,
-                                    "MEMBER",
-                                  )
-                                }
-                                className="hover:cursor-pointer"
-                              >
-                                Change role to MEMBER
-                              </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setRoleMember({
+                                  userId: member.userId,
+                                  teamId: member.teamId,
+                                  name: member.user.name || member.user.email,
+                                  role: member.role,
+                                })
+                              }
+                              className="hover:cursor-pointer"
+                            >
+                              Change role
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
                                 removeTeammate(member.teamId, member.userId)
@@ -497,6 +519,151 @@ export default function Billing() {
           </ul>
         </div>
       </main>
+
+      {roleMember ? (
+        <ChangeRoleDialog
+          member={roleMember}
+          currentAssignments={(team?.userDatarooms ?? [])
+            .filter((ud) => ud.userId === roleMember.userId)
+            .map((ud) => ud.dataroomId)}
+          onClose={() => setRoleMember(null)}
+          onSave={async (role, dataroomIds) => {
+            await changeRole(
+              roleMember.teamId,
+              roleMember.userId,
+              role,
+              dataroomIds,
+            );
+            setRoleMember(null);
+          }}
+        />
+      ) : null}
     </AppLayout>
+  );
+}
+
+function ChangeRoleDialog({
+  member,
+  currentAssignments,
+  onClose,
+  onSave,
+}: {
+  member: { userId: string; teamId: string; name: string; role: TeamRole };
+  currentAssignments: string[];
+  onClose: () => void;
+  onSave: (role: TeamRole, dataroomIds: string[]) => Promise<void>;
+}) {
+  const { datarooms } = useDataroomsSimple();
+  const [role, setRole] = useState<TeamRole>(member.role);
+  const [selected, setSelected] = useState<string[]>(currentAssignments);
+  const [saving, setSaving] = useState(false);
+
+  const toggle = (id: string) => {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const assignmentsUnchanged =
+    selected.length === currentAssignments.length &&
+    selected.every((id) => currentAssignments.includes(id));
+
+  const isUnchanged =
+    role === member.role &&
+    (role !== "DATAROOM_MEMBER" || assignmentsUnchanged);
+
+  const canSave =
+    !saving &&
+    !isUnchanged &&
+    (role !== "DATAROOM_MEMBER" || selected.length > 0);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader className="text-start">
+          <DialogTitle>Change role</DialogTitle>
+          <DialogDescription>
+            Update the role for {member.name}.
+          </DialogDescription>
+        </DialogHeader>
+
+        <RadioGroup
+          value={role}
+          onValueChange={(value) => setRole(value as TeamRole)}
+          className="gap-2"
+        >
+          {ASSIGNABLE_ROLES.map((r) => (
+            <label
+              key={r}
+              htmlFor={`role-${r}`}
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm transition-colors",
+                role === r
+                  ? "border-primary bg-muted"
+                  : "border-border hover:bg-muted/50",
+              )}
+            >
+              <RadioGroupItem id={`role-${r}`} value={r} className="mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-medium leading-none">{ROLE_LABELS[r]}</p>
+                <p className="text-xs text-muted-foreground">
+                  {ROLE_DESCRIPTIONS[r]}
+                </p>
+              </div>
+            </label>
+          ))}
+        </RadioGroup>
+
+        {role === "DATAROOM_MEMBER" ? (
+          <div className="space-y-1">
+            <Label className="opacity-80">Data rooms</Label>
+            <p className="text-xs text-muted-foreground">
+              Select the data rooms {member.name} can manage.
+            </p>
+            <div className="mt-1 max-h-44 space-y-1 overflow-y-auto rounded-md border p-2">
+              {datarooms && datarooms.length > 0 ? (
+                datarooms.map((dataroom) => (
+                  <label
+                    key={dataroom.id}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(dataroom.id)}
+                      onChange={() => toggle(dataroom.id)}
+                    />
+                    <span className="truncate">
+                      {dataroom.internalName || dataroom.name}
+                    </span>
+                  </label>
+                ))
+              ) : (
+                <p className="px-2 py-1 text-sm text-muted-foreground">
+                  No data rooms available.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        <DialogFooter>
+          <Button
+            type="button"
+            disabled={!canSave}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onSave(role, role === "DATAROOM_MEMBER" ? selected : []);
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="h-9 w-full"
+          >
+            {saving ? "Saving..." : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

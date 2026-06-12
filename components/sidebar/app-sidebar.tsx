@@ -21,6 +21,7 @@ import {
 
 import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { useIsAdmin } from "@/lib/hooks/use-is-admin";
+import { useSelfMembership } from "@/lib/hooks/use-self-membership";
 import { usePlan } from "@/lib/swr/use-billing";
 import useDataroomsSimple from "@/lib/swr/use-datarooms-simple";
 import useLimits from "@/lib/swr/use-limits";
@@ -71,7 +72,11 @@ export function AppSidebarContent() {
   // Check if current user is admin (for gating Security)
   const { isAdmin } = useIsAdmin();
 
+  // Dataroom-scoped members only ever see their assigned datarooms.
+  const { isDataroomMember } = useSelfMembership();
+
   // Fetch datarooms for the current team (simple mode - no filters or extra data)
+  // For scoped members the API already restricts this to their assigned rooms.
   const { datarooms } = useDataroomsSimple();
 
   useEffect(() => {
@@ -220,12 +225,39 @@ export function AppSidebarContent() {
   };
 
   // Filter out items that should be hidden based on feature flags
-  const filteredNavMain = data.navMain.filter((item) => {
+  let filteredNavMain = data.navMain.filter((item) => {
     if (item.title === "Workflows" && !features?.workflows) {
       return false;
     }
     return true;
   });
+
+  // Dataroom-scoped members get a single Datarooms section listing only their
+  // assigned rooms. Dashboard, All Documents, Visitors, Workflows, Branding and
+  // Settings are hidden — they have no access to those areas.
+  if (isDataroomMember) {
+    const scopedDataroomItems =
+      datarooms && datarooms.length > 0
+        ? datarooms.map((dataroom) => ({
+            title: dataroom.internalName || dataroom.name,
+            url: `/datarooms/${dataroom.id}/documents`,
+            current:
+              router.pathname.includes("/datarooms/[id]") &&
+              String(router.query.id) === String(dataroom.id),
+          }))
+        : undefined;
+
+    filteredNavMain = [
+      {
+        title: "Data Rooms",
+        url: "/datarooms",
+        icon: ServerIcon,
+        current: router.pathname === "/datarooms",
+        isActive: router.pathname.includes("datarooms"),
+        items: scopedDataroomItems,
+      },
+    ] as typeof filteredNavMain;
+  }
 
   return (
     <>

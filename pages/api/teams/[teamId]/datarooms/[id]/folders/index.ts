@@ -4,6 +4,7 @@ import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { DefaultPermissionStrategy, ItemType } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 
+import { enforceDataroomMemberScope } from "@/lib/api/rbac/guard";
 import { resolveFreeFolderPath } from "@/lib/folders/bulk-create";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
@@ -220,6 +221,11 @@ export default async function handle(
       include_documents?: string;
     };
 
+    // Scoped members may only read folders for their assigned rooms.
+    if (await enforceDataroomMemberScope({ userId, teamId, dataroomId, res })) {
+      return;
+    }
+
     try {
       // Check team membership and dataroom ownership together.
       const team = await prisma.team.findUnique({
@@ -430,6 +436,11 @@ export default async function handle(
       icon?: string;
       color?: string;
     };
+
+    // Scoped members may only create folders within their assigned rooms.
+    if (await enforceDataroomMemberScope({ userId, teamId, dataroomId, res })) {
+      return;
+    }
 
     const parentFolderPath = path ? "/" + path : "/";
 

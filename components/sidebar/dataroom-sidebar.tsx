@@ -27,6 +27,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 
+import { useSelfMembership } from "@/lib/hooks/use-self-membership";
 import { useDataroom } from "@/lib/swr/use-dataroom";
 import { cn } from "@/lib/utils";
 
@@ -120,8 +121,47 @@ export function DataroomSidebarContent() {
   const router = useRouter();
   const { dataroom } = useDataroom();
   const { state, isMobile } = useSidebar();
+  const { isDataroomMember } = useSelfMembership();
   const dataroomId = dataroom?.id ?? (router.query.id as string);
   const [isLinkSheetOpen, setIsLinkSheetOpen] = useState(false);
+
+  // Dataroom-scoped members manage the room but cannot delete/freeze it.
+  const settingsItems = [
+    {
+      title: "General",
+      href: `/datarooms/${dataroomId}/settings`,
+      icon: CogIcon,
+    },
+    {
+      title: "Introduction",
+      href: `/datarooms/${dataroomId}/settings/introduction`,
+      icon: BookOpenIcon,
+    },
+    {
+      title: "Notifications",
+      href: `/datarooms/${dataroomId}/settings/notifications`,
+      icon: BellIcon,
+    },
+    {
+      title: "Downloads",
+      href: `/datarooms/${dataroomId}/settings/downloads`,
+      icon: DownloadIcon,
+    },
+    {
+      title: "File Permissions",
+      href: `/datarooms/${dataroomId}/settings/file-permissions`,
+      icon: ShieldIcon,
+    },
+    ...(isDataroomMember
+      ? []
+      : [
+          {
+            title: "Danger Zone",
+            href: `/datarooms/${dataroomId}/settings/danger`,
+            icon: TriangleAlertIcon,
+          },
+        ]),
+  ];
 
   const navItems = [
     {
@@ -184,38 +224,7 @@ export function DataroomSidebarContent() {
       href: `/datarooms/${dataroomId}/settings`,
       icon: CogIcon,
       segment: "settings",
-      items: [
-        {
-          title: "General",
-          href: `/datarooms/${dataroomId}/settings`,
-          icon: CogIcon,
-        },
-        {
-          title: "Introduction",
-          href: `/datarooms/${dataroomId}/settings/introduction`,
-          icon: BookOpenIcon,
-        },
-        {
-          title: "Notifications",
-          href: `/datarooms/${dataroomId}/settings/notifications`,
-          icon: BellIcon,
-        },
-        {
-          title: "Downloads",
-          href: `/datarooms/${dataroomId}/settings/downloads`,
-          icon: DownloadIcon,
-        },
-        {
-          title: "File Permissions",
-          href: `/datarooms/${dataroomId}/settings/file-permissions`,
-          icon: ShieldIcon,
-        },
-        {
-          title: "Danger Zone",
-          href: `/datarooms/${dataroomId}/settings/danger`,
-          icon: TriangleAlertIcon,
-        },
-      ],
+      items: settingsItems,
     },
   ];
 
@@ -226,6 +235,7 @@ export function DataroomSidebarContent() {
     if (item.segment === "documents") {
       return (
         currentPath.includes(`/datarooms/${dataroomId}/documents`) ||
+        currentPath.includes(`/datarooms/${dataroomId}/document/`) ||
         currentPath === `/datarooms/${dataroomId}`
       );
     }

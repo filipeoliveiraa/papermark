@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { getServerSession } from "next-auth/next";
 
+import { enforceDocumentMemberScope } from "@/lib/api/rbac/guard";
 import { getFile } from "@/lib/files/get-file";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
@@ -30,6 +31,13 @@ export default async function handle(
     teamId: string;
   };
   const userId = (session.user as CustomUser).id;
+
+  // Dataroom-scoped members may only access documents in their assigned rooms.
+  if (
+    await enforceDocumentMemberScope({ userId, teamId, documentId, res })
+  ) {
+    return;
+  }
 
   const { pageNumbers } = req.body as { pageNumbers: number[] };
 

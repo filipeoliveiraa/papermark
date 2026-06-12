@@ -48,6 +48,7 @@ model User {
   sessions       Session[]
   documents      Document[]
   teams          UserTeam[]
+  userDatarooms  UserDataroom[]
   domains        Domain[]
   chats          Chat[]
   contactId      String?
@@ -251,6 +252,13 @@ model Invitation {
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   token     String   @unique
+
+  // Role the invitee will be assigned on acceptance. Defaults to MEMBER to
+  // preserve historic behaviour for invitations created before this column.
+  role        Role     @default(MEMBER)
+  // Datarooms the invitee is scoped to, applied as UserDataroom rows on
+  // acceptance. Only meaningful when role == DATAROOM_MEMBER.
+  dataroomIds String[] @default([])
 
   @@unique([email, teamId])
 }

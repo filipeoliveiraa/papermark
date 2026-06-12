@@ -3,6 +3,7 @@ model Team {
   name          String
   slug          String?        @unique // Optional human-readable identifier (e.g. "acme"), used for SSO login
   users         UserTeam[]
+  userDatarooms UserDataroom[]
   documents     Document[]
   folders       Folder[]
   domains       Domain[]
@@ -83,6 +84,26 @@ enum Role {
   ADMIN
   MANAGER
   MEMBER
+  // Least-privileged role. Scoped to one or more datarooms via UserDataroom and
+  // acts as a room manager inside only those rooms. Denied everywhere else.
+  DATAROOM_MEMBER
+}
+
+// Assigns a DATAROOM_MEMBER (or any user) to a specific dataroom within a team.
+// This is the "which rooms" layer that the role alone cannot encode.
+model UserDataroom {
+  userId     String
+  teamId     String
+  dataroomId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  dataroom   Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([userId, dataroomId])
+  @@index([userId])
+  @@index([teamId])
+  @@index([dataroomId])
 }
 
 model UserTeam {

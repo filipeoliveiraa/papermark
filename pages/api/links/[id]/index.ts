@@ -8,6 +8,7 @@ import {
   fetchDataroomLinkData,
   fetchDocumentLinkData,
 } from "@/lib/api/links/link-data";
+import { enforceLinkMemberScope } from "@/lib/api/rbac/guard";
 import prisma from "@/lib/prisma";
 import { CustomUser, WatermarkConfigSchema } from "@/lib/types";
 import {
@@ -260,6 +261,15 @@ export default async function handle(
           .status(404)
           .json({ error: "Link not found or unauthorized" });
       }
+
+      // Dataroom-scoped members may only modify links within their rooms.
+      const editDenied = await enforceLinkMemberScope({
+        userId,
+        teamId,
+        linkId: existingLink.id,
+        res,
+      });
+      if (editDenied) return;
 
       if (existingLink.dataroom?.isFrozen) {
         return res.status(403).json({
@@ -814,6 +824,17 @@ export default async function handle(
 
       if (!isAuthorized) {
         return res.status(401).end("Unauthorized to delete this link");
+      }
+
+      // Dataroom-scoped members may only delete links within their rooms.
+      if (linkToBeDeleted.teamId) {
+        const deleteDenied = await enforceLinkMemberScope({
+          userId,
+          teamId: linkToBeDeleted.teamId,
+          linkId: linkToBeDeleted.id,
+          res,
+        });
+        if (deleteDenied) return;
       }
 
       // Generate a random suffix for the deleted slug to free up the original slug

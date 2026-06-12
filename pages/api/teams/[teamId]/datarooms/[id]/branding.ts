@@ -14,6 +14,7 @@ import {
   type DataroomViewerLayoutPreset,
 } from "@/ee/features/branding/lib/dataroom-viewer-layout";
 import { validateRedirectUrl } from "@/lib/api/domains/validate-redirect-url";
+import { enforceDataroomMemberScope } from "@/lib/api/rbac/guard";
 import {
   teamPlanAllowsCustomWelcomeAndCta,
   teamPlanAllowsLayoutCustomization,
@@ -107,6 +108,18 @@ export default async function handle(
     teamId: string;
     id: string;
   };
+
+  // Scoped members may only manage branding for their assigned rooms.
+  if (
+    await enforceDataroomMemberScope({
+      userId: (session.user as CustomUser).id,
+      teamId,
+      dataroomId,
+      res,
+    })
+  ) {
+    return;
+  }
 
   try {
     const team = await prisma.team.findUnique({
