@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"],
-  transpilePackages: ["@boxyhq/saml-jackson"],
+  transpilePackages: ["@boxyhq/saml-jackson", "@libpdf/core"],
   images: {
     minimumCacheTTL: 2592000, // 30 days
     remotePatterns: prepareRemotePatterns(),
