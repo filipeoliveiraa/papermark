@@ -59,6 +59,7 @@ export function AddDocumentModal({
   children,
   isDataroom,
   dataroomId,
+  documentId: documentIdProp,
   setAddDocumentModalOpen,
   openModal,
   defaultTab = "document",
@@ -69,6 +70,13 @@ export function AddDocumentModal({
   isDataroom?: boolean;
   openModal?: boolean;
   dataroomId?: string;
+  /**
+   * Explicit document id to upload a new version against. Required on routes
+   * where `router.query.id` is not the document id (e.g. the dataroom document
+   * view at `/datarooms/[id]/document/[documentId]`, where it is the dataroom
+   * id). Falls back to `router.query.id` when omitted.
+   */
+  documentId?: string;
   setAddDocumentModalOpen?: (isOpen: boolean) => void;
   /** Initial tab shown when the modal opens. */
   defaultTab?: "document" | "notion";
@@ -354,7 +362,7 @@ export function AddDocumentModal({
         });
       } else {
         // create a new version for existing document in the database
-        const documentId = router.query.id as string;
+        const documentId = documentIdProp ?? (router.query.id as string);
         response = await createNewDocumentVersion({
           documentData,
           documentId,

@@ -662,6 +662,7 @@ export default function DocumentHeader({
             primaryVersion.type !== "link" && (
               <AddDocumentModal
                 newVersion
+                documentId={prismaDocument.id}
                 openModal={openAddDocModal}
                 setAddDocumentModalOpen={setOpenAddDocModal}
               >
@@ -751,6 +752,7 @@ export default function DocumentHeader({
                     <DropdownMenuItem>
                       <AddDocumentModal
                         newVersion
+                        documentId={prismaDocument.id}
                         setAddDocumentModalOpen={setAddDocumentVersion}
                       >
                         <button
