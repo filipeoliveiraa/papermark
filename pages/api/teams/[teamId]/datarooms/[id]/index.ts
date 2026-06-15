@@ -75,6 +75,7 @@ const patchHandler = withTeamApi(
         agentsEnabled,
         introductionEnabled,
         introductionContent,
+        requestListEnabled,
       } = req.body as {
         name?: string;
         internalName?: string | null;
@@ -88,6 +89,7 @@ const patchHandler = withTeamApi(
         agentsEnabled?: boolean;
         introductionEnabled?: boolean;
         introductionContent?: any;
+        requestListEnabled?: boolean;
       };
 
       const featureFlags = await getFeatureFlags({ teamId: team.id });
@@ -110,6 +112,15 @@ const patchHandler = withTeamApi(
       }
 
       if (agentsEnabled !== undefined && !featureFlags.ai) {
+        return res.status(403).json({
+          message: "This feature is not available in your plan",
+        });
+      }
+
+      if (
+        requestListEnabled !== undefined &&
+        (!featureFlags.requestList || !isDataroomsPlus)
+      ) {
         return res.status(403).json({
           message: "This feature is not available in your plan",
         });
@@ -153,6 +164,9 @@ const patchHandler = withTeamApi(
             }),
             ...(introductionContent !== undefined && {
               introductionContent,
+            }),
+            ...(typeof requestListEnabled === "boolean" && {
+              requestListEnabled,
             }),
           },
         });

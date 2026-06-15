@@ -14,6 +14,7 @@ import {
   ContactIcon,
   HouseIcon,
   LinkIcon,
+  ListChecksIcon,
   LogsIcon,
   MessageSquareIcon,
   ServerIcon,
@@ -22,7 +23,9 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { usePlan } from "@/lib/swr/use-billing";
+import { useDataroom } from "@/lib/swr/use-dataroom";
 import useLimits from "@/lib/swr/use-limits";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +59,9 @@ export function MobileDataroomMoreMenu({
   const router = useRouter();
   const { isTrial } = usePlan();
   const { limits } = useLimits();
+  const { dataroom } = useDataroom(dataroomId);
+  const { isFeatureEnabled } = useFeatureFlags();
+  const isRequestListFeatureEnabled = isFeatureEnabled("requestList");
   const [settingsExpanded, setSettingsExpanded] = useState(() =>
     router.pathname.includes("/settings"),
   );
@@ -268,6 +274,17 @@ export function MobileDataroomMoreMenu({
                   Q&A
                 </Link>
               )}
+
+              {isRequestListFeatureEnabled && dataroom?.requestListEnabled ? (
+                <Link
+                  href={`${base}/tasks`}
+                  onClick={onClose}
+                  className={rowClass(router.pathname.includes("/tasks"))}
+                >
+                  <ListChecksIcon className="h-5 w-5" />
+                  Request List
+                </Link>
+              ) : null}
 
               <Link
                 href={`${base}/users`}

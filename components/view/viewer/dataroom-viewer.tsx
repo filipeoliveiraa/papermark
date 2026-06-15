@@ -51,6 +51,9 @@ import {
 } from "@/components/ui/sheet";
 
 import { DEFAULT_DATAROOM_VIEW_TYPE } from "../dataroom/dataroom-view";
+import { RequestListButton } from "@/ee/features/request-lists/components/viewer/request-list-button";
+import { useViewerRequestList } from "@/ee/features/request-lists/lib/swr/use-viewer-request-list";
+
 import DocumentCard from "../dataroom/document-card";
 import { DataroomNoBannerTitle } from "../dataroom/dataroom-no-banner-title";
 import { DocumentUploadModal } from "../dataroom/document-upload-modal";
@@ -655,6 +658,16 @@ export default function DataroomViewer({
   // search input's adaptive styling.
   const viewerThemedTriggerClass =
     "border-[var(--viewer-control-border)] bg-[var(--viewer-control-bg)] text-[var(--viewer-text)] hover:bg-[var(--viewer-panel-bg-hover)] hover:text-[var(--viewer-text)]";
+
+  // Whether to show the Request List trigger button in the toolbar (next to
+  // Add document / Search / Introduction). Shares its detection request with
+  // the nav's sheet via SWR dedup.
+  const { enabled: requestListEnabled } = useViewerRequestList({
+    linkId,
+    dataroomId: dataroom?.id,
+    viewerId,
+    isPreview,
+  });
   const mobileTreeTheme = useMemo(
     () => ({
       ...viewerSurfaceTheme,
@@ -735,6 +748,9 @@ export default function DataroomViewer({
                   allowedFolders={viewData?.uploadFolderAllowList}
                   triggerClassName={viewerThemedTriggerClass}
                 />
+              )}
+              {requestListEnabled && (
+                <RequestListButton className={viewerThemedTriggerClass} />
               )}
             </>
           ) : undefined
@@ -936,6 +952,11 @@ export default function DataroomViewer({
                               }
                               allowedFolders={viewData?.uploadFolderAllowList}
                               triggerClassName={viewerThemedTriggerClass}
+                            />
+                          )}
+                          {requestListEnabled && (
+                            <RequestListButton
+                              className={viewerThemedTriggerClass}
                             />
                           )}
                           {isNotionLayout ? (

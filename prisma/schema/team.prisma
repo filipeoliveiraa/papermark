@@ -33,6 +33,10 @@ model Team {
   views     View[]
   workflows Workflow[]
 
+  // request list (task system)
+  taskLists TaskList[]
+  tasks     Task[]
+
   plan           String    @default("free")
   stripeId       String?   @unique // Stripe customer ID
   subscriptionId String?   @unique // Stripe subscription ID

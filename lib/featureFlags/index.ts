@@ -16,7 +16,8 @@ export type BetaFeatures =
   | "workflows"
   | "ai"
   | "sso"
-  | "textSelection";
+  | "textSelection"
+  | "requestList";
 
 type BetaFeaturesRecord = Record<BetaFeatures, string[]>;
 
@@ -38,6 +39,7 @@ export const getFeatureFlags = async ({ teamId }: { teamId?: string }) => {
     ai: false,
     sso: false,
     textSelection: false,
+    requestList: false,
   };
 
   // Return all features as false if edge config is not available

@@ -103,6 +103,9 @@ model Link {
   // visitor groups for allow-list
   visitorGroups LinkVisitorGroup[]
 
+  // request list (task system) — link-targeted assignments
+  taskAssignments TaskAssignment[]
+
   // workflow entry link
   workflow Workflow?
 

@@ -74,6 +74,10 @@ model User {
 
   frozenDatarooms Dataroom[] @relation("frozenDatarooms")
 
+  // request list (task system)
+  createdTasks   Task[]         @relation("createdTasks")
+  taskActivities TaskActivity[] @relation("taskActivities")
+
   notificationPreferences NotificationPreference[]
 }
 
@@ -171,6 +175,9 @@ model View {
 
   uploadedDocuments DocumentUpload[] // uploaded documents by this view
 
+  // request list (task system) — activity authored during this view
+  taskActivities TaskActivity[]
+
   // AI chats
   chats Chat[]
 
@@ -221,6 +228,10 @@ model Viewer {
   messages                  Message[]
 
   uploadedDocuments DocumentUpload[] // uploaded documents by this viewer
+
+  // request list (task system)
+  taskAssignments TaskAssignment[]
+  taskActivities  TaskActivity[]
 
   // AI chats
   chats Chat[]

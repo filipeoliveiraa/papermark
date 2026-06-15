@@ -9,6 +9,9 @@ import {
   asDataroomViewerHeaderStyle,
   type DataroomViewerHeaderStyle,
 } from "@/ee/features/branding/lib/dataroom-viewer-layout";
+import { RequestListSheet } from "@/ee/features/request-lists/components/viewer/request-list-sheet";
+import { VIEWER_TOGGLE_REQUEST_LIST_EVENT } from "@/ee/features/request-lists/lib/events";
+import { useViewerRequestList } from "@/ee/features/request-lists/lib/swr/use-viewer-request-list";
 
 import { cn, formatDate } from "@/lib/utils";
 import { useLogoTone } from "@/ee/features/branding/lib/use-logo-tone";
@@ -127,10 +130,21 @@ export default function DataroomNav({
   surfaceBackgroundColor?: string | null;
 }) {
   const [showConversations, setShowConversations] = useState<boolean>(false);
+  const [showRequestList, setShowRequestList] = useState<boolean>(false);
   const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
   const [downloadModalJobId, setDownloadModalJobId] = useState<string | null>(null);
   const [downloadFolderId, setDownloadFolderId] = useState<string | null>(null);
   const [downloadFolderName, setDownloadFolderName] = useState<string | null>(null);
+
+  // Detect whether this dataroom exposes a request list to the current viewer.
+  // Session-verified GET; only runs for real (non-preview) verified visitors.
+  // SWR dedupes with the toolbar button's detection so there's one request.
+  const { enabled: requestListEnabled } = useViewerRequestList({
+    linkId,
+    dataroomId,
+    viewerId,
+    isPreview,
+  });
 
   // Derive downloads page URL from current path so it works for both
   // /view/<linkId>/downloads and /<slug>/downloads (custom domains)
@@ -171,6 +185,22 @@ export default function DataroomNav({
     return () =>
       window.removeEventListener(
         VIEWER_TOGGLE_CONVERSATIONS_EVENT as any,
+        handler as EventListener,
+      );
+  }, []);
+
+  // The Request List trigger button lives in the viewer body toolbar (next to
+  // Add document / Search / Introduction). It dispatches this event so the
+  // sheet state stays owned by the nav without prop-drilling the handler.
+  useEffect(() => {
+    const handler = () => setShowRequestList((prev) => !prev);
+    window.addEventListener(
+      VIEWER_TOGGLE_REQUEST_LIST_EVENT as any,
+      handler as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        VIEWER_TOGGLE_REQUEST_LIST_EVENT as any,
         handler as EventListener,
       );
   }, []);
@@ -575,6 +605,16 @@ export default function DataroomNav({
           isEnabled={true}
           isOpen={showConversations}
           onOpenChange={setShowConversations}
+        />
+      ) : null}
+      {requestListEnabled && dataroomId && linkId ? (
+        <RequestListSheet
+          linkId={linkId}
+          dataroomId={dataroomId}
+          viewId={viewId || ""}
+          viewerId={viewerId}
+          isOpen={showRequestList}
+          onOpenChange={setShowRequestList}
         />
       ) : null}
     </nav>
