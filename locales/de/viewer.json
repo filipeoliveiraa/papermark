@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "Übersicht",
+    "viewQA": "F&A anzeigen",
+    "linksOnPage": "Links auf der Seite",
+    "linksOnCurrentPage": "Links auf der aktuellen Seite",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "fullscreen": "Vollbild",
+    "downloadDocument": "Dokument herunterladen",
+    "teamMemberTooltip": "Verifizierung übersprungen, da Sie Teammitglied sind; es werden keine Analysen erfasst",
+    "changeLanguage": "Sprache ändern"
+  },
+  "toasts": {
+    "preparingDownload": "Download wird vorbereitet ...",
+    "preparingDownloadWatermark": "Download mit Wasserzeichen wird vorbereitet ...",
+    "downloadSuccess": "Datei erfolgreich heruntergeladen",
+    "downloadFailed": "Datei konnte nicht heruntergeladen werden",
+    "cannotDownloadPreview": "Im Vorschaumodus können Sie keine Dokumente herunterladen."
+  },
+  "downloadOnly": {
+    "title": "Dokument herunterladen",
+    "description": "Dieses Dokument steht nur zum Download zur Verfügung",
+    "button": "Jetzt herunterladen"
+  },
+  "awayPoster": {
+    "title": "Wir haben pausiert, um Ihre Sitzung zu schützen",
+    "description": "Sie waren seit {{duration}} inaktiv, daher haben wir die Dokumentvorschau pausiert, um die Sitzung sicher zu halten.",
+    "ariaTitle": "Benachrichtigung über automatisch pausierte Sitzung",
+    "ariaDescription": "Ihre Sitzung wurde aufgrund von Inaktivität pausiert. Klicken Sie auf Fortsetzen oder bewegen Sie die Maus, um fortzufahren.",
+    "badge": "Automatisch pausiert",
+    "idleFor": "{{duration}} inaktiv",
+    "minSec": "{{minutes}} Min. {{seconds}} Sek.",
+    "minOnly": "{{minutes}} Min.",
+    "secOnly": "{{seconds}} Sek.",
+    "resume": "Dort fortfahren, wo Sie aufgehört haben",
+    "moveHint": "Oder bewegen Sie einfach die Maus oder drücken Sie eine Taste, um fortzufahren"
+  },
+  "poweredBy": {
+    "shareDocsVia": "Dokumente teilen über"
+  },
+  "report": {
+    "trigger": "Missbrauch melden",
+    "title": "Problem melden",
+    "description": "Etwas Unangemessenes entdeckt? Wir prüfen den Vorfall und ergreifen gegebenenfalls Maßnahmen.",
+    "submit": "Meldung senden",
+    "successToast": "Meldung erfolgreich übermittelt",
+    "selectTypeError": "Bitte wählen Sie eine Missbrauchsart aus.",
+    "types": {
+      "spam": "Spam, Betrug oder Scam",
+      "malware": "Schadsoftware oder Virus",
+      "copyright": "Urheberrechtsverletzung",
+      "harmful": "Schädlicher Inhalt",
+      "notWorking": "Inhalt funktioniert nicht ordnungsgemäß",
+      "other": "Sonstiges"
+    }
+  }
+}

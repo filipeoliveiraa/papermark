@@ -14,6 +14,10 @@ import z from "zod";
 
 import { fetchLinkDataByDomainSlug } from "@/lib/api/links/link-data";
 import { getFeatureFlags } from "@/lib/featureFlags";
+import {
+  buildViewerI18nPageProps,
+  type ViewerI18nPageProps,
+} from "@/lib/i18n/viewer-page-props";
 import notion from "@/lib/notion";
 import {
   addSignedUrls,
@@ -31,6 +35,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import CustomMetaTag from "@/components/view/custom-metatag";
 import DataroomView from "@/components/view/dataroom/dataroom-view";
 import DocumentView from "@/components/view/document-view";
+import { ViewerI18nProvider } from "@/components/view/viewer-i18n-provider";
 
 type DocumentLinkData = {
   linkType: "DOCUMENT_LINK";
@@ -93,6 +98,8 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
       };
     }
 
+    const i18nProps = await buildViewerI18nPageProps(brand as any);
+
     // Handle workflow links - minimal props needed
     if (linkType === "WORKFLOW_LINK") {
       return {
@@ -122,6 +129,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
           useAdvancedExcelViewer: false,
           useCustomAccessForm: false,
           logoOnAccessForm: false,
+          ...i18nProps,
         },
         revalidate: 60,
       };
@@ -209,6 +217,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
             teamId === "cm7nlkrhm0000qgh0nvyrrywr" ||
             teamId === "clup33by90000oewh4rfvp2eg",
           textSelectionEnabled,
+          ...i18nProps,
         },
         revalidate: 10,
       };
@@ -294,6 +303,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
             teamId === "clup33by90000oewh4rfvp2eg",
           dataroomIndexEnabled,
           textSelectionEnabled,
+          ...i18nProps,
         },
         revalidate: 10,
       };
@@ -312,19 +322,7 @@ export async function getStaticPaths() {
   };
 }
 
-export default function ViewPage({
-  frozen,
-  linkData,
-  notionData,
-  meta,
-  showAccountCreationSlide,
-  useAdvancedExcelViewer,
-  useCustomAccessForm,
-  logoOnAccessForm,
-  dataroomIndexEnabled,
-  textSelectionEnabled,
-  error,
-}: {
+type DomainViewPageProps = Partial<ViewerI18nPageProps> & {
   frozen?: boolean;
   linkData: DocumentLinkData | DataroomLinkData | WorkflowLinkData;
   notionData: {
@@ -347,7 +345,21 @@ export default function ViewPage({
   dataroomIndexEnabled?: boolean;
   textSelectionEnabled?: boolean;
   error?: boolean;
-}) {
+};
+
+function ViewPageInner({
+  frozen,
+  linkData,
+  notionData,
+  meta,
+  showAccountCreationSlide,
+  useAdvancedExcelViewer,
+  useCustomAccessForm,
+  logoOnAccessForm,
+  dataroomIndexEnabled,
+  textSelectionEnabled,
+  error,
+}: DomainViewPageProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [storedToken, setStoredToken] = useState<string | undefined>(undefined);
@@ -584,4 +596,17 @@ export default function ViewPage({
       </>
     );
   }
+}
+
+export default function ViewPage(props: DomainViewPageProps) {
+  const locale = props.i18n?.locale ?? "en";
+  const resources = props.i18n?.resources ?? {};
+  return (
+    <ViewerI18nProvider
+      locale={locale}
+      resources={resources}
+    >
+      <ViewPageInner {...props} />
+    </ViewerI18nProvider>
+  );
 }

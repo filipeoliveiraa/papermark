@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "ホーム",
+    "viewQA": "Q&A を表示",
+    "linksOnPage": "ページ内のリンク",
+    "linksOnCurrentPage": "現在のページ内のリンク",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "fullscreen": "全画面表示",
+    "downloadDocument": "資料をダウンロード",
+    "teamMemberTooltip": "あなたはチームメンバーのため認証をスキップしました。分析データは収集されません",
+    "changeLanguage": "言語を変更"
+  },
+  "toasts": {
+    "preparingDownload": "ダウンロードを準備中...",
+    "preparingDownloadWatermark": "ウォーターマーク付きダウンロードを準備中...",
+    "downloadSuccess": "ファイルをダウンロードしました",
+    "downloadFailed": "ファイルのダウンロードに失敗しました",
+    "cannotDownloadPreview": "プレビュー モードでは資料をダウンロードできません。"
+  },
+  "downloadOnly": {
+    "title": "資料をダウンロード",
+    "description": "この資料はダウンロードのみ利用可能です",
+    "button": "今すぐダウンロード"
+  },
+  "awayPoster": {
+    "title": "セッションを保護するため一時停止しました",
+    "description": "{{duration}} 操作がなかったため、セッションを保護するために資料のプレビューを一時停止しました。",
+    "ariaTitle": "セッション自動一時停止の通知",
+    "ariaDescription": "操作がなかったためセッションが一時停止しました。続行をクリックするか、マウスを動かして再開してください。",
+    "badge": "自動一時停止中",
+    "idleFor": "{{duration}} 操作なし",
+    "minSec": "{{minutes}} 分 {{seconds}} 秒",
+    "minOnly": "{{minutes}} 分",
+    "secOnly": "{{seconds}} 秒",
+    "resume": "前回の続きから再開",
+    "moveHint": "またはマウスを動かす、もしくは任意のキーを押して続行してください"
+  },
+  "poweredBy": {
+    "shareDocsVia": "資料の共有はこちら"
+  },
+  "report": {
+    "trigger": "不正利用を報告",
+    "title": "問題を報告する",
+    "description": "不適切な内容が見つかりましたか？確認のうえ、必要に応じて対応します。",
+    "submit": "報告を送信",
+    "successToast": "報告を送信しました",
+    "selectTypeError": "不正利用の種類を選択してください。",
+    "types": {
+      "spam": "スパム・詐欺・不正行為",
+      "malware": "マルウェアまたはウイルス",
+      "copyright": "著作権侵害",
+      "harmful": "有害なコンテンツ",
+      "notWorking": "コンテンツが正しく動作しない",
+      "other": "その他"
+    }
+  }
+}

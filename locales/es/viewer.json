@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "viewQA": "Ver preguntas y respuestas",
+    "linksOnPage": "Enlaces en la página",
+    "linksOnCurrentPage": "Enlaces en la página actual",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "fullscreen": "Pantalla completa",
+    "downloadDocument": "Descargar documento",
+    "teamMemberTooltip": "Verificación omitida porque es miembro del equipo; no se recopilarán datos analíticos",
+    "changeLanguage": "Cambiar idioma"
+  },
+  "toasts": {
+    "preparingDownload": "Preparando la descarga...",
+    "preparingDownloadWatermark": "Preparando la descarga con marca de agua...",
+    "downloadSuccess": "Archivo descargado correctamente",
+    "downloadFailed": "No se pudo descargar el archivo",
+    "cannotDownloadPreview": "No puede descargar documentos en modo vista previa."
+  },
+  "downloadOnly": {
+    "title": "Descargar documento",
+    "description": "Este documento solo está disponible para descarga",
+    "button": "Descargar ahora"
+  },
+  "awayPoster": {
+    "title": "Hemos pausado para proteger su sesión",
+    "description": "Ha estado inactivo durante {{duration}}, por lo que hemos pausado la vista previa del documento para mantener la sesión segura.",
+    "ariaTitle": "Notificación de sesión pausada automáticamente",
+    "ariaDescription": "Su sesión se ha pausado por inactividad. Haga clic en continuar o mueva el ratón para reanudar.",
+    "badge": "Pausado automáticamente",
+    "idleFor": "{{duration}} inactivo",
+    "minSec": "{{minutes}} min {{seconds}} s",
+    "minOnly": "{{minutes}} min",
+    "secOnly": "{{seconds}} s",
+    "resume": "Continuar donde lo dejó",
+    "moveHint": "O simplemente mueva el ratón o pulse cualquier tecla para continuar"
+  },
+  "poweredBy": {
+    "shareDocsVia": "Compartir documentos vía"
+  },
+  "report": {
+    "trigger": "Denunciar abuso",
+    "title": "Reportar un problema",
+    "description": "¿Ves algo inapropiado? Lo revisaremos y, si corresponde, tomaremos medidas.",
+    "submit": "Enviar reporte",
+    "successToast": "Reporte enviado correctamente",
+    "selectTypeError": "Por favor selecciona un tipo de abuso.",
+    "types": {
+      "spam": "Spam, fraude o estafa",
+      "malware": "Malware o virus",
+      "copyright": "Violación de derechos de autor",
+      "harmful": "Contenido dañino",
+      "notWorking": "El contenido no funciona correctamente",
+      "other": "Otro"
+    }
+  }
+}

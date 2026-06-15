@@ -34,6 +34,12 @@ import { CollapsibleBrandingSection } from "@/ee/features/branding/components/co
 import { DataroomLayoutPresetCards } from "@/ee/features/branding/components/dataroom-layout-preset-cards";
 import { BrandingLinkPreviewForm } from "@/ee/features/branding/components/branding-link-preview-form";
 import { BrandingSocialPreviewReadonly } from "@/ee/features/branding/components/branding-social-preview-readonly";
+import { VisitorLanguageCard } from "@/ee/features/branding/components/visitor-language-card";
+import {
+  DEFAULT_LOCALE,
+  asSupportedLocale,
+  type SupportedLocaleCode,
+} from "@/lib/i18n/locales";
 import { DataroomBannerMedia } from "@/components/view/dataroom/dataroom-banner-media";
 import AppLayout from "@/components/layouts/app";
 import { Button } from "@/components/ui/button";
@@ -61,6 +67,7 @@ export default function DataroomBrandPage() {
     isDatarooms || isDataroomsPlus || isTrial;
   const hasBusinessMessagingAccess =
     isBusiness || isDatarooms || isTrial;
+  const hasVisitorLanguageAccess = isDataroomsPlus || isTrial;
   const { dataroom } = useDataroom();
   const { brand: dataroomBrand } = useDataroomBrand({
     dataroomId: dataroom?.id,
@@ -100,6 +107,11 @@ export default function DataroomBrandPage() {
     useState<boolean>(false);
   const [ctaLabel, setCtaLabel] = useState<string>("");
   const [ctaUrl, setCtaUrl] = useState<string>("");
+
+  // Visitor i18n: a single language the admin picks; visitors never switch.
+  const [defaultLanguage, setDefaultLanguage] = useState<SupportedLocaleCode>(
+    DEFAULT_LOCALE,
+  );
   const [debouncedBrandColor] = useDebounce(brandColor, 300);
   const [debouncedAccentColor] = useDebounce(accentColor, 300);
   const [debouncedWelcomeMessage] = useDebounce(welcomeMessage, 500);
@@ -137,6 +149,8 @@ export default function DataroomBrandPage() {
     viewerHeaderStyle: DataroomViewerHeaderStyle;
     hideFolderIconsInMain: boolean;
   } | null>(null);
+
+  const initialLanguageRef = useRef<SupportedLocaleCode | null>(null);
 
   const [upgradeLayoutsModalOpen, setUpgradeLayoutsModalOpen] =
     useState<boolean>(false);
@@ -189,6 +203,19 @@ export default function DataroomBrandPage() {
 
   const layoutBlocksSave =
     !hasLayoutCustomizationAccess && layoutHasUnsavedChanges;
+
+  const languageHasUnsavedChanges =
+    initialLanguageRef.current !== null &&
+    initialLanguageRef.current !== defaultLanguage;
+
+  // English is the default locale and always free — only block when the
+  // user lands on a non-default language without an eligible plan.
+  const languageBlocksSave =
+    !hasVisitorLanguageAccess &&
+    languageHasUnsavedChanges &&
+    defaultLanguage !== DEFAULT_LOCALE;
+
+  const blocksSave = layoutBlocksSave || languageBlocksSave;
 
   const applyLayoutPreset = (id: DataroomLayoutCardId) => {
     const restoreBanner = () =>
@@ -439,6 +466,12 @@ export default function DataroomBrandPage() {
       );
       setLinkPreviewImage((dataroomBrand as any)?.linkPreviewImage ?? null);
       setLinkPreviewFavicon((dataroomBrand as any)?.linkPreviewFavicon ?? null);
+      const initialLanguage =
+        asSupportedLocale((dataroomBrand as any)?.defaultLanguage) ??
+        asSupportedLocale((globalBrand as any)?.defaultLanguage) ??
+        DEFAULT_LOCALE;
+      setDefaultLanguage(initialLanguage);
+      initialLanguageRef.current = initialLanguage;
       return;
     }
 
@@ -510,6 +543,11 @@ export default function DataroomBrandPage() {
       );
       setLinkPreviewImage((globalBrand as any)?.linkPreviewImage ?? null);
       setLinkPreviewFavicon((globalBrand as any)?.linkPreviewFavicon ?? null);
+      const inheritedLanguage =
+        asSupportedLocale((globalBrand as any)?.defaultLanguage) ??
+        DEFAULT_LOCALE;
+      setDefaultLanguage(inheritedLanguage);
+      initialLanguageRef.current = inheritedLanguage;
     } else {
       setBrandColor("#000000");
       setAccentColor("#FFFFFF");
@@ -539,6 +577,8 @@ export default function DataroomBrandPage() {
       setLinkPreviewDescription("");
       setLinkPreviewImage(null);
       setLinkPreviewFavicon(null);
+      setDefaultLanguage(DEFAULT_LOCALE);
+      initialLanguageRef.current = DEFAULT_LOCALE;
     }
   }, [dataroomBrand, globalBrand]);
 
@@ -562,10 +602,10 @@ export default function DataroomBrandPage() {
   const saveBranding = async (e: any) => {
     e.preventDefault();
 
-    // Block save and prompt for upgrade if the user changed any layout settings
-    // without an eligible plan. Branding-only changes (colors, banner, logo)
-    // still flow through.
-    if (layoutBlocksSave) {
+    // Block save and prompt for upgrade if the user changed any layout or
+    // language settings without an eligible plan. Branding-only changes
+    // (colors, banner, logo) still flow through.
+    if (blocksSave) {
       setUpgradeLayoutsModalOpen(true);
       return;
     }
@@ -662,6 +702,7 @@ export default function DataroomBrandPage() {
         : null,
       linkPreviewImage: linkPreviewEnabled ? linkPreviewImageUrl : null,
       linkPreviewFavicon: linkPreviewEnabled ? linkPreviewFaviconUrl : null,
+      defaultLanguage,
     };
 
     const res = await fetch(
@@ -680,6 +721,13 @@ export default function DataroomBrandPage() {
       );
       // Update the original banner state to the new saved value
       setOriginalBanner(data.banner);
+      initialLanguageRef.current = defaultLanguage;
+      initialLayoutSnapshotRef.current = {
+        cardLayout,
+        showFolderTree,
+        viewerHeaderStyle,
+        hideFolderIconsInMain,
+      };
       setIsLoading(false);
       toast.success("Branding updated successfully");
     }
@@ -768,6 +816,11 @@ export default function DataroomBrandPage() {
       );
       setLinkPreviewImage((globalBrand as any)?.linkPreviewImage ?? null);
       setLinkPreviewFavicon((globalBrand as any)?.linkPreviewFavicon ?? null);
+      const resetLanguage =
+        asSupportedLocale((globalBrand as any)?.defaultLanguage) ??
+        DEFAULT_LOCALE;
+      setDefaultLanguage(resetLanguage);
+      initialLanguageRef.current = resetLanguage;
       setIsLoading(false);
       toast.success("Branding reset successfully");
     } else {
@@ -1282,6 +1335,19 @@ export default function DataroomBrandPage() {
               </Card>
 
               <CollapsibleBrandingSection
+                title="Language"
+                defaultOpen={false}
+              >
+                <div className="flex flex-col gap-6">
+                  <VisitorLanguageCard
+                    defaultLanguage={defaultLanguage}
+                    onDefaultLanguageChange={setDefaultLanguage}
+                    hasAccess={hasVisitorLanguageAccess}
+                  />
+                </div>
+              </CollapsibleBrandingSection>
+
+              <CollapsibleBrandingSection
                 title="Advanced settings"
                 defaultOpen={false}
               >
@@ -1681,12 +1747,23 @@ export default function DataroomBrandPage() {
 
             {/* Action Buttons - Always Visible */}
             <div className="flex items-center gap-4 border-t bg-background pt-4">
-              {layoutBlocksSave ? (
+              {blocksSave ? (
                 <UpgradeButton
-                  text="Save changes"
-                  clickedPlan={PlanEnum.DataRooms}
-                  trigger="dataroom_branding_layouts_save"
-                  highlightItem={["dataroom-viewer-layouts"]}
+                  text={languageBlocksSave ? "save changes" : "Save changes"}
+                  clickedPlan={
+                    languageBlocksSave
+                      ? PlanEnum.DataRoomsPlus
+                      : PlanEnum.DataRooms
+                  }
+                  trigger={
+                    languageBlocksSave
+                      ? "dataroom_branding_language_save"
+                      : "dataroom_branding_layouts_save"
+                  }
+                  highlightItem={[
+                    ...(layoutBlocksSave ? ["dataroom-viewer-layouts"] : []),
+                    ...(languageBlocksSave ? ["dataroom-localisation"] : []),
+                  ]}
                   hideItems={["datarooms"]}
                 />
               ) : (
@@ -1710,9 +1787,20 @@ export default function DataroomBrandPage() {
               </Button>
             </div>
             <UpgradePlanModal
-              clickedPlan={PlanEnum.DataRooms}
-              trigger="dataroom_branding_layouts_save"
-              highlightItem={["dataroom-viewer-layouts"]}
+              clickedPlan={
+                languageBlocksSave
+                  ? PlanEnum.DataRoomsPlus
+                  : PlanEnum.DataRooms
+              }
+              trigger={
+                languageBlocksSave
+                  ? "dataroom_branding_language_save"
+                  : "dataroom_branding_layouts_save"
+              }
+              highlightItem={[
+                ...(layoutBlocksSave ? ["dataroom-viewer-layouts"] : []),
+                ...(languageBlocksSave ? ["dataroom-localisation"] : []),
+              ]}
               hideItems={["datarooms"]}
               open={upgradeLayoutsModalOpen}
               setOpen={setUpgradeLayoutsModalOpen}

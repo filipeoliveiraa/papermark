@@ -18,6 +18,7 @@ import {
   FileSignatureIcon,
   PenLineIcon,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import useSWRImmutable from "swr/immutable";
 
@@ -192,6 +193,7 @@ export default function AgreementSection({
   useCustomAccessForm?: boolean;
 }) {
   const theme = useAccessFormTheme();
+  const { t } = useTranslation("access-form");
   const isChecked = !!data.hasConfirmedAgreement;
   const visitorEmail = typeof data.email === "string" ? data.email.trim() : "";
   const visitorName = typeof data.name === "string" ? data.name.trim() : "";
@@ -791,7 +793,7 @@ export default function AgreementSection({
         ) : (
           <>
             <span className="cursor-pointer" onClick={toggleAgreement}>
-              I have reviewed and agree to the terms of this{" "}
+              {t("agreement.fallbackPrefix", "I have reviewed and agree to the terms of this")}{" "}
             </span>
             <a
               href={`${agreementContent}`}

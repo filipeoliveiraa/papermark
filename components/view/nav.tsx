@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 
 import { useViewerChatSafe } from "@/ee/features/ai/components/viewer-chat-provider";
 import { Brand, DataroomBrand } from "@prisma/client";
+import { useTranslation } from "react-i18next";
 import {
   ArrowUpRight,
   BadgeInfoIcon,
@@ -117,6 +118,7 @@ export default function Nav({
     onToggleAnnotations,
   } = navData;
 
+  const { t } = useTranslation("viewer");
   const [showConversations, setShowConversations] = useState(false);
   const navColorPalette = createAdaptiveSurfacePalette(brand?.brandColor);
 
@@ -127,7 +129,7 @@ export default function Nav({
 
   const downloadFile = async () => {
     if (isPreview) {
-      toast.error("You cannot download documents in preview mode.");
+      toast.error(t("toasts.cannotDownloadPreview", "You cannot download documents in preview mode."));
       return;
     }
     if (!allowDownload || type === "notion") return;
@@ -149,10 +151,10 @@ export default function Nav({
 
     toast.promise(downloadPromise, {
       loading: hasWatermark
-        ? "Preparing download with watermark..."
-        : "Preparing download...",
-      success: "File downloaded successfully",
-      error: (err) => err.message || "Failed to download file",
+        ? t("toasts.preparingDownloadWatermark", "Preparing download with watermark...")
+        : t("toasts.preparingDownload", "Preparing download..."),
+      success: t("toasts.downloadSuccess", "File downloaded successfully"),
+      error: (err) => err.message || t("toasts.downloadFailed", "Failed to download file"),
     });
   };
 
@@ -226,7 +228,7 @@ export default function Nav({
                         color: navColorPalette.textColor,
                       }}
                     >
-                      Home
+                      {t("nav.home", "Home")}
                     </BreadcrumbLink>
                   </BreadcrumbItem>
                   {type === "notion" ? (
@@ -261,8 +263,7 @@ export default function Nav({
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs text-wrap text-center">
-                      Skipped verification because you are a team member; no
-                      analytics will be collected
+                      {t("nav.teamMemberTooltip", "Skipped verification because you are a team member; no analytics will be collected")}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -274,7 +275,7 @@ export default function Nav({
                 onClick={() => setShowConversations(!showConversations)}
                 className="bg-gray-900 text-white hover:bg-gray-900/80"
               >
-                View Q&A
+                {t("nav.viewQA", "View Q&A")}
               </Button>
             )}
             {/* Annotations toggle button */}
@@ -289,11 +290,13 @@ export default function Nav({
               <DropdownMenu>
                 <DropdownMenuTrigger>
                   <Button className="bg-gray-900 text-sm font-medium text-white hover:bg-gray-900/80">
-                    Links on Page
+                    {t("nav.linksOnPage", "Links on Page")}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="space-y-2" align="end">
-                  <DropdownMenuLabel>Links on current page</DropdownMenuLabel>
+                  <DropdownMenuLabel>
+                    {t("nav.linksOnCurrentPage", "Links on current page")}
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {embeddedLinks.map((link, index) => (
                     <Link
@@ -321,7 +324,7 @@ export default function Nav({
                 onClick={downloadFile}
                 className="size-8 bg-gray-900 text-white hover:bg-gray-900/80 sm:size-10"
                 size="icon"
-                title="Download document"
+                title={t("nav.downloadDocument", "Download document")}
               >
                 <Download className="size-4 sm:size-5" />
               </Button>
@@ -341,7 +344,7 @@ export default function Nav({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <span className="mr-2 text-xs">Zoom in</span>
+                      <span className="mr-2 text-xs">{t("nav.zoomIn", "Zoom in")}</span>
                       <span className="ml-auto rounded-sm border bg-muted p-0.5 text-xs tracking-widest text-muted-foreground">
                         ⌘+
                       </span>
@@ -361,7 +364,7 @@ export default function Nav({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <span className="mr-2 text-xs">Zoom out</span>
+                      <span className="mr-2 text-xs">{t("nav.zoomOut", "Zoom out")}</span>
                       <span className="ml-auto rounded-sm border bg-muted p-0.5 text-xs tracking-widest text-muted-foreground">
                         ⌘-
                       </span>
@@ -382,7 +385,7 @@ export default function Nav({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <span className="mr-2 text-xs">Fullscreen</span>
+                        <span className="mr-2 text-xs">{t("nav.fullscreen", "Fullscreen")}</span>
                         <span className="ml-auto rounded-sm border bg-muted p-0.5 text-xs tracking-widest text-muted-foreground">
                           F
                         </span>

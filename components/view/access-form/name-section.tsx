@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction, useEffect } from "react";
 import type { CSSProperties } from "react";
 
 import { Brand, DataroomBrand } from "@prisma/client";
+import { useTranslation } from "react-i18next";
 
 import { DEFAULT_ACCESS_FORM_TYPE } from ".";
 import { useAccessFormTheme } from "./access-form-theme";
@@ -19,6 +20,7 @@ export default function NameSection({
 }) {
   const { name } = data;
   const theme = useAccessFormTheme();
+  const { t } = useTranslation("access-form");
 
   useEffect(() => {
     if (disableEditName) {
@@ -46,7 +48,7 @@ export default function NameSection({
         className="block text-sm font-medium leading-6 text-white"
         style={{ color: theme.textColor }}
       >
-        Name
+        {t("fields.name.label", "Name")}
       </label>
       <input
         name="name"
@@ -65,7 +67,7 @@ export default function NameSection({
           color: disableEditName ? theme.subtleTextColor : theme.textColor,
         } as CSSProperties}
         value={name || ""}
-        placeholder="Enter your full name"
+        placeholder={t("fields.name.placeholder", "Enter your full name")}
         onChange={handleNameChange}
         disabled={disableEditName}
         aria-invalid="true"

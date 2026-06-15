@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "Home",
+    "viewQA": "Visualizza Q&A",
+    "linksOnPage": "Link nella pagina",
+    "linksOnCurrentPage": "Link nella pagina corrente",
+    "zoomIn": "Ingrandisci",
+    "zoomOut": "Riduci",
+    "fullscreen": "Schermo intero",
+    "downloadDocument": "Scarica documento",
+    "teamMemberTooltip": "Verifica saltata perché sei un membro del team; non verranno raccolti dati analitici",
+    "changeLanguage": "Cambia lingua"
+  },
+  "toasts": {
+    "preparingDownload": "Preparazione del download...",
+    "preparingDownloadWatermark": "Preparazione del download con filigrana...",
+    "downloadSuccess": "File scaricato correttamente",
+    "downloadFailed": "Impossibile scaricare il file",
+    "cannotDownloadPreview": "Non puoi scaricare documenti in modalità anteprima."
+  },
+  "downloadOnly": {
+    "title": "Scarica documento",
+    "description": "Questo documento è disponibile solo per il download",
+    "button": "Scarica ora"
+  },
+  "awayPoster": {
+    "title": "Abbiamo messo in pausa per proteggere la tua sessione",
+    "description": "Sei stato inattivo per {{duration}}, quindi abbiamo messo in pausa l'anteprima del documento per mantenere la sessione sicura.",
+    "ariaTitle": "Notifica di sessione messa in pausa automaticamente",
+    "ariaDescription": "La tua sessione è stata messa in pausa per inattività. Fai clic su continua o muovi il mouse per riprendere.",
+    "badge": "In pausa automatica",
+    "idleFor": "{{duration}} di inattività",
+    "minSec": "{{minutes}} min {{seconds}} sec",
+    "minOnly": "{{minutes}} min",
+    "secOnly": "{{seconds}} sec",
+    "resume": "Riprendi da dove hai lasciato",
+    "moveHint": "Oppure muovi il mouse o premi un tasto per continuare"
+  },
+  "poweredBy": {
+    "shareDocsVia": "Condividi documenti tramite"
+  },
+  "report": {
+    "trigger": "Segnala abuso",
+    "title": "Segnala un problema",
+    "description": "Hai notato qualcosa di inappropriato? Daremo un'occhiata e, se necessario, interverremo.",
+    "submit": "Invia segnalazione",
+    "successToast": "Segnalazione inviata con successo",
+    "selectTypeError": "Seleziona un tipo di abuso.",
+    "types": {
+      "spam": "Spam, frode o truffa",
+      "malware": "Malware o virus",
+      "copyright": "Violazione del copyright",
+      "harmful": "Contenuto dannoso",
+      "notWorking": "Il contenuto non funziona correttamente",
+      "other": "Altro"
+    }
+  }
+}

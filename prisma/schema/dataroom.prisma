@@ -278,6 +278,10 @@ model DataroomBrand {
   linkPreviewImage         String?
   linkPreviewFavicon       String?
 
+  // Visitor-side language (i18n) settings — these override the team-level
+  // Admin-chosen viewer language (BCP-47). See `lib/i18n/viewer-page-props.ts`.
+  defaultLanguage String @default("en") // BCP-47 tag from SUPPORTED_LOCALES; admin-chosen viewer language
+
   dataroomId String   @unique
   dataroom   Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
 

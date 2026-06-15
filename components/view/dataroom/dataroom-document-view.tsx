@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { DataroomBrand } from "@prisma/client";
 import Cookies from "js-cookie";
 import { ExtendedRecordMap } from "notion-types";
+import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { useAnalytics } from "@/lib/analytics";
@@ -119,6 +120,7 @@ export default function DataroomDocumentView({
 
   const analytics = useAnalytics();
   const router = useRouter();
+  const { t } = useTranslation("access-form");
 
   const didMount = useRef<boolean>(false);
   const [submitted, setSubmitted] = useState<boolean>(false);
@@ -348,10 +350,14 @@ export default function DataroomDocumentView({
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-6 shadow-sm">
           <div className="space-y-1">
-            <h1 className="text-lg font-semibold">Verify it&apos;s you</h1>
+            <h1 className="text-lg font-semibold">{t("reauth.title", "Verify it's you")}</h1>
             <p className="text-sm text-muted-foreground">
-              This file was uploaded by you. To reopen it, confirm you control{" "}
-              <strong>{uploadReauth.email}</strong>.
+              <Trans
+                ns="access-form"
+                i18nKey="reauth.description"
+                values={{ email: uploadReauth.email }}
+                components={{ email: <strong /> }}
+              />
             </p>
           </div>
           <DownloadOtpVerification
@@ -360,8 +366,12 @@ export default function DataroomDocumentView({
             sendOtpOnMount
             description={
               <p className="text-sm text-muted-foreground">
-                We sent a 6-digit code to <strong>{uploadReauth.email}</strong>.
-                Enter it below to access your uploaded file.
+                <Trans
+                  ns="access-form"
+                  i18nKey="reauth.otpDescription"
+                  values={{ email: uploadReauth.email }}
+                  components={{ email: <strong /> }}
+                />
               </p>
             }
             onVerified={() => {

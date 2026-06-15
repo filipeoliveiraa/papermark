@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "Início",
+    "viewQA": "Ver Perguntas e Respostas",
+    "linksOnPage": "Links na página",
+    "linksOnCurrentPage": "Links na página atual",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "fullscreen": "Tela cheia",
+    "downloadDocument": "Baixar documento",
+    "teamMemberTooltip": "Verificação ignorada porque você é membro da equipe; nenhuma análise será coletada",
+    "changeLanguage": "Alterar idioma"
+  },
+  "toasts": {
+    "preparingDownload": "Preparando download...",
+    "preparingDownloadWatermark": "Preparando download com marca d'água...",
+    "downloadSuccess": "Arquivo baixado com sucesso",
+    "downloadFailed": "Falha ao baixar arquivo",
+    "cannotDownloadPreview": "Você não pode baixar documentos no modo de pré-visualização."
+  },
+  "downloadOnly": {
+    "title": "Baixar documento",
+    "description": "Este documento está disponível apenas para download",
+    "button": "Baixar agora"
+  },
+  "awayPoster": {
+    "title": "Pausamos para proteger sua sessão",
+    "description": "Você ficou inativo por {{duration}}, então pausamos a pré-visualização do documento para manter a sessão segura.",
+    "ariaTitle": "Notificação de sessão pausada automaticamente",
+    "ariaDescription": "Sua sessão foi pausada por inatividade. Clique em continuar ou mova o mouse para retomar.",
+    "badge": "Pausado automaticamente",
+    "idleFor": "{{duration}} inativo",
+    "minSec": "{{minutes}} min {{seconds}} s",
+    "minOnly": "{{minutes}} min",
+    "secOnly": "{{seconds}} s",
+    "resume": "Continue de onde parou",
+    "moveHint": "Ou simplesmente mova o mouse ou pressione qualquer tecla para continuar"
+  },
+  "poweredBy": {
+    "shareDocsVia": "Compartilhar documentos via"
+  },
+  "report": {
+    "trigger": "Denunciar abuso",
+    "title": "Reportar um problema",
+    "description": "Viu algo inapropriado? Vamos analisar e, se necessário, tomar providências.",
+    "submit": "Enviar denúncia",
+    "successToast": "Denúncia enviada com sucesso",
+    "selectTypeError": "Selecione um tipo de abuso.",
+    "types": {
+      "spam": "Spam, fraude ou golpe",
+      "malware": "Malware ou vírus",
+      "copyright": "Violação de direitos autorais",
+      "harmful": "Conteúdo prejudicial",
+      "notWorking": "O conteúdo não está funcionando corretamente",
+      "other": "Outro"
+    }
+  }
+}

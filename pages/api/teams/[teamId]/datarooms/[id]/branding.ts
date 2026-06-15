@@ -15,9 +15,11 @@ import {
 } from "@/ee/features/branding/lib/dataroom-viewer-layout";
 import { validateRedirectUrl } from "@/lib/api/domains/validate-redirect-url";
 import { enforceDataroomMemberScope } from "@/lib/api/rbac/guard";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALE_CODES } from "@/lib/i18n/locales";
 import {
   teamPlanAllowsCustomWelcomeAndCta,
   teamPlanAllowsLayoutCustomization,
+  teamPlanAllowsVisitorLanguage,
 } from "@/lib/billing/team-plan-custom-messaging";
 import { errorhandler } from "@/lib/errorHandler";
 import prisma from "@/lib/prisma";
@@ -43,6 +45,12 @@ const updateDataroomBrandingSchema = z.object({
   viewerLayoutPreset: DataroomViewerLayoutPresetSchema.optional(),
   viewerHeaderStyle: DataroomViewerHeaderStyleSchema.optional(),
   hideFolderIconsInMain: z.boolean().optional(),
+  // Admin-chosen viewer language. Constrained to the server's supported list
+  // so a hand-crafted request can't poison the DB with a code the viewer
+  // can't load translations for.
+  defaultLanguage: z
+    .enum(SUPPORTED_LOCALE_CODES as unknown as [string, ...string[]])
+    .optional(),
 });
 
 type LayoutFields = {
@@ -181,6 +189,7 @@ export default async function handle(
     }
     const messagingAllowed = teamPlanAllowsCustomWelcomeAndCta(teamAuth.plan);
     const layoutAllowed = teamPlanAllowsLayoutCustomization(teamAuth.plan);
+    const languageAllowed = teamPlanAllowsVisitorLanguage(teamAuth.plan);
 
     const parsed = updateDataroomBrandingSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -200,6 +209,15 @@ export default async function handle(
           hideFolderIconsInMain: body.hideFolderIconsInMain,
         })
       : {};
+
+    // English is free on every plan; non-English requires a Data Rooms tier.
+    // A hand-crafted request from a lower plan is silently dropped instead of
+    // erroring so the rest of the branding save still succeeds.
+    const languageData =
+      body.defaultLanguage &&
+      (languageAllowed || body.defaultLanguage === DEFAULT_LOCALE)
+        ? { defaultLanguage: body.defaultLanguage }
+        : {};
 
     let validatedCtaUrl: string | null | undefined = body.ctaUrl;
     if (messagingAllowed && typeof body.ctaUrl === "string") {
@@ -241,6 +259,7 @@ export default async function handle(
           ? body.linkPreviewFavicon ?? undefined
           : undefined,
         ...layoutData,
+        ...languageData,
         dataroomId,
       },
     });
@@ -260,6 +279,7 @@ export default async function handle(
     }
     const messagingAllowed = teamPlanAllowsCustomWelcomeAndCta(teamAuth.plan);
     const layoutAllowed = teamPlanAllowsLayoutCustomization(teamAuth.plan);
+    const languageAllowed = teamPlanAllowsVisitorLanguage(teamAuth.plan);
 
     const parsed = updateDataroomBrandingSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -303,6 +323,15 @@ export default async function handle(
         })
       : {};
 
+    // English is free on every plan; non-English requires a Data Rooms tier.
+    // When a lower-plan request supplies a paid locale we omit the field so
+    // any existing saved value is preserved.
+    const languageData =
+      body.defaultLanguage &&
+      (languageAllowed || body.defaultLanguage === DEFAULT_LOCALE)
+        ? { defaultLanguage: body.defaultLanguage }
+        : {};
+
     const brand = await prisma.dataroomBrand.update({
       where: {
         dataroomId,
@@ -336,6 +365,7 @@ export default async function handle(
           ? body.linkPreviewFavicon
           : undefined,
         ...layoutData,
+        ...languageData,
       },
     });
 

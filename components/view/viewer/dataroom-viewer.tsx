@@ -24,6 +24,7 @@ import {
 } from "@/ee/features/branding/lib/dataroom-viewer-layout";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { PanelLeftIcon, UploadIcon, XIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { usePendingUploads } from "@/context/pending-uploads-context";
 import { cn } from "@/lib/utils";
@@ -219,6 +220,7 @@ export default function DataroomViewer({
   };
 
   const router = useRouter();
+  const { t } = useTranslation("dataroom");
   const searchQuery = (router.query.search as string)?.toLowerCase() || "";
 
   // Tab state: "documents" (normal view) or "my-uploads" (visitor's uploads)
@@ -250,7 +252,7 @@ export default function DataroomViewer({
               onClick={() => setFolderId(null)}
               className="-mx-1.5 cursor-pointer rounded-md px-1.5 py-0.5 text-[var(--viewer-muted-text)] transition-colors hover:bg-[var(--viewer-panel-bg-hover)] hover:text-[var(--viewer-text)]"
             >
-              Home
+              {t("breadcrumb.home", "Home")}
             </BreadcrumbLink>
           </BreadcrumbItem>
 
@@ -272,7 +274,7 @@ export default function DataroomViewer({
         </BreadcrumbList>
       </Breadcrumb>
     ),
-    [breadcrumbFolders, dataroomIndexEnabled, setFolderId],
+    [breadcrumbFolders, dataroomIndexEnabled, setFolderId, t],
   );
 
   // Index access controls by `itemId` once per change so the per-document
@@ -714,6 +716,7 @@ export default function DataroomViewer({
         topBarSearch={
           isModernLayout ? (
             <SearchBoxPersisted
+              placeholder={t("search.placeholder", "Search...")}
               inputClassName="h-9 border-[var(--viewer-control-border)] bg-[var(--viewer-control-bg)] text-[var(--viewer-text)] placeholder:text-[var(--viewer-placeholder)] shadow-sm hover:border-[var(--viewer-control-border-strong)] focus:border-[var(--viewer-control-border-strong)]"
               leftIconClassName="text-[var(--viewer-control-icon)]"
               clearIconClassName="text-[var(--viewer-control-icon)] hover:text-[var(--viewer-text)]"
@@ -924,6 +927,7 @@ export default function DataroomViewer({
                         <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap sm:gap-x-2">
                           <IntroductionInfoButton />
                           <SearchBoxPersisted
+                            placeholder={t("search.placeholder", "Search...")}
                             inputClassName="h-9 border-[var(--viewer-control-border)] bg-[var(--viewer-control-bg)] text-[var(--viewer-text)] placeholder:text-[var(--viewer-placeholder)] shadow-sm hover:border-[var(--viewer-control-border-strong)] focus:border-[var(--viewer-control-border-strong)]"
                             leftIconClassName="text-[var(--viewer-control-icon)]"
                             clearIconClassName="text-[var(--viewer-control-icon)] hover:text-[var(--viewer-text)]"
@@ -1014,7 +1018,7 @@ export default function DataroomViewer({
                           : "border-transparent text-[var(--viewer-subtle-text)] hover:border-[var(--viewer-panel-border-hover)] hover:text-[var(--viewer-text)]",
                       )}
                     >
-                      Documents
+                      {t("tabs.documents", "Documents")}
                     </button>
                     <button
                       onClick={() => setActiveTab("my-uploads")}
@@ -1026,7 +1030,7 @@ export default function DataroomViewer({
                       )}
                     >
                       <UploadIcon className="h-3.5 w-3.5" />
-                      My Uploads
+                      {t("tabs.myUploads", "My Uploads")}
                       <span
                         className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium"
                         style={{
@@ -1045,11 +1049,10 @@ export default function DataroomViewer({
                   <div className="mt-4 rounded-md border border-[var(--viewer-panel-border)] bg-[var(--viewer-control-bg)] px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="text-sm font-medium text-[var(--viewer-muted-text)]">
-                        Search results for &quot;{searchQuery}&quot;
+                        {t("search.results", "Search results for \"{{query}}\"", { query: searchQuery })}
                       </div>
                       <div className="text-xs text-[var(--viewer-subtle-text)]">
-                        ({mixedItems.length} result
-                        {mixedItems.length !== 1 ? "s" : ""} across all folders)
+                        {t("search.resultCount", "({{count}} results across all folders)", { count: mixedItems.length })}
                       </div>
                     </div>
                   </div>
@@ -1060,8 +1063,7 @@ export default function DataroomViewer({
                   <ul role="list" className="-mx-4 space-y-4 overflow-auto p-4">
                     {allUploads.length === 0 ? (
                       <li className="py-6 text-center text-[var(--viewer-subtle-text)]">
-                        No uploads yet. Upload documents using the &quot;Add
-                        Document&quot; button.
+                        {t("empty.noUploads", "No uploads yet. Upload documents using the \"Add Document\" button.")}
                       </li>
                     ) : (
                       allUploads.map((pendingUpload) => (
@@ -1096,8 +1098,8 @@ export default function DataroomViewer({
                     filteredPendingUploads.length === 0 ? (
                       <div className="py-6 text-center text-[var(--viewer-subtle-text)]">
                         {searchQuery
-                          ? "No documents match your search."
-                          : "No items available."}
+                          ? t("search.noMatches", "No documents match your search.")
+                          : t("empty.noItems", "No items available.")}
                       </div>
                     ) : (
                       segmentMixedItemsForGrid(mixedItems).map((run, runIdx) => (
@@ -1147,8 +1149,8 @@ export default function DataroomViewer({
                       filteredPendingUploads.length === 0 ? (
                         <li className="py-6 text-center text-[var(--viewer-subtle-text)]">
                           {searchQuery
-                            ? "No documents match your search."
-                            : "No items available."}
+                            ? t("search.noMatches", "No documents match your search.")
+                            : t("empty.noItems", "No items available.")}
                         </li>
                       ) : (
                         mixedItems.map((item, idx) => (
@@ -1182,7 +1184,7 @@ export default function DataroomViewer({
                     rel="noopener noreferrer"
                     className="whitespace-nowrap transition-colors hover:text-[var(--viewer-text)]"
                   >
-                    Secured by{" "}
+                    {t("shell.secureFooter", "Secured by")}{" "}
                     <span className="font-semibold tracking-tight">
                       Papermark
                     </span>

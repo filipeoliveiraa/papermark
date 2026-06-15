@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { Brand, DataroomBrand } from "@prisma/client";
+import { useTranslation } from "react-i18next";
 import { useDebouncedCallback } from "use-debounce";
 
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ export default function EmailSection({
 }) {
   const { email } = data;
   const theme = useAccessFormTheme();
+  const { t } = useTranslation("access-form");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -53,14 +55,14 @@ export default function EmailSection({
 
   const handleInvalid = (e: React.InvalidEvent<HTMLInputElement>) => {
     e.preventDefault(); // Prevent default browser validation popup
-    setEmailError("Please enter a valid email address");
+    setEmailError(t("fields.email.errorInvalid", "Please enter a valid email address"));
   };
 
   const debouncedValidation = useDebouncedCallback(
     (value: string) => {
       const isValid = !value || validateEmail(value);
       if (isDirty && value && !isValid) {
-        setEmailError("Please enter a valid email address");
+        setEmailError(t("fields.email.errorInvalid", "Please enter a valid email address"));
       } else {
         setEmailError(null);
       }
@@ -92,7 +94,7 @@ export default function EmailSection({
     const value = e.target.value;
     const isValid = !value || validateEmail(value);
     if (value && !isValid) {
-      setEmailError("Please enter a valid email address");
+      setEmailError(t("fields.email.errorInvalid", "Please enter a valid email address"));
     }
     onValidationChange?.(isValid);
   };
@@ -109,7 +111,7 @@ export default function EmailSection({
         className="block text-sm font-medium leading-6 text-white"
         style={{ color: theme.textColor }}
       >
-        Email address
+        {t("fields.email.label", "Email address")}
       </label>
       <input
         name="email"
@@ -134,7 +136,7 @@ export default function EmailSection({
           } as CSSProperties
         }
         value={email || ""}
-        placeholder="Enter email"
+        placeholder={t("fields.email.placeholder", "Enter email")}
         onChange={handleEmailChange}
         onInvalid={handleInvalid}
         onBlur={handleBlur}
@@ -155,8 +157,8 @@ export default function EmailSection({
       )}
       <p className="text-sm" style={{ color: theme.subtleTextColor }}>
         {useCustomAccessForm
-          ? "This data will be shared with the content provider."
-          : "This data will be shared with the sender."}
+          ? t("fields.email.sharedWithProvider", "This data will be shared with the content provider.")
+          : t("fields.email.sharedWithSender", "This data will be shared with the sender.")}
       </p>
     </div>
   );

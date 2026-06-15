@@ -13,6 +13,10 @@ import z from "zod";
 
 import { fetchLinkDataById } from "@/lib/api/links/link-data";
 import { getFeatureFlags } from "@/lib/featureFlags";
+import {
+  buildViewerI18nPageProps,
+  type ViewerI18nPageProps,
+} from "@/lib/i18n/viewer-page-props";
 import notion from "@/lib/notion";
 import {
   addSignedUrls,
@@ -24,6 +28,7 @@ import { CustomUser, LinkWithDataroomDocument, NotionTheme } from "@/lib/types";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import CustomMetaTag from "@/components/view/custom-metatag";
 import DataroomDocumentView from "@/components/view/dataroom/dataroom-document-view";
+import { ViewerI18nProvider } from "@/components/view/viewer-i18n-provider";
 
 type DataroomDocumentLinkData = {
   linkType: "DATAROOM_LINK";
@@ -31,7 +36,7 @@ type DataroomDocumentLinkData = {
   brand: DataroomBrand | null;
 };
 
-type DataroomDocumentProps = {
+type DataroomDocumentProps = Partial<ViewerI18nPageProps> & {
   linkData: DataroomDocumentLinkData;
   notionData: {
     rootNotionPageId: string | null;
@@ -56,7 +61,7 @@ type DataroomDocumentProps = {
   error?: boolean;
 };
 
-export default function DataroomDocumentViewPage({
+function DataroomDocumentViewPageInner({
   frozen,
   linkData,
   notionData,
@@ -200,6 +205,19 @@ export default function DataroomDocumentViewPage({
   );
 }
 
+export default function DataroomDocumentViewPage(props: DataroomDocumentProps) {
+  const locale = props.i18n?.locale ?? "en";
+  const resources = props.i18n?.resources ?? {};
+  return (
+    <ViewerI18nProvider
+      locale={locale}
+      resources={resources}
+    >
+      <DataroomDocumentViewPageInner {...props} />
+    </ViewerI18nProvider>
+  );
+}
+
 export async function getStaticProps(context: GetStaticPropsContext) {
   const { linkId: linkIdParam, documentId: documentIdParam } =
     context.params as {
@@ -274,6 +292,14 @@ export async function getStaticProps(context: GetStaticPropsContext) {
     const featureFlags = await getFeatureFlags({ teamId: teamId || undefined });
     const textSelectionEnabled = featureFlags.textSelection;
 
+    const defaultLanguage =
+      brand && "defaultLanguage" in brand ? brand.defaultLanguage : undefined;
+    const i18nProps = await buildViewerI18nPageProps(
+      typeof defaultLanguage === "string" || defaultLanguage === null
+        ? { defaultLanguage }
+        : null,
+    );
+
     return {
       props: {
         linkData: {
@@ -315,6 +341,7 @@ export async function getStaticProps(context: GetStaticPropsContext) {
           teamId === "cmk2hnmqh0000k304zcoezt6n",
         logoOnAccessForm: teamId === "cm7nlkrhm0000qgh0nvyrrywr",
         textSelectionEnabled,
+        ...i18nProps,
       },
       revalidate: brand || recordMap ? 10 : 60,
     };

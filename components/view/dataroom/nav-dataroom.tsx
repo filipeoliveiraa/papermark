@@ -3,6 +3,7 @@ import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { DataroomBrand } from "@prisma/client";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import {
@@ -13,7 +14,9 @@ import { RequestListSheet } from "@/ee/features/request-lists/components/viewer/
 import { VIEWER_TOGGLE_REQUEST_LIST_EVENT } from "@/ee/features/request-lists/lib/events";
 import { useViewerRequestList } from "@/ee/features/request-lists/lib/swr/use-viewer-request-list";
 
-import { cn, formatDate } from "@/lib/utils";
+import { formatDateLocalized } from "@/lib/i18n/format";
+import { asSupportedLocale, DEFAULT_LOCALE } from "@/lib/i18n/locales";
+import { cn } from "@/lib/utils";
 import { useLogoTone } from "@/ee/features/branding/lib/use-logo-tone";
 
 import { classifyDataroomBanner } from "@/ee/features/branding/lib/dataroom-banner";
@@ -129,6 +132,11 @@ export default function DataroomNav({
    *  header so it matches the body when accent color is enabled. */
   surfaceBackgroundColor?: string | null;
 }) {
+  const { t, i18n } = useTranslation("dataroom");
+  // Lock the formatter to the active i18next language so dates re-render when
+  // the visitor uses the language switcher without forcing a full page reload.
+  const activeLocale =
+    asSupportedLocale(i18n.language) ?? DEFAULT_LOCALE;
   const [showConversations, setShowConversations] = useState<boolean>(false);
   const [showRequestList, setShowRequestList] = useState<boolean>(false);
   const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
@@ -207,12 +215,12 @@ export default function DataroomNav({
 
   const openDownloadModal = () => {
     if (isPreview) {
-      toast.error("You cannot download datarooms in preview mode.");
+      toast.error(t("navToasts.cannotDownloadPreview", "You cannot download datarooms in preview mode."));
       return;
     }
     if (!allowDownload || !allowBulkDownload) return;
     if (!viewerEmail) {
-      toast.error("Enter your email in the dataroom to download.");
+      toast.error(t("navToasts.enterEmailFirst", "Enter your email in the dataroom to download."));
       return;
     }
     setDownloadModalJobId(null);
@@ -302,12 +310,16 @@ export default function DataroomNav({
     null;
 
   const eyebrowLine = useMemo(() => {
-    const parts = ["Data room"];
+    const parts = [t("shell.dataRoomEyebrow", "Data room")];
     if (dataroom?.showLastUpdated && dataroom?.lastUpdatedAt) {
-      parts.push(`Updated ${formatDate(dataroom.lastUpdatedAt)}`);
+      parts.push(
+        t("shell.updatedOn", "Updated {{date}}", {
+          date: formatDateLocalized(dataroom.lastUpdatedAt, activeLocale),
+        }),
+      );
     }
     return parts.join(" · ").toUpperCase();
-  }, [dataroom?.showLastUpdated, dataroom?.lastUpdatedAt]);
+  }, [dataroom?.showLastUpdated, dataroom?.lastUpdatedAt, activeLocale, t]);
 
   const renderToolbarTrailing = (
     variant: "onBrand" | "onLight" = "onBrand",
@@ -460,7 +472,12 @@ export default function DataroomNav({
                     style={surfaceMutedTextStyle}
                     dateTime={new Date(dataroom.lastUpdatedAt).toISOString()}
                   >
-                    {`Last updated ${formatDate(dataroom.lastUpdatedAt)}`}
+                    {t("shell.lastUpdated", "Last updated {{date}}", {
+                      date: formatDateLocalized(
+                        dataroom.lastUpdatedAt,
+                        activeLocale,
+                      ),
+                    })}
                   </time>
                 ) : null}
               </div>
@@ -566,7 +583,12 @@ export default function DataroomNav({
                       className="mt-0.5 block text-sm"
                       dateTime={new Date(dataroom.lastUpdatedAt).toISOString()}
                     >
-                      {`Last updated ${formatDate(dataroom.lastUpdatedAt)}`}
+                      {t("shell.lastUpdated", "Last updated {{date}}", {
+                        date: formatDateLocalized(
+                          dataroom.lastUpdatedAt,
+                          activeLocale,
+                        ),
+                      })}
                     </time>
                   ) : null}
                 </div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Brand, CustomField, DataroomBrand } from "@prisma/client";
 import { ArrowUpRightIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 
@@ -82,6 +83,7 @@ export default function AccessForm({
     () => createAccessFormTheme(brand?.accentColor),
     [brand?.accentColor],
   );
+  const { t } = useTranslation("access-form");
 
   const isSigningAgreement =
     signingProvider === "DOCUMENSO" || agreementContentType === "SIGNING";
@@ -171,7 +173,7 @@ export default function AccessForm({
             >
               {linkWelcomeMessage ||
                 (brand && "welcomeMessage" in brand && brand.welcomeMessage) ||
-                "Your action is requested to continue"}
+                t("welcome.fallback", "Your action is requested to continue")}
             </h1>
           </div>
 
@@ -232,7 +234,7 @@ export default function AccessForm({
                     color: accessFormTheme.ctaTextColor,
                   }}
                 >
-                  Continue
+                  {t("buttons.continue", "Continue")}
                 </Button>
               </div>
             </form>
@@ -244,7 +246,7 @@ export default function AccessForm({
               className="text-center text-sm tracking-tight"
               style={{ color: accessFormTheme.subtleTextColor }}
             >
-              This document is securely shared with you using{" "}
+              {t("footer.sharedSecurelyVia", "This document is securely shared with you using")}{" "}
               <a
                 href="https://www.papermark.com"
                 target="_blank"
@@ -252,7 +254,7 @@ export default function AccessForm({
                 className="font-medium"
                 style={{ color: accessFormTheme.mutedTextColor }}
               >
-                Papermark
+                {t("footer.papermark", "Papermark")}
               </a>
               .
             </p>
@@ -260,7 +262,7 @@ export default function AccessForm({
               className="text-center text-sm tracking-tight"
               style={{ color: accessFormTheme.subtleTextColor }}
             >
-              See how we protect your data in our{" "}
+              {t("footer.seeHowWeProtect", "See how we protect your data in our")}{" "}
               <a
                 href={`${process.env.NEXT_PUBLIC_MARKETING_URL}/privacy`}
                 target="_blank"
@@ -268,7 +270,7 @@ export default function AccessForm({
                 className="inline-flex items-center gap-0.5"
                 style={{ color: accessFormTheme.mutedTextColor }}
               >
-                <span>Privacy Policy</span>
+                <span>{t("footer.privacyPolicy", "Privacy Policy")}</span>
                 <ArrowUpRightIcon className="h-3 w-3" />
               </a>
             </p>

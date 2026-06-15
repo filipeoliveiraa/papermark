@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "viewQA": "Voir les Q&R",
+    "linksOnPage": "Liens sur la page",
+    "linksOnCurrentPage": "Liens sur la page actuelle",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière",
+    "fullscreen": "Plein écran",
+    "downloadDocument": "Télécharger le document",
+    "teamMemberTooltip": "Vérification ignorée car vous êtes membre de l'équipe ; aucune analyse ne sera collectée",
+    "changeLanguage": "Changer de langue"
+  },
+  "toasts": {
+    "preparingDownload": "Préparation du téléchargement...",
+    "preparingDownloadWatermark": "Préparation du téléchargement avec filigrane...",
+    "downloadSuccess": "Fichier téléchargé avec succès",
+    "downloadFailed": "Échec du téléchargement du fichier",
+    "cannotDownloadPreview": "Vous ne pouvez pas télécharger de documents en mode aperçu."
+  },
+  "downloadOnly": {
+    "title": "Télécharger le document",
+    "description": "Ce document est disponible uniquement en téléchargement",
+    "button": "Télécharger maintenant"
+  },
+  "awayPoster": {
+    "title": "Nous avons mis en pause pour protéger votre session",
+    "description": "Vous êtes inactif depuis {{duration}}, nous avons donc mis en pause l'aperçu du document pour sécuriser la session.",
+    "ariaTitle": "Notification de session mise en pause automatiquement",
+    "ariaDescription": "Votre session a été mise en pause en raison d'inactivité. Cliquez sur continuer ou déplacez votre souris pour reprendre.",
+    "badge": "Mis en pause automatiquement",
+    "idleFor": "{{duration}} d'inactivité",
+    "minSec": "{{minutes}} min {{seconds}} s",
+    "minOnly": "{{minutes}} min",
+    "secOnly": "{{seconds}} s",
+    "resume": "Reprendre où vous en étiez",
+    "moveHint": "Ou déplacez simplement votre souris ou appuyez sur une touche pour continuer"
+  },
+  "poweredBy": {
+    "shareDocsVia": "Partager les documents via"
+  },
+  "report": {
+    "trigger": "Signaler un abus",
+    "title": "Signaler un problème",
+    "description": "Vous voyez quelque chose d'inapproprié ? Nous l'examinerons et, le cas échéant, prendrons des mesures.",
+    "submit": "Envoyer le signalement",
+    "successToast": "Signalement envoyé avec succès",
+    "selectTypeError": "Veuillez sélectionner un type d'abus.",
+    "types": {
+      "spam": "Spam, fraude ou arnaque",
+      "malware": "Logiciel malveillant ou virus",
+      "copyright": "Violation de droits d'auteur",
+      "harmful": "Contenu nuisible",
+      "notWorking": "Le contenu ne fonctionne pas correctement",
+      "other": "Autre"
+    }
+  }
+}

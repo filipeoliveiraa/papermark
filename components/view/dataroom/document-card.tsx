@@ -6,9 +6,11 @@ import { Download, MoreVerticalIcon } from "lucide-react";
 
 import { type DataroomCardLayout } from "@/ee/features/branding/lib/dataroom-viewer-layout";
 import { useTheme } from "next-themes";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { timeAgo } from "@/lib/utils";
+import { timeAgoLocalized } from "@/lib/i18n/format";
+import { asSupportedLocale, DEFAULT_LOCALE } from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 import { downloadFromLinkEndpoint } from "@/lib/utils/download-document";
 import { ensureFileExtension } from "@/lib/utils/get-content-type";
@@ -92,6 +94,8 @@ export default function DocumentCard({
 }: DocumentsCardProps) {
   const { theme, systemTheme } = useTheme();
   const { palette } = useViewerSurfaceTheme();
+  const { t, i18n } = useTranslation("dataroom");
+  const activeLocale = asSupportedLocale(i18n.language) ?? DEFAULT_LOCALE;
   const canDownload = document.canDownload && allowDownload;
 
   const isLight =
@@ -133,9 +137,7 @@ export default function DocumentCard({
   const handleDocumentClick = (e: React.MouseEvent) => {
     if (isProcessing) {
       e.preventDefault();
-      toast.error(
-        "Document is still processing. Please wait a moment and try again.",
-      );
+      toast.error(t("navToasts.documentStillProcessing", "Document is still processing. Please wait a moment and try again."));
       return;
     }
 
@@ -155,7 +157,7 @@ export default function DocumentCard({
 
   const downloadDocument = async () => {
     if (isPreview) {
-      toast.error("You cannot download dataroom document in preview mode.");
+      toast.error(t("navToasts.cannotDownloadDocPreview", "You cannot download dataroom document in preview mode."));
       return;
     }
 
@@ -169,9 +171,9 @@ export default function DocumentCard({
     });
 
     toast.promise(downloadPromise, {
-      loading: "Preparing download...",
-      success: "File downloaded successfully",
-      error: (err) => err.message || "Failed to download file",
+      loading: t("navToasts.downloadPreparing", "Preparing download..."),
+      success: t("navToasts.downloadSuccess", "File downloaded successfully"),
+      error: (err) => err.message || t("navToasts.downloadFailed", "Failed to download file"),
     });
   };
 
@@ -199,13 +201,13 @@ export default function DocumentCard({
             "text-[var(--viewer-control-icon)] border-[var(--viewer-control-border)] hover:bg-[var(--viewer-control-bg)]",
             "group-hover/row:text-[var(--viewer-text)] group-hover/row:border-[var(--viewer-control-border-strong)]",
           )}
-          aria-label="Open menu"
+          aria-label={t("cards.openMenu", "Open menu")}
         >
           <MoreVerticalIcon className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("cards.actionsLabel", "Actions")}</DropdownMenuLabel>
         <DropdownMenuItem
           onClick={(e) => {
             e.preventDefault();
@@ -214,7 +216,7 @@ export default function DocumentCard({
           }}
         >
           <Download className="h-4 w-4" />
-          Download
+          {t("cards.download", "Download")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -239,7 +241,7 @@ export default function DocumentCard({
           onClick={handleDocumentClick}
           className="absolute inset-0 z-0 cursor-pointer"
           disabled={isProcessing}
-          aria-label={`Open document ${document.name}`}
+          aria-label={t("cards.openDocument", "Open document {{name}}", { name: document.name })}
         />
 
         {/* Preview area */}
@@ -277,13 +279,18 @@ export default function DocumentCard({
                 {displayNameNode}
                 {isProcessing && (
                   <span className="ml-2 text-xs text-[var(--viewer-muted-text)]">
-                    (Processing...)
+                    {t("cards.processing", "(Processing...)")}
                   </span>
                 )}
               </h2>
               {showLastUpdated && (
                 <p className="truncate text-xs leading-4 text-[var(--viewer-muted-text)]">
-                  Updated {timeAgo(document.versions[0].updatedAt)}
+                  {t("cards.updated", "Updated {{when}}", {
+                    when: timeAgoLocalized(
+                      document.versions[0].updatedAt,
+                      activeLocale,
+                    ),
+                  })}
                 </p>
               )}
             </div>
@@ -335,7 +342,7 @@ export default function DocumentCard({
           {displayNameNode}
           {isProcessing && (
             <span className="ml-2 text-xs text-[var(--viewer-muted-text)]">
-              (Processing...)
+              {t("cards.processing", "(Processing...)")}
             </span>
           )}
         </h2>
@@ -358,7 +365,9 @@ export default function DocumentCard({
           onClick={handleDocumentClick}
           className="absolute inset-0 z-0 cursor-pointer rounded-none border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--viewer-control-border-strong)]"
           disabled={isProcessing}
-          aria-label={`Open document ${compactShowIndexColumn ? `${indexLabel} ` : ""}${document.name}`}
+          aria-label={t("cards.openDocument", {
+            name: `${compactShowIndexColumn ? `${indexLabel} ` : ""}${document.name}`,
+          })}
         />
         <div className="pointer-events-none relative z-[1] flex items-center justify-between gap-3 sm:hidden">
           {compactShowIndexColumn ? (
@@ -370,7 +379,10 @@ export default function DocumentCard({
           <div className="flex shrink-0 items-center gap-2">
             {showUpdatedCell ? (
               <p className="max-w-[38vw] truncate text-xs tabular-nums text-[var(--viewer-muted-text)]">
-                {timeAgo(document.versions[0].updatedAt)}
+                {timeAgoLocalized(
+                  document.versions[0].updatedAt,
+                  activeLocale,
+                )}
               </p>
             ) : null}
             {compactShowActionsColumn && downloadMenuButton ? (
@@ -392,7 +404,10 @@ export default function DocumentCard({
           <div className="flex min-w-0 items-center gap-3">{nameBlock}</div>
           {showUpdatedCell ? (
             <p className="truncate text-right text-xs tabular-nums text-[var(--viewer-muted-text)]">
-              {timeAgo(document.versions[0].updatedAt)}
+              {timeAgoLocalized(
+                document.versions[0].updatedAt,
+                activeLocale,
+              )}
             </p>
           ) : null}
           {actionsSlot}
@@ -412,9 +427,9 @@ export default function DocumentCard({
         ? "NOTION"
         : (ver?.type ?? "").replace(/\./g, "").slice(0, 8).toUpperCase() ||
           "FILE";
-    const captionLabel = documentFolderLabel || "Documents";
+    const captionLabel = documentFolderLabel || t("cards.documents", "Documents");
     const updatedLabel = showLastUpdated
-      ? `Updated ${timeAgo(ver.updatedAt)}`
+      ? t("cards.updated", "Updated {{when}}", { when: timeAgoLocalized(ver.updatedAt, activeLocale) })
       : null;
 
     return (
@@ -432,7 +447,7 @@ export default function DocumentCard({
           onClick={handleDocumentClick}
           className="absolute inset-0 z-0 cursor-pointer"
           disabled={isProcessing}
-          aria-label={`Open document ${document.name}`}
+          aria-label={t("cards.openDocument", "Open document {{name}}", { name: document.name })}
         />
         <div className="pointer-events-none relative z-[1] flex flex-col gap-2 md:hidden">
           <div className="flex items-start justify-between gap-3 pl-7">
@@ -475,7 +490,7 @@ export default function DocumentCard({
               {displayNameNode}
               {isProcessing ? (
                 <span className="ml-2 text-xs font-normal text-[var(--viewer-muted-text)]">
-                  (Processing…)
+                  {t("cards.processing", "(Processing...)")}
                 </span>
               ) : null}
             </h2>
@@ -536,7 +551,7 @@ export default function DocumentCard({
               {displayNameNode}
               {isProcessing && (
                 <span className="ml-2 text-xs text-[var(--viewer-muted-text)]">
-                  (Processing...)
+                  {t("cards.processing", "(Processing...)")}
                 </span>
               )}
             </h2>
@@ -544,7 +559,12 @@ export default function DocumentCard({
           {showLastUpdated && (
             <div className="mt-1 flex items-center space-x-1 text-xs leading-5 text-[var(--viewer-muted-text)]">
               <p className="truncate">
-                Updated {timeAgo(document.versions[0].updatedAt)}
+                {t("cards.updated", "Updated {{when}}", {
+                  when: timeAgoLocalized(
+                    document.versions[0].updatedAt,
+                    activeLocale,
+                  ),
+                })}
               </p>
             </div>
           )}

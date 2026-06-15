@@ -106,6 +106,10 @@ model Brand {
   linkPreviewImage         String?
   linkPreviewFavicon       String?
 
+  // Visitor-side language (i18n) settings — applies to the access form and
+  // document viewer chrome shown to people who open a shared link.
+  defaultLanguage String @default("en") // BCP-47 tag from SUPPORTED_LOCALES; admin-chosen viewer language
+
   teamId String @unique
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 

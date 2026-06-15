@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "Home",
+    "viewQA": "View Q&A",
+    "linksOnPage": "Links on Page",
+    "linksOnCurrentPage": "Links on current page",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fullscreen": "Fullscreen",
+    "downloadDocument": "Download document",
+    "teamMemberTooltip": "Skipped verification because you are a team member; no analytics will be collected",
+    "changeLanguage": "Change language"
+  },
+  "toasts": {
+    "preparingDownload": "Preparing download...",
+    "preparingDownloadWatermark": "Preparing download with watermark...",
+    "downloadSuccess": "File downloaded successfully",
+    "downloadFailed": "Failed to download file",
+    "cannotDownloadPreview": "You cannot download documents in preview mode."
+  },
+  "downloadOnly": {
+    "title": "Download Document",
+    "description": "This document is available for download only",
+    "button": "Download Now"
+  },
+  "awayPoster": {
+    "title": "We paused to protect your session",
+    "description": "You were inactive since {{duration}}, so we paused the document preview to keep session safe.",
+    "ariaTitle": "Auto-paused session notification",
+    "ariaDescription": "Your session was paused due to inactivity. Click continue or move your mouse to resume.",
+    "badge": "Auto-paused",
+    "idleFor": "{{duration}} idle",
+    "minSec": "{{minutes}}min {{seconds}}sec",
+    "minOnly": "{{minutes}}min",
+    "secOnly": "{{seconds}}sec",
+    "resume": "Continue where you left off",
+    "moveHint": "Or just move your mouse or press any key to continue"
+  },
+  "poweredBy": {
+    "shareDocsVia": "Share docs via"
+  },
+  "report": {
+    "trigger": "Report abuse",
+    "title": "Report an issue",
+    "description": "See something inappropriate? We will take a look and, when appropriate, take action.",
+    "submit": "Submit Report",
+    "successToast": "Report submitted successfully",
+    "selectTypeError": "Please select an abuse type.",
+    "types": {
+      "spam": "Spam, Fraud, or Scam",
+      "malware": "Malware or virus",
+      "copyright": "Copyright violation",
+      "harmful": "Harmful content",
+      "notWorking": "Content is not working properly",
+      "other": "Other"
+    }
+  }
+}

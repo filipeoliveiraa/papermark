@@ -14,6 +14,10 @@ import z from "zod";
 
 import { fetchLinkDataById } from "@/lib/api/links/link-data";
 import { getFeatureFlags } from "@/lib/featureFlags";
+import {
+  buildViewerI18nPageProps,
+  type ViewerI18nPageProps,
+} from "@/lib/i18n/viewer-page-props";
 import notion from "@/lib/notion";
 import {
   addSignedUrls,
@@ -31,6 +35,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import CustomMetaTag from "@/components/view/custom-metatag";
 import DataroomView from "@/components/view/dataroom/dataroom-view";
 import DocumentView from "@/components/view/document-view";
+import { ViewerI18nProvider } from "@/components/view/viewer-i18n-provider";
 
 type DocumentLinkData = {
   linkType: "DOCUMENT_LINK";
@@ -50,7 +55,7 @@ type WorkflowLinkData = {
   brand: Brand | null;
 };
 
-export interface ViewPageProps {
+export interface ViewPageProps extends Partial<ViewerI18nPageProps> {
   frozen?: boolean;
   linkData: DocumentLinkData | DataroomLinkData | WorkflowLinkData;
   notionData: {
@@ -109,6 +114,11 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
       };
     }
 
+    // Pre-resolve viewer i18n props (default locale + bundles) so every
+    // return path below ships them. Brand may be null for workflow links —
+    // helper falls back to English in that case.
+    const i18nProps = await buildViewerI18nPageProps(brand as any);
+
     // Handle workflow links - minimal props needed
     if (linkType === "WORKFLOW_LINK") {
       return {
@@ -136,6 +146,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
           useAdvancedExcelViewer: false,
           useCustomAccessForm: false,
           logoOnAccessForm: false,
+          ...i18nProps,
         },
         revalidate: 60,
       };
@@ -235,6 +246,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
             teamId === "clup33by90000oewh4rfvp2eg",
           annotationsEnabled,
           textSelectionEnabled,
+          ...i18nProps,
         },
         revalidate: brand || recordMap ? 10 : 60,
       };
@@ -322,6 +334,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
           dataroomIndexEnabled,
           annotationsEnabled,
           textSelectionEnabled,
+          ...i18nProps,
         },
         revalidate: 10,
       };
@@ -340,7 +353,7 @@ export async function getStaticPaths() {
   };
 }
 
-export default function ViewPage({
+function ViewPageInner({
   frozen,
   linkData,
   notionData,
@@ -597,4 +610,18 @@ export default function ViewPage({
       </>
     );
   }
+}
+
+export default function ViewPage(
+  props: ViewPageProps & { error?: boolean; notionError?: boolean },
+) {
+  // Fall back to English when `getStaticProps` hit an early-exit branch
+  // (frozen / error / notionError) and never produced i18n props.
+  const locale = props.i18n?.locale ?? "en";
+  const resources = props.i18n?.resources ?? {};
+  return (
+    <ViewerI18nProvider locale={locale} resources={resources}>
+      <ViewPageInner {...props} />
+    </ViewerI18nProvider>
+  );
 }

@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction, useState } from "react";
 import type { CSSProperties } from "react";
 
 import { Brand, DataroomBrand } from "@prisma/client";
+import { useTranslation } from "react-i18next";
 
 import Eye from "@/components/shared/icons/eye";
 import EyeOff from "@/components/shared/icons/eye-off";
@@ -20,6 +21,7 @@ export default function PasswordSection({
 }) {
   const { password } = data;
   const theme = useAccessFormTheme();
+  const { t } = useTranslation("access-form");
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
   return (
@@ -29,7 +31,7 @@ export default function PasswordSection({
         className="block text-sm font-medium leading-6 text-white"
         style={{ color: theme.textColor }}
       >
-        Passcode
+        {t("fields.password.label", "Passcode")}
       </label>
       <div className="relative">
         <input
@@ -48,7 +50,7 @@ export default function PasswordSection({
             color: theme.textColor,
           } as CSSProperties}
           value={password || ""}
-          placeholder="Enter passcode"
+          placeholder={t("fields.password.placeholder", "Enter passcode")}
           onChange={(e) => {
             setData({ ...data, password: e.target.value });
           }}
