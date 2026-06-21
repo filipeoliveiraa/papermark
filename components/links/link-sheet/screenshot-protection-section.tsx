@@ -39,7 +39,7 @@ export default function ScreenshotProtectionSection({
   return (
     <div className="pb-5">
       <LinkItem
-        title="Enable screenshot protection"
+        title="Screenshot protection"
         tooltipContent="Prevent users from taking screenshots of your content."
         link="https://www.papermark.com/screenshot-protection"
         enabled={enabled}

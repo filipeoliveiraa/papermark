@@ -29,6 +29,7 @@ import { cn, convertDataUrlToFile, uploadImage } from "@/lib/utils";
 
 import { UpgradePlanModal } from "@/components/billing/upgrade-plan-modal";
 import { BannerEditor } from "@/ee/features/branding/components/banner-editor";
+import { BrandingPreviewFrame } from "@/ee/features/branding/components/branding-preview-frame";
 import { BrandingLinkPreviewForm } from "@/ee/features/branding/components/branding-link-preview-form";
 import { CollapsibleBrandingSection } from "@/ee/features/branding/components/collapsible-branding-section";
 import { DataroomLayoutPresetCards } from "@/ee/features/branding/components/dataroom-layout-preset-cards";
@@ -1722,18 +1723,18 @@ export default function Branding() {
                         </div>
                         <div className="relative min-h-0 flex-1 overflow-x-auto">
                           <div className="relative h-full max-w-[1396px]">
-                            <iframe
-                              key={`document-view-${debouncedBrandColor}-${debouncedAccentColor}-${debouncedAccentButtonColor}-${previewCtaLabel}-${previewCtaUrl}`}
+                            <BrandingPreviewFrame
                               name="document-view"
-                              id="document-view"
-                              src={`/nav_ppreview_demo?brandColor=${encodeURIComponent(debouncedBrandColor)}&accentColor=${encodeURIComponent(debouncedAccentColor)}&brandLogo=${blobUrl ? encodeURIComponent(blobUrl) : logo ? encodeURIComponent(logo) : ""}&accentButtonColor=${encodeURIComponent(debouncedAccentButtonColor)}&ctaLabel=${encodeURIComponent(previewCtaLabel)}&ctaUrl=${encodeURIComponent(previewCtaUrl)}`}
-                              className="absolute left-0 top-0 h-full w-full origin-top-left scale-50 overflow-hidden rounded-b-lg border-0 bg-white"
-                              style={{
-                                width: "200%",
-                                height: "200%",
-                                pointerEvents: "none",
+                              basePath="/nav_ppreview_demo"
+                              params={{
+                                brandColor: debouncedBrandColor,
+                                accentColor: debouncedAccentColor,
+                                brandLogo: blobUrl || logo || "",
+                                accentButtonColor: debouncedAccentButtonColor,
+                                ctaLabel: previewCtaLabel,
+                                ctaUrl: previewCtaUrl,
                               }}
-                            ></iframe>
+                            />
                           </div>
                         </div>
                       </div>
@@ -1790,16 +1791,28 @@ export default function Branding() {
                           </div>
                           <div className="relative min-h-0 flex-1 overflow-x-auto">
                             <div className="relative h-full max-w-[1396px]">
-                              <iframe
-                                key={`dataroom-view-${debouncedBrandColor}-${debouncedAccentColor}-${debouncedAccentButtonColor}-${banner}-${applyAccentColorToDataroomView}-${previewCtaLabel}-${previewCtaUrl}-${cardLayout}-${showFolderTree}-${viewerHeaderStyle}-${hideFolderIconsInMain}`}
+                              <BrandingPreviewFrame
                                 name="dataroom-view"
-                                id="dataroom-view"
-                                src={`/room_ppreview_demo?brandColor=${encodeURIComponent(debouncedBrandColor)}&accentColor=${encodeURIComponent(debouncedAccentColor)}&applyAccentColorToDataroomView=${applyAccentColorToDataroomView ? "1" : "0"}&brandLogo=${blobUrl ? encodeURIComponent(blobUrl) : logo ? encodeURIComponent(logo) : ""}&brandBanner=${banner === "no-banner" ? encodeURIComponent("no-banner") : bannerBlobUrl ? encodeURIComponent(bannerBlobUrl) : banner ? encodeURIComponent(banner) : ""}&accentButtonColor=${encodeURIComponent(debouncedAccentButtonColor)}&ctaLabel=${encodeURIComponent(previewCtaLabel)}&ctaUrl=${encodeURIComponent(previewCtaUrl)}&cardLayout=${encodeURIComponent(cardLayout)}&showFolderTree=${showFolderTree ? "1" : "0"}&viewerHeaderStyle=${encodeURIComponent(viewerHeaderStyle)}&hideFolderIconsInMain=${hideFolderIconsInMain ? "1" : "0"}`}
-                                className="absolute left-0 top-0 h-full w-full origin-top-left scale-50 overflow-hidden rounded-b-lg border-0 bg-white"
-                                style={{
-                                  width: "200%",
-                                  height: "200%",
-                                  pointerEvents: "none",
+                                basePath="/room_ppreview_demo"
+                                params={{
+                                  brandColor: debouncedBrandColor,
+                                  accentColor: debouncedAccentColor,
+                                  applyAccentColorToDataroomView:
+                                    applyAccentColorToDataroomView ? "1" : "0",
+                                  brandLogo: blobUrl || logo || "",
+                                  brandBanner:
+                                    banner === "no-banner"
+                                      ? "no-banner"
+                                      : bannerBlobUrl || banner || "",
+                                  accentButtonColor: debouncedAccentButtonColor,
+                                  ctaLabel: previewCtaLabel,
+                                  ctaUrl: previewCtaUrl,
+                                  cardLayout,
+                                  showFolderTree: showFolderTree ? "1" : "0",
+                                  viewerHeaderStyle,
+                                  hideFolderIconsInMain: hideFolderIconsInMain
+                                    ? "1"
+                                    : "0",
                                 }}
                               />
                             </div>
@@ -1858,18 +1871,16 @@ export default function Branding() {
                         </div>
                         <div className="relative min-h-0 flex-1 overflow-x-auto">
                           <div className="relative h-full max-w-[1396px]">
-                            <iframe
-                              key={`access-screen-${debouncedBrandColor}-${debouncedAccentColor}-${previewWelcomeMessage}`}
+                            <BrandingPreviewFrame
                               name="access-screen"
-                              id="access-screen"
-                              src={`/entrance_ppreview_demo?brandColor=${encodeURIComponent(debouncedBrandColor)}&accentColor=${encodeURIComponent(debouncedAccentColor)}&brandLogo=${blobUrl ? encodeURIComponent(blobUrl) : logo ? encodeURIComponent(logo) : ""}&welcomeMessage=${encodeURIComponent(previewWelcomeMessage)}`}
-                              className="absolute left-0 top-0 h-full w-full origin-top-left scale-50 overflow-hidden rounded-b-lg border-0 bg-white"
-                              style={{
-                                width: "200%",
-                                height: "200%",
-                                pointerEvents: "none",
+                              basePath="/entrance_ppreview_demo"
+                              params={{
+                                brandColor: debouncedBrandColor,
+                                accentColor: debouncedAccentColor,
+                                brandLogo: blobUrl || logo || "",
+                                welcomeMessage: previewWelcomeMessage,
                               }}
-                            ></iframe>
+                            />
                           </div>
                         </div>
                       </div>

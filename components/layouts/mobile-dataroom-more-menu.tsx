@@ -191,7 +191,7 @@ export function MobileDataroomMoreMenu({
                     >
                       <span className="flex items-center gap-2">
                         <LinkIcon className="h-4 w-4 shrink-0" />
-                        Links
+                        Access links
                       </span>
                     </Link>
                     <Link

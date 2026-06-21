@@ -34,7 +34,6 @@ import {
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { mutate } from "swr";
-import z from "zod";
 
 import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { usePlan } from "@/lib/swr/use-billing";
@@ -91,7 +90,6 @@ import LinkSheet, {
   type DEFAULT_LINK_TYPE,
 } from "./link-sheet";
 import { DataroomLinkSheet } from "./link-sheet/dataroom-link-sheet";
-import { PermissionsSheet } from "./link-sheet/permissions-sheet";
 import { TagColumn } from "./link-sheet/tags/tag-details";
 import LinksVisitors from "./links-visitors";
 
@@ -370,10 +368,10 @@ export default function LinksTable({
   const [popoverOpen, setPopoverOpen] = useState<string | null>(null);
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const [showPermissionsSheet, setShowPermissionsSheet] =
+  // When true, the dataroom link sheet opens straight into the file
+  // permissions panel (triggered from the "Edit file permissions" action).
+  const [openLinkSheetToFiles, setOpenLinkSheetToFiles] =
     useState<boolean>(false);
-  const [editPermissionLink, setEditPermissionLink] =
-    useState<LinkWithViews | null>(null);
 
   const [linkToDelete, setLinkToDelete] = useState<LinkWithViews | null>(null);
   const { setShowDeleteLinkModal, DeleteLinkModal } = useDeleteLinkModal({
@@ -407,66 +405,69 @@ export default function LinksTable({
     copyToClipboard(`${linkString}`, "Link copied to clipboard.");
   };
 
+  const buildLinkFormData = (link: LinkWithViews): DEFAULT_LINK_TYPE => ({
+    id: link.id,
+    name: link.name || `Link #${link.id.slice(-5)}`,
+    domain: link.domainSlug,
+    slug: link.slug,
+    expiresAt: link.expiresAt,
+    password: link.password,
+    emailProtected: link.emailProtected,
+    emailAuthenticated: link.emailAuthenticated,
+    allowDownload: link.allowDownload ? link.allowDownload : false,
+    allowList: link.allowList,
+    denyList: link.denyList,
+    visitorGroupIds:
+      link.visitorGroups?.map(
+        (vg: { visitorGroupId: string }) => vg.visitorGroupId,
+      ) || [],
+    enableNotification: link.enableNotification
+      ? link.enableNotification
+      : false,
+    enableFeedback: link.enableFeedback ? link.enableFeedback : false,
+    enableScreenshotProtection: link.enableScreenshotProtection
+      ? link.enableScreenshotProtection
+      : false,
+    enableConfidentialView: link.enableConfidentialView
+      ? link.enableConfidentialView
+      : false,
+    enableCustomMetatag: link.enableCustomMetatag
+      ? link.enableCustomMetatag
+      : false,
+    enableQuestion: link.enableQuestion ? link.enableQuestion : false,
+    questionText: link.feedback ? link.feedback.data?.question : "",
+    questionType: link.feedback ? link.feedback.data?.type : "",
+    metaTitle: link.metaTitle,
+    metaDescription: link.metaDescription,
+    metaImage: link.metaImage,
+    metaFavicon: link.metaFavicon,
+    enableAgreement: link.enableAgreement ? link.enableAgreement : false,
+    agreementId: link.agreementId,
+    showBanner: link.showBanner ?? false,
+    enableWatermark: link.enableWatermark ?? false,
+    watermarkConfig: link.watermarkConfig as WatermarkConfig | null,
+    audienceType: link.audienceType,
+    groupId: link.groupId,
+    customFields: link.customFields || [],
+    tags: link.tags.map((tag) => tag.id) || [],
+    enableConversation: link.enableConversation ?? false,
+    enableUpload: link.enableUpload ?? false,
+    isFileRequestOnly: link.isFileRequestOnly ?? false,
+    uploadFolderIds: Array.isArray(link.uploadFolderIds)
+      ? link.uploadFolderIds
+      : [],
+    uploadFolders: Array.isArray(link.uploadFolders)
+      ? link.uploadFolders
+      : [],
+    enableIndexFile: link.enableIndexFile ?? false,
+    permissionGroupId: link.permissionGroupId ?? null,
+    welcomeMessage: link.welcomeMessage ?? null,
+    enableAIAgents: link.enableAIAgents ?? false,
+  });
+
   const handleEditLink = (link: LinkWithViews) => {
-    setSelectedLink({
-      id: link.id,
-      name: link.name || `Link #${link.id.slice(-5)}`,
-      domain: link.domainSlug,
-      slug: link.slug,
-      expiresAt: link.expiresAt,
-      password: link.password,
-      emailProtected: link.emailProtected,
-      emailAuthenticated: link.emailAuthenticated,
-      allowDownload: link.allowDownload ? link.allowDownload : false,
-      allowList: link.allowList,
-      denyList: link.denyList,
-      visitorGroupIds:
-        link.visitorGroups?.map(
-          (vg: { visitorGroupId: string }) => vg.visitorGroupId,
-        ) || [],
-      enableNotification: link.enableNotification
-        ? link.enableNotification
-        : false,
-      enableFeedback: link.enableFeedback ? link.enableFeedback : false,
-      enableScreenshotProtection: link.enableScreenshotProtection
-        ? link.enableScreenshotProtection
-        : false,
-      enableConfidentialView: link.enableConfidentialView
-        ? link.enableConfidentialView
-        : false,
-      enableCustomMetatag: link.enableCustomMetatag
-        ? link.enableCustomMetatag
-        : false,
-      enableQuestion: link.enableQuestion ? link.enableQuestion : false,
-      questionText: link.feedback ? link.feedback.data?.question : "",
-      questionType: link.feedback ? link.feedback.data?.type : "",
-      metaTitle: link.metaTitle,
-      metaDescription: link.metaDescription,
-      metaImage: link.metaImage,
-      metaFavicon: link.metaFavicon,
-      enableAgreement: link.enableAgreement ? link.enableAgreement : false,
-      agreementId: link.agreementId,
-      showBanner: link.showBanner ?? false,
-      enableWatermark: link.enableWatermark ?? false,
-      watermarkConfig: link.watermarkConfig as WatermarkConfig | null,
-      audienceType: link.audienceType,
-      groupId: link.groupId,
-      customFields: link.customFields || [],
-      tags: link.tags.map((tag) => tag.id) || [],
-      enableConversation: link.enableConversation ?? false,
-      enableUpload: link.enableUpload ?? false,
-      isFileRequestOnly: link.isFileRequestOnly ?? false,
-      uploadFolderIds: Array.isArray(link.uploadFolderIds)
-        ? link.uploadFolderIds
-        : [],
-      uploadFolders: Array.isArray(link.uploadFolders)
-        ? link.uploadFolders
-        : [],
-      enableIndexFile: link.enableIndexFile ?? false,
-      permissionGroupId: link.permissionGroupId ?? null,
-      welcomeMessage: link.welcomeMessage ?? null,
-      enableAIAgents: link.enableAIAgents ?? false,
-    });
+    setOpenLinkSheetToFiles(false);
+    setSelectedLink(buildLinkFormData(link));
     //wait for dropdown to close before opening the link sheet
     setTimeout(() => {
       setIsLinkSheetVisible(true);
@@ -569,171 +570,14 @@ export default function LinksTable({
   };
 
   const handleEditPermissions = (link: LinkWithViews) => {
-    setEditPermissionLink(link);
-    setShowPermissionsSheet(true);
-  };
-
-  const handlePermissionsSave = async (permissions: any) => {
-    if (!editPermissionLink) return;
-
-    // Handle the case where user wants to share entire dataroom (permissions === null)
-    if (permissions === null && editPermissionLink.permissionGroupId) {
-      // Delete the permission group - database will set permissionGroupId to null automatically
-      try {
-        const teamIdParsed = z.string().cuid().parse(currentTeamId);
-        const targetIdParsed = z.string().cuid().parse(targetId);
-        const permissionGroupIdParsed = z
-          .string()
-          .cuid()
-          .parse(editPermissionLink.permissionGroupId);
-
-        const deleteResponse = await fetch(
-          `/api/teams/${teamIdParsed}/datarooms/${targetIdParsed}/permission-groups/${permissionGroupIdParsed}`,
-          {
-            method: "DELETE",
-          },
-        );
-
-        if (!deleteResponse.ok) {
-          const { error } = await deleteResponse.json();
-          throw new Error(error ?? "Failed to delete permission group");
-        }
-
-        // Refresh the links cache
-        const endpointTargetType = `${targetType.toLowerCase()}s`;
-        mutate(
-          `/api/teams/${teamIdParsed}/${endpointTargetType}/${encodeURIComponent(
-            targetIdParsed,
-          )}/links`,
-          (currentLinks: LinkWithViews[] | undefined) =>
-            (currentLinks || []).map((link: LinkWithViews) =>
-              link.id === editPermissionLink.id
-                ? { ...link, permissionGroupId: null }
-                : link,
-            ),
-          false,
-        );
-
-        // Invalidate the permission group cache
-        mutate(
-          `/api/teams/${teamIdParsed}/datarooms/${targetIdParsed}/permission-groups/${permissionGroupIdParsed}`,
-        );
-
-        setShowPermissionsSheet(false);
-        setEditPermissionLink(null);
-        toast.success("File permissions updated successfully");
-      } catch (error) {
-        console.error("Error updating file permissions:", error);
-        toast.error("Failed to update file permissions");
-      }
-      return;
-    }
-
-    if (!editPermissionLink.permissionGroupId) {
-      setIsLoading(true);
-      try {
-        const teamIdParsed = z.string().cuid().parse(currentTeamId);
-        const targetIdParsed = z.string().cuid().parse(targetId);
-        const response = await fetch(
-          `/api/teams/${teamIdParsed}/datarooms/${targetIdParsed}/permission-groups`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              permissions: permissions,
-              linkId: editPermissionLink.id,
-            }),
-          },
-        );
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to create permission group");
-        }
-
-        const { permissionGroup: newPermissionGroup, _ } =
-          await response.json();
-
-        // Refresh the links cache
-        const endpointTargetType = `${targetType.toLowerCase()}s`;
-        mutate(
-          `/api/teams/${currentTeamId}/${endpointTargetType}/${encodeURIComponent(
-            targetId,
-          )}/links`,
-        );
-
-        // Cache the new permission group data
-        if (newPermissionGroup?.id) {
-          mutate(
-            `/api/teams/${currentTeamId}/datarooms/${targetId}/permission-groups/${newPermissionGroup.id}`,
-            newPermissionGroup,
-            false,
-          );
-        }
-
-        setShowPermissionsSheet(false);
-        setEditPermissionLink(null);
-        toast.success("File permissions updated successfully");
-      } catch (error) {
-        console.error("Error creating permission group:", error);
-        toast.error("Failed to create permission group");
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      try {
-        // Update the permissions for the existing link
-        const teamIdParsed = z.string().cuid().parse(currentTeamId);
-        const targetIdParsed = z.string().cuid().parse(targetId);
-        const permissionGroupIdParsed = z
-          .string()
-          .cuid()
-          .parse(editPermissionLink.permissionGroupId);
-
-        const res = await fetch(
-          `/api/teams/${teamIdParsed}/datarooms/${targetIdParsed}/permission-groups/${permissionGroupIdParsed}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              permissions: permissions,
-              linkId: editPermissionLink.id,
-            }),
-          },
-        );
-
-        if (!res.ok) {
-          const { error } = await res.json();
-          throw new Error(error ?? "Failed to update permissions");
-        }
-
-        // Refresh the links cache
-        const endpointTargetType = `${targetType.toLowerCase()}s`;
-        mutate(
-          `/api/teams/${currentTeamId}/${endpointTargetType}/${encodeURIComponent(
-            targetId,
-          )}/links`,
-        );
-
-        // Invalidate the permission group cache
-        if (editPermissionLink.permissionGroupId) {
-          mutate(
-            `/api/teams/${currentTeamId}/datarooms/${targetId}/permission-groups/${editPermissionLink.permissionGroupId}`,
-          );
-        }
-
-        setShowPermissionsSheet(false);
-        setEditPermissionLink(null);
-        toast.success("File permissions updated successfully");
-      } catch (error) {
-        console.error("Error updating file permissions:", error);
-        toast.error("Failed to update file permissions");
-      }
-    }
+    // Open the link sheet directly on the file permissions panel so editing
+    // file access happens in the same place as creating a link.
+    setOpenLinkSheetToFiles(true);
+    setSelectedLink(buildLinkFormData(link));
+    //wait for dropdown to close before opening the link sheet
+    setTimeout(() => {
+      setIsLinkSheetVisible(true);
+    }, 0);
   };
 
   const AddLinkButton = () => {
@@ -1192,7 +1036,6 @@ export default function LinksTable({
                             link.audienceType !== LinkAudienceType.GROUP && (
                               <DropdownMenuItem
                                 onClick={() => handleEditPermissions(link)}
-                                disabled={isLoading}
                               >
                                 <FileSlidersIcon className="mr-2 h-4 w-4" />
                                 Edit File Permissions
@@ -1335,26 +1178,19 @@ export default function LinksTable({
           <>
             <DataroomLinkSheet
               isOpen={isLinkSheetVisible}
-              setIsOpen={setIsLinkSheetVisible}
+              setIsOpen={(open: boolean) => {
+                setIsLinkSheetVisible(open);
+                if (!open) {
+                  setOpenLinkSheetToFiles(false);
+                }
+              }}
               linkType={`${targetType}_LINK`}
               currentLink={selectedLink.id ? selectedLink : undefined}
               existingLinks={links}
               linkTargetId={targetId}
+              initialView={openLinkSheetToFiles ? "files" : undefined}
             />
 
-            <PermissionsSheet
-              isOpen={showPermissionsSheet}
-              setIsOpen={(open: boolean) => {
-                setShowPermissionsSheet(open);
-                if (!open) {
-                  setEditPermissionLink(null);
-                }
-              }}
-              dataroomId={targetId}
-              linkId={editPermissionLink?.id}
-              permissionGroupId={editPermissionLink?.permissionGroupId}
-              onSave={handlePermissionsSave}
-            />
             {inviteLink ? (
               <InviteViewersModal
                 open={isInviteModalOpen}

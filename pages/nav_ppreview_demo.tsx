@@ -1,9 +1,10 @@
-import { useRouter } from "next/router";
-
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
+import { useBrandingPreviewParams } from "@/ee/features/branding/lib/use-branding-preview-params";
+
 export default function ViewPage() {
-  const router = useRouter();
+  // Seeded from the URL on first paint, then live-updated over postMessage so
+  // the editor never has to reload (and therefore never flashes) this iframe.
   const {
     brandLogo,
     brandColor,
@@ -11,14 +12,7 @@ export default function ViewPage() {
     accentButtonColor,
     ctaLabel,
     ctaUrl,
-  } = router.query as {
-    brandLogo: string;
-    brandColor: string;
-    accentColor: string;
-    accentButtonColor?: string;
-    ctaLabel?: string;
-    ctaUrl?: string;
-  };
+  } = useBrandingPreviewParams();
 
   const safeCtaUrl = (() => {
     if (!ctaUrl) return null;

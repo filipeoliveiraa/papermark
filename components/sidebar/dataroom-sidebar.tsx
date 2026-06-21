@@ -182,7 +182,7 @@ export function DataroomSidebarContent() {
       segments: ["permissions", "groups"],
       items: [
         {
-          title: "Links",
+          title: "Access links",
           href: `/datarooms/${dataroomId}/permissions`,
           icon: LinkIcon,
         },

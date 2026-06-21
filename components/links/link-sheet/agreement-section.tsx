@@ -125,7 +125,7 @@ export default function AgreementSection({
   return (
     <div className="pb-5">
       <LinkItem
-        title="Require NDA to view"
+        title="NDA agreement"
         link="https://www.papermark.com/help/article/require-nda-to-view"
         tooltipContent="Users must acknowledge an agreement to access the content."
         enabled={enabled}
