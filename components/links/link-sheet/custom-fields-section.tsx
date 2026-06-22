@@ -125,6 +125,7 @@ export default function CustomFieldsSection({
               ))}
             </div>
             <Button
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
