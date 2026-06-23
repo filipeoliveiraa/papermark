@@ -153,6 +153,7 @@ export async function POST(request: NextRequest) {
           id: true,
           documentId: true,
           dataroomId: true,
+          dataroomViewId: true,
           linkId: true,
           viewedAt: true,
           viewerId: true,
@@ -205,15 +206,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Bind the requested viewId to the caller's session. Cross-view
-      // access (re-opening a doc within the same dataroom session creates
-      // a new DOCUMENT_VIEW row) requires both viewerIds to be defined and
-      // equal — anonymous views must match by viewId only.
+      // A DOCUMENT_VIEW's `dataroomViewId` points to the session's
+      // DATAROOM_VIEW (`session.viewId`); viewer-id match is a legacy fallback.
+      const belongsToSessionView =
+        session.viewId === view.id ||
+        (!!view.dataroomViewId && view.dataroomViewId === session.viewId);
       const sameViewer =
         !!session.viewerId &&
         !!view.viewerId &&
         session.viewerId === view.viewerId;
-      if (session.viewId !== view.id && !sameViewer) {
+      if (!belongsToSessionView && !sameViewer) {
         return NextResponse.json(
           { message: "Unauthorized access." },
           { status: 403 },
