@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 import { useTeam } from "@/context/team-context";
@@ -37,21 +37,58 @@ export function AddTeamMembers({
   open,
   setOpen,
   children,
+  defaultRole = "MEMBER",
+  defaultDataroomIds,
+  currentDataroomId,
+  redirectToPeople = true,
+  onInvited,
 }: {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   children?: React.ReactNode;
+  /** Preselect a role (still editable). Defaults to "MEMBER". */
+  defaultRole?: InviteRole;
+  /** Preselect data rooms for a DATAROOM_MEMBER invite (still editable). */
+  defaultDataroomIds?: string[];
+  /** The data room the modal was opened from. It's pinned to the top of the list with a "This data room" hint. */
+  currentDataroomId?: string;
+  /** Redirect to /settings/people after a successful invite. Defaults to true. */
+  redirectToPeople?: boolean;
+  /** Called after a successful invite (e.g. to revalidate a scoped list). */
+  onInvited?: () => void;
 }) {
   const [email, setEmail] = useState<string>("");
-  const [role, setRole] = useState<InviteRole>("MEMBER");
-  const [selectedDataroomIds, setSelectedDataroomIds] = useState<string[]>([]);
+  const [role, setRole] = useState<InviteRole>(defaultRole);
+  const [selectedDataroomIds, setSelectedDataroomIds] = useState<string[]>(
+    defaultDataroomIds ?? [],
+  );
   const [loading, setLoading] = useState<boolean>(false);
   const teamInfo = useTeam();
   const teamId = teamInfo?.currentTeam?.id;
   const analytics = useAnalytics();
   const router = useRouter();
   const { datarooms } = useDataroomsSimple();
-  const { isDatarooms } = usePlan();
+  const { isDatarooms, isTrial } = usePlan();
+
+  // Pin the data room the modal was opened from to the top of the list.
+  const orderedDatarooms = useMemo(() => {
+    if (!datarooms) return datarooms;
+    if (!currentDataroomId) return datarooms;
+    const current = datarooms.find((d) => d.id === currentDataroomId);
+    if (!current) return datarooms;
+    return [current, ...datarooms.filter((d) => d.id !== currentDataroomId)];
+  }, [datarooms, currentDataroomId]);
+
+  // Reset to the preselected values each time the modal opens so the data-room
+  // context (role + room) is applied, while staying editable by the user.
+  useEffect(() => {
+    if (open) {
+      setEmail("");
+      setRole(defaultRole);
+      setSelectedDataroomIds(defaultDataroomIds ?? []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const toggleDataroom = (id: string) => {
     setSelectedDataroomIds((prev) =>
@@ -112,14 +149,18 @@ export function AddTeamMembers({
     toast.success("An invitation email has been sent!");
     setOpen(false);
     setLoading(false);
-    
-    // Redirect to team members page
-    router.push("/settings/people");
+
+    onInvited?.();
+
+    // Redirect to the team members page (skipped when invoked from a data room).
+    if (redirectToPeople) {
+      router.push("/settings/people");
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader className="text-start">
           <DialogTitle>Add Member</DialogTitle>
@@ -157,9 +198,9 @@ export function AddTeamMembers({
                 <SelectItem value="MEMBER">Member</SelectItem>
                 <SelectItem
                   value="DATAROOM_MEMBER"
-                  disabled={!isDatarooms}
+                  disabled={!isDatarooms && !isTrial}
                   trailingContent={
-                    !isDatarooms ? (
+                    !isDatarooms && !isTrial ? (
                       <span className="ml-auto pl-3 text-xs text-muted-foreground">
                         Data Rooms plan
                       </span>
@@ -181,8 +222,8 @@ export function AddTeamMembers({
                 </p>
               </div>
               <div className="max-h-44 space-y-0.5 overflow-y-auto rounded-md border p-1">
-                {datarooms && datarooms.length > 0 ? (
-                  datarooms.map((dataroom) => (
+                {orderedDatarooms && orderedDatarooms.length > 0 ? (
+                  orderedDatarooms.map((dataroom) => (
                     <div
                       key={dataroom.id}
                       className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
@@ -195,9 +236,16 @@ export function AddTeamMembers({
                       />
                       <label
                         htmlFor={`add-dataroom-${dataroom.id}`}
-                        className="flex-1 cursor-pointer truncate"
+                        className="flex flex-1 cursor-pointer items-center gap-2 truncate"
                       >
-                        {dataroom.internalName || dataroom.name}
+                        <span className="truncate">
+                          {dataroom.internalName || dataroom.name}
+                        </span>
+                        {dataroom.id === currentDataroomId ? (
+                          <span className="shrink-0 rounded-full border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            This data room
+                          </span>
+                        ) : null}
                       </label>
                     </div>
                   ))

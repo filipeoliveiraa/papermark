@@ -9,6 +9,7 @@ import { SessionProvider } from "next-auth/react";
 import { NuqsAdapter } from "nuqs/adapters/next/pages";
 
 import { EXCLUDED_PATHS } from "@/lib/constants";
+import { useTrackLastVisited } from "@/lib/hooks/use-last-visited";
 
 import { PostHogGroupSync } from "@/components/providers/posthog-group-sync";
 import { PostHogCustomProvider } from "@/components/providers/posthog-provider";
@@ -19,6 +20,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "@/styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
+
+function LastVisitedTracker() {
+  useTrackLastVisited();
+  return null;
+}
 
 export default function App({
   Component,
@@ -84,6 +90,7 @@ export default function App({
                   ) : (
                     <TeamProvider>
                       <PostHogGroupSync />
+                      <LastVisitedTracker />
                       <UploadProgressProvider>
                         <Component {...pageProps} />
                       </UploadProgressProvider>

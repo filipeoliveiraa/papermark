@@ -134,7 +134,19 @@ export default function UpgradePage() {
   const [period, setPeriod] = useState<"yearly" | "monthly">("yearly");
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const teamInfo = useTeam();
-  const { plan: teamPlan, trial, isCustomer, isOldAccount } = usePlan();
+  const { plan: teamPlan, trial, isTrial, isCustomer, isOldAccount } =
+    usePlan();
+
+  const canStartDataRoomTrial =
+    !isTrial && (teamPlan === "free" || teamPlan === "pro");
+
+  const handleStartDataRoomTrial = () => {
+    analytics.capture("Data Room Trial Button Clicked", {
+      source: "upgrade_page",
+      teamId: teamInfo?.currentTeam?.id,
+    });
+    router.push("/welcome?type=dataroom-trial");
+  };
   const analytics = useAnalytics();
 
   // Determine initial view based on query params or default to datarooms
@@ -165,9 +177,20 @@ export default function UpgradePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 dark:bg-gray-900">
-      <h1 className="mb-8 text-center text-3xl font-bold">
-        Select best plan for your business
-      </h1>
+      <div className="relative mb-8 flex flex-col items-center gap-3 sm:block">
+        <h1 className="text-center text-3xl font-bold">
+          Select best plan for your business
+        </h1>
+        {canStartDataRoomTrial && (
+          <Button
+            size="sm"
+            className="bg-[#fb7a00] text-white hover:bg-[#fb7a00]/90 sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2"
+            onClick={handleStartDataRoomTrial}
+          >
+            Start 7-day trial
+          </Button>
+        )}
+      </div>
 
       <div className="mb-8 flex items-center justify-center">
         <span className="mr-2 text-sm">Monthly</span>

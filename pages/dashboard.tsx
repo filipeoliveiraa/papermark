@@ -8,6 +8,7 @@ import { BarChart3, FileTextIcon, LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
+import { useEntryRedirect } from "@/lib/hooks/use-last-visited";
 import { usePlan } from "@/lib/swr/use-billing";
 import { fetcher } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ import ViewsTable from "@/components/analytics/views-table";
 import VisitorsTable from "@/components/analytics/visitors-table";
 import AppLayout from "@/components/layouts/app";
 import { TabMenu } from "@/components/tab-menu";
+import LoadingSpinner from "@/components/ui/loading-spinner";
 
 interface OverviewData {
   counts: {
@@ -44,6 +46,8 @@ export const defaultRange = {
 
 export default function DashboardPage() {
   const router = useRouter();
+  // On platform entry, route the user back to where they last were (Option 2).
+  const isRedirecting = useEntryRedirect();
   const teamInfo = useTeam();
   const { plan, trial } = usePlan();
   const slug = useRef<boolean>(false);
@@ -127,6 +131,16 @@ export default function DashboardPage() {
   const showEmptyOverlay = hasNoActivity && !hasLinks;
   const showSharePrompt = hasNoActivity && hasLinks;
 
+  if (isRedirecting) {
+    return (
+      <AppLayout>
+        <div className="flex h-[60vh] items-center justify-center">
+          <LoadingSpinner className="h-6 w-6 text-muted-foreground" />
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -162,7 +176,7 @@ export default function DashboardPage() {
                     <div className="flex flex-col items-center gap-2 text-center">
                       <LinkIcon className="h-8 w-8 text-muted-foreground" />
                       <p className="text-sm font-medium text-foreground">
-                        Share your link to see activity
+                        Share access link to see activity
                       </p>
                       <p className="text-xs text-muted-foreground">
                         

@@ -36,7 +36,7 @@ export default async function handle(
     return res.status(403).json({ error: "Unauthorized" });
   }
 
-  // Tokens require a Data Rooms plan or higher (or a Data Rooms trial), or the
+  // Tokens require a Business plan or higher (or a Data Rooms trial), or the
   // `tokens` beta feature flag enabled for the team. Only hit Edge Config for
   // the flag when the plan check fails, so paid teams skip that latency.
   const team = await prisma.team.findUnique({
@@ -45,7 +45,9 @@ export default async function handle(
   });
   const plan = team?.plan ?? "";
   let hasTokensAccess =
-    plan.includes("datarooms") || plan.includes("drtrial");
+    plan.includes("business") ||
+    plan.includes("datarooms") ||
+    plan.includes("drtrial");
   if (!hasTokensAccess) {
     const features = await getFeatureFlags({ teamId });
     hasTokensAccess = Boolean(features.tokens);
@@ -53,7 +55,7 @@ export default async function handle(
   if (!hasTokensAccess) {
     return res
       .status(403)
-      .json({ error: "This feature requires a Data Rooms plan or higher." });
+      .json({ error: "This feature requires a Business plan or higher." });
   }
 
   if (req.method === "GET") {

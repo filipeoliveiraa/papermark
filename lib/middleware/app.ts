@@ -70,7 +70,9 @@ export default async function AppMiddleware(req: NextRequest) {
       // action link identifies the link and visitor email). Preserve the full
       // search string for those so it survives the login round-trip.
       const preserveSearch =
-        path === "/auth/confirm-email-change" || path.startsWith("/access/");
+        path === "/auth/confirm-email-change" ||
+        path === "/welcome" ||
+        path.startsWith("/access/");
       const nextPath = preserveSearch ? `${path}${url.search}` : path;
 
       loginUrl.searchParams.set("next", nextPath);

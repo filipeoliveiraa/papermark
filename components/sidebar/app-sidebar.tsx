@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/router";
 
 import * as React from "react";
@@ -49,13 +50,8 @@ export function AppSidebarContent() {
   const [showSlackBanner, setShowSlackBanner] = useState<boolean | null>(null);
   const { currentTeam, teams, setCurrentTeam, isLoading }: TeamContextType =
     useTeam() || initialState;
-  const {
-    isBusiness,
-    isDatarooms,
-    isDataroomsPlus,
-    isFree,
-    isTrial,
-  } = usePlan();
+  const { isBusiness, isDatarooms, isDataroomsPlus, isFree, isTrial } =
+    usePlan();
 
   const { limits } = useLimits();
   const linksLimit = limits?.links;
@@ -196,14 +192,19 @@ export function AppSidebarContent() {
             current: router.pathname.includes("settings/notifications"),
           },
           {
+            title: "Slack",
+            url: "/settings/slack",
+            current: router.pathname.includes("settings/slack"),
+          },
+          {
             title: "Webhooks",
             url: "/settings/webhooks",
             current: router.pathname.includes("settings/webhooks"),
           },
           {
-            title: "Slack",
-            url: "/settings/slack",
-            current: router.pathname.includes("settings/slack"),
+            title: "API Keys",
+            url: "/settings/tokens",
+            current: router.pathname.includes("settings/tokens"),
           },
           ...(isAdmin
             ? [
@@ -307,7 +308,13 @@ export function AppSidebarContent() {
                 ) : null}
                 {linksLimit || documentsLimit ? (
                   <p className="mt-2 px-2 text-xs text-muted-foreground">
-                    Change plan to increase usage limits
+                    <Link
+                      href="/settings/upgrade"
+                      className="font-medium text-foreground underline-offset-2 hover:underline"
+                    >
+                      Change plan
+                    </Link>{" "}
+                    to increase limits
                   </p>
                 ) : null}
               </div>

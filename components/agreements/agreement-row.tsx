@@ -7,7 +7,7 @@ import {
   FileSignatureIcon,
   FileTextIcon,
   Link2Icon,
-  MoreVertical,
+  MoreHorizontalIcon,
   PencilIcon,
   ServerIcon,
   TrashIcon,
@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { TimestampTooltip } from "@/components/ui/timestamp-tooltip";
 import {
   Tooltip,
@@ -52,17 +53,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface AgreementCardProps {
+interface AgreementRowProps {
   agreement: AgreementWithLinksCount;
   onDelete: (id: string) => void;
   onEdit: (agreement: AgreementWithLinksCount) => void;
 }
 
-function AgreementCard({
-  agreement,
-  onDelete,
-  onEdit,
-}: AgreementCardProps) {
+function AgreementRow({ agreement, onDelete, onEdit }: AgreementRowProps) {
   const teamInfo = useTeam();
   const teamId = teamInfo?.currentTeam?.id;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -80,7 +77,9 @@ function AgreementCard({
     responses,
     loading: responsesLoading,
     error: responsesError,
-  } = useAgreementResponses(isExpanded && isSigningAgreement ? agreement.id : null);
+  } = useAgreementResponses(
+    isExpanded && isSigningAgreement ? agreement.id : null,
+  );
 
   const handleDelete = async () => {
     if (!teamId) return;
@@ -104,12 +103,9 @@ function AgreementCard({
   const handleDownload = async () => {
     if (!teamId) return;
     toast.promise(
-      fetch(
-        `/api/teams/${teamId}/agreements/${agreement.id}/download`,
-        {
-          method: "POST",
-        },
-      ).then(async (response) => {
+      fetch(`/api/teams/${teamId}/agreements/${agreement.id}/download`, {
+        method: "POST",
+      }).then(async (response) => {
         if (!response.ok) {
           throw new Error("Failed to download agreement");
         }
@@ -173,128 +169,118 @@ function AgreementCard({
 
   return (
     <>
-      <div className="rounded-lg border">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-              {isSigningAgreement ? (
-                <FileSignatureIcon className="h-5 w-5" />
-              ) : (
-                <FileTextIcon className="h-5 w-5" />
-              )}
-            </div>
-            <div>
-              <h3 className="font-medium">{agreement.name}</h3>
-              <p className="text-sm text-muted-foreground">
-                Last updated{" "}
-                {new Date(agreement.updatedAt).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-x-2">
-            <div className="text-sm text-muted-foreground">
-              {agreement._count?.links || 0}{" "}
-              {agreement._count?.links === 1 ? "link" : "links"}
-            </div>
+      <TableRow className="hover:bg-transparent">
+        <TableCell>
+          <div className="flex items-center gap-2">
             {isSigningAgreement ? (
+              <FileSignatureIcon className="h-4 w-4 text-gray-400" />
+            ) : (
+              <FileTextIcon className="h-4 w-4 text-gray-400" />
+            )}
+            <span className="font-medium text-gray-900 dark:text-gray-100">
+              {agreement.name}
+            </span>
+          </div>
+        </TableCell>
+        <TableCell className="text-sm text-gray-700 dark:text-gray-300">
+          {agreement._count?.links || 0}{" "}
+          {agreement._count?.links === 1 ? "link" : "links"}
+        </TableCell>
+        <TableCell className="text-sm text-gray-700 dark:text-gray-300">
+          {new Date(agreement.updatedAt).toLocaleDateString()}
+        </TableCell>
+        <TableCell
+          className="text-right"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
+                type="button"
                 variant="ghost"
-                size="sm"
-                className="hidden h-8 gap-x-1 px-2 text-xs text-muted-foreground sm:flex"
-                onClick={() => setIsExpanded((prev) => !prev)}
-                aria-expanded={isExpanded}
+                size="icon"
+                className="h-8 w-8"
+                aria-label="Open agreement actions"
               >
-                {isExpanded ? "Hide signed" : "Show signed"}
-                <ChevronDownIcon
-                  className={cn(
-                    "h-4 w-4 transition-transform",
-                    isExpanded && "rotate-180",
-                  )}
-                />
+                <MoreHorizontalIcon className="!h-4 !w-4" />
               </Button>
-            ) : null}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuItem
-                        aria-disabled={disableEdit}
-                        className={cn(
-                          disableEdit &&
-                            "cursor-not-allowed opacity-50 focus:bg-transparent focus:text-muted-foreground",
-                        )}
-                        onSelect={(event) => {
-                          if (disableEdit) {
-                            event.preventDefault();
-                            return;
-                          }
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuItem
+                      aria-disabled={disableEdit}
+                      className={cn(
+                        disableEdit &&
+                          "cursor-not-allowed opacity-50 focus:bg-transparent focus:text-muted-foreground",
+                      )}
+                      onSelect={(event) => {
+                        if (disableEdit) {
+                          event.preventDefault();
+                          return;
+                        }
 
-                          onEdit(agreement);
-                        }}
+                        onEdit(agreement);
+                      }}
+                    >
+                      <PencilIcon className="mr-2 h-4 w-4" />
+                      Edit agreement
+                    </DropdownMenuItem>
+                  </TooltipTrigger>
+                  {disableEdit ? (
+                    <TooltipPortal>
+                      <TooltipContent
+                        side="left"
+                        sideOffset={8}
+                        className="max-w-64 text-center text-xs"
                       >
-                        <PencilIcon className="mr-2 h-4 w-4" />
-                        Edit agreement
-                      </DropdownMenuItem>
-                    </TooltipTrigger>
-                    {disableEdit ? (
-                      <TooltipPortal>
-                        <TooltipContent
-                          side="left"
-                          sideOffset={8}
-                          className="max-w-64 text-center text-xs"
-                        >
-                          {disabledEditReason}
-                        </TooltipContent>
-                      </TooltipPortal>
-                    ) : null}
-                  </Tooltip>
-                </TooltipProvider>
-                {isSigningAgreement ? (
-                  <DropdownMenuItem
-                    onClick={() => setIsExpanded((prev) => !prev)}
-                    className="sm:hidden"
-                  >
-                    <FileSignatureIcon className="mr-2 h-4 w-4" />
-                    {isExpanded ? "Hide signed NDAs" : "Show signed NDAs"}
-                  </DropdownMenuItem>
-                ) : null}
-                {!isSigningAgreement ? (
-                  <DropdownMenuItem onClick={handleDownload}>
-                    <DownloadIcon className="mr-2 h-4 w-4" />
-                    Download agreement
-                  </DropdownMenuItem>
-                ) : null}
+                        {disabledEditReason}
+                      </TooltipContent>
+                    </TooltipPortal>
+                  ) : null}
+                </Tooltip>
+              </TooltipProvider>
+              {isSigningAgreement ? (
                 <DropdownMenuItem
-                  className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={() => setIsExpanded((prev) => !prev)}
                 >
-                  <TrashIcon className="mr-2 h-4 w-4" />
-                  Delete agreement
+                  <FileSignatureIcon className="mr-2 h-4 w-4" />
+                  {isExpanded ? "Hide signed NDAs" : "Show signed NDAs"}
                 </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+              ) : null}
+              {!isSigningAgreement ? (
+                <DropdownMenuItem onClick={handleDownload}>
+                  <DownloadIcon className="mr-2 h-4 w-4" />
+                  Download agreement
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem
+                className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <TrashIcon className="mr-2 h-4 w-4" />
+                Delete agreement
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      </TableRow>
 
-        {isExpanded && isSigningAgreement ? (
-          <div className="border-t bg-muted/20 px-4 py-3">
-            <AgreementResponsesSection
-              loading={responsesLoading}
-              error={!!responsesError}
-              responses={responses}
-              onDownload={handleDownloadResponse}
-            />
-          </div>
-        ) : null}
-      </div>
+      {isExpanded && isSigningAgreement ? (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={4} className="bg-muted/20 p-0">
+            <div className="px-4 py-3">
+              <AgreementResponsesSection
+                loading={responsesLoading}
+                error={!!responsesError}
+                responses={responses}
+                onDownload={handleDownloadResponse}
+              />
+            </div>
+          </TableCell>
+        </TableRow>
+      ) : null}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -327,7 +313,7 @@ function AgreementCard({
   );
 }
 
-export default memo(AgreementCard);
+export default memo(AgreementRow);
 
 function AgreementResponsesSection({
   loading,
@@ -376,9 +362,7 @@ function AgreementResponsesSection({
       </li>
       {responses.map((response) => {
         const signedAt =
-          response.signedAt ||
-          response.completedAt ||
-          response.createdAt;
+          response.signedAt || response.completedAt || response.createdAt;
         const signerLabel =
           response.view?.viewerName ||
           response.view?.viewerEmail ||
@@ -411,7 +395,7 @@ function AgreementResponsesSection({
             key={response.id}
             className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:gap-3"
           >
-            <div className="flex flex-1 items-center gap-2 min-w-0">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
                 <FileSignatureIcon className="h-4 w-4" />
               </div>

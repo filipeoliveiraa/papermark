@@ -1,0 +1,137 @@
+import { useRouter } from "next/router";
+
+import { useEffect, useRef, useState } from "react";
+
+// Versioned key so the schema can evolve without colliding with old values.
+const STORAGE_KEY = "papermark:last-visited:v1";
+// Per-tab session flag: marks that we've already handled "platform entry",
+// so a later manual visit to /dashboard does not bounce the user away.
+const ENTRY_FLAG_KEY = "papermark:entry-handled";
+// Ignore stale destinations so users are not teleported to something they
+// opened weeks ago.
+const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+
+type LastVisited = { path: string; ts: number };
+
+// Paths that should never be remembered as a "last visited" destination, nor
+// act as the page we redirect away from on entry. The default landing page
+// (/dashboard) and the onboarding flow (/welcome) are intentionally excluded.
+const TRACK_DENYLIST = [
+  "/dashboard",
+  "/welcome",
+  "/login",
+  "/register",
+  "/auth",
+];
+
+function getPathname(path: string): string {
+  return path.split(/[?#]/)[0];
+}
+
+function isTrackablePath(path: string): boolean {
+  const pathname = getPathname(path);
+  return !TRACK_DENYLIST.some(
+    (denied) => pathname === denied || pathname.startsWith(`${denied}/`),
+  );
+}
+
+export function saveLastVisited(path: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const value: LastVisited = { path, ts: Date.now() };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // localStorage throws in private mode / when full — safe to ignore.
+  }
+}
+
+export function getLastVisited(): LastVisited | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LastVisited;
+    if (!parsed?.path || typeof parsed.ts !== "number") return null;
+    if (Date.now() - parsed.ts > MAX_AGE_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLastVisited() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function isEntryHandled(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.sessionStorage.getItem(ENTRY_FLAG_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+function markEntryHandled() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(ENTRY_FLAG_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Records the user's current location so we can route them back here next time
+ * they enter the platform. Mount once globally for authenticated app pages.
+ */
+export function useTrackLastVisited() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isTrackablePath(router.asPath)) {
+      saveLastVisited(router.asPath);
+    }
+  }, [router.asPath]);
+}
+
+/**
+ * On the first load of /dashboard in a tab session (i.e. platform entry),
+ * redirect to the last meaningful location the user visited, if any. Manual
+ * navigations to /dashboard within the same session are left untouched.
+ *
+ * Returns whether a redirect is in flight so the caller can render a loader
+ * instead of flashing the dashboard.
+ */
+export function useEntryRedirect(): boolean {
+  const router = useRouter();
+  const [redirecting, setRedirecting] = useState(false);
+  const ran = useRef(false);
+
+  useEffect(() => {
+    if (ran.current) return;
+    ran.current = true;
+
+    if (isEntryHandled()) return;
+    markEntryHandled();
+
+    const last = getLastVisited();
+    const target = last?.path;
+    if (!target || getPathname(target) === "/dashboard") return;
+
+    setRedirecting(true);
+    void router.replace(target).catch(() => {
+      // The stored destination may have been deleted or access revoked; drop
+      // it and stay on the dashboard rather than looping on a dead route.
+      clearLastVisited();
+      setRedirecting(false);
+    });
+  }, [router]);
+
+  return redirecting;
+}

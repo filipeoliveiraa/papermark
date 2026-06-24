@@ -1,14 +1,11 @@
 import { useFeatureFlags } from "@/lib/hooks/use-feature-flags";
 import { useIsAdmin } from "@/lib/hooks/use-is-admin";
-import { usePlan } from "@/lib/swr/use-billing";
 
 import { NavMenu } from "../navigation-menu";
 
 export function SettingsHeader() {
   const { features } = useFeatureFlags();
   const { isAdmin } = useIsAdmin();
-  const { isDatarooms, isTrial } = usePlan();
-  const hasTokensAccess = isDatarooms || isTrial || !!features?.tokens;
 
   return (
     <header>
@@ -56,11 +53,6 @@ export function SettingsHeader() {
             segment: "agreements",
           },
           {
-            label: "Webhooks",
-            href: `/settings/webhooks`,
-            segment: "webhooks",
-          },
-          {
             label: "Notifications",
             href: `/settings/notifications`,
             segment: "notifications",
@@ -77,16 +69,14 @@ export function SettingsHeader() {
             disabled: !features?.ai,
           },
           {
-            label: "Tokens",
-            href: `/settings/tokens`,
-            segment: "tokens",
-            disabled: !hasTokensAccess,
+            label: "Webhooks",
+            href: `/settings/webhooks`,
+            segment: "webhooks",
           },
           {
-            label: "API",
-            href: `/settings/incoming-webhooks`,
-            segment: "incoming-webhooks",
-            disabled: !features?.incomingWebhooks,
+            label: "API Keys",
+            href: `/settings/tokens`,
+            segment: "tokens",
           },
           {
             label: "Security",

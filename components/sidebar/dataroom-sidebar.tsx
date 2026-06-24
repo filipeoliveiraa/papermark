@@ -40,7 +40,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   SidebarContent,
   SidebarGroup,
@@ -54,6 +53,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
@@ -155,6 +155,11 @@ export function DataroomSidebarContent() {
       title: "File Permissions",
       href: `/datarooms/${dataroomId}/settings/file-permissions`,
       icon: ShieldIcon,
+    },
+    {
+      title: "Dataroom Team",
+      href: `/datarooms/${dataroomId}/settings/team`,
+      icon: UsersIcon,
     },
     ...(isDataroomMember
       ? []
@@ -261,29 +266,31 @@ export function DataroomSidebarContent() {
   return (
     <>
       <SidebarHeader className="gap-y-3 pt-0">
-        <Link
-          href="/datarooms"
-          className="group/back flex items-center gap-2 rounded-lg text-foreground"
-        >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-background text-muted-foreground transition-transform duration-150 group-hover/back:-translate-x-0.5">
-            <ChevronLeftIcon className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <div className="flex items-center gap-1.5">
-              <ScrollingText className="text-lg font-semibold leading-tight">
-                {dataroom?.internalName || dataroom?.name || "Loading..."}
-              </ScrollingText>
-              {dataroom?.isFrozen && (
-                <SnowflakeIcon className="h-4 w-4 shrink-0 text-blue-500" />
-              )}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/datarooms"
+            className="group/back flex min-w-0 flex-1 items-center gap-2 rounded-lg text-foreground"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-background text-muted-foreground transition-transform duration-150 group-hover/back:-translate-x-0.5">
+              <ChevronLeftIcon className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+              <div className="flex items-center gap-1.5">
+                <ScrollingText className="text-lg font-semibold leading-tight">
+                  {dataroom?.internalName || dataroom?.name || "Loading..."}
+                </ScrollingText>
+                {dataroom?.isFrozen && (
+                  <SnowflakeIcon className="h-4 w-4 shrink-0 text-blue-500" />
+                )}
+              </div>
+              {dataroom?.internalName && dataroom?.name ? (
+                <p className="truncate text-xs text-muted-foreground">
+                  {dataroom.name}
+                </p>
+              ) : null}
             </div>
-            {dataroom?.internalName && dataroom?.name ? (
-              <p className="truncate text-xs text-muted-foreground">
-                {dataroom.name}
-              </p>
-            ) : null}
-          </div>
-        </Link>
+          </Link>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
