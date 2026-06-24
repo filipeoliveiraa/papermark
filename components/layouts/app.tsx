@@ -22,8 +22,16 @@ import {
 
 import { BlockingModal } from "./blocking-modal";
 
+const DEFAULT_SIDEBAR_OPEN = true;
+
+// SSR and the first client render must return the same value to avoid a
+// hydration mismatch; the cookie is only read after hydration.
+let sidebarHydrated = false;
+
 function getInitialSidebarState(isDataroom: boolean): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined" || !sidebarHydrated) {
+    return DEFAULT_SIDEBAR_OPEN;
+  }
 
   if (isDataroom) {
     return true;
@@ -34,7 +42,7 @@ function getInitialSidebarState(isDataroom: boolean): boolean {
     return mainCookie === "true";
   }
 
-  return true;
+  return DEFAULT_SIDEBAR_OPEN;
 }
 
 /**
@@ -85,12 +93,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     getInitialSidebarState(isDataroom),
   );
 
-  const handleSidebarOpenChange = useCallback(
-    (open: boolean) => {
-      setSidebarOpen(open);
-    },
-    [],
-  );
+  // Restore the persisted sidebar state after the first render has hydrated.
+  useEffect(() => {
+    sidebarHydrated = true;
+    setSidebarOpen(getInitialSidebarState(isDataroom));
+  }, [isDataroom]);
+
+  const handleSidebarOpenChange = useCallback((open: boolean) => {
+    setSidebarOpen(open);
+  }, []);
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarOpenChange}>
