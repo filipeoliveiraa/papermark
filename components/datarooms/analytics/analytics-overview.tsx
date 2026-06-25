@@ -1,6 +1,8 @@
+import { useRouter } from "next/router";
+
 import { useMemo } from "react";
 
-import { useDataroom } from "@/lib/swr/use-dataroom";
+import { useDataroomFoldersTree } from "@/lib/swr/use-dataroom";
 import { useDataroomDocumentStats } from "@/lib/swr/use-dataroom-document-stats";
 import { useDataroomStats } from "@/lib/swr/use-dataroom-stats";
 
@@ -24,60 +26,80 @@ export default function DataroomAnalyticsOverview({
   selectedDocument,
   setSelectedDocument,
 }: DataroomAnalyticsOverviewProps) {
+  const router = useRouter();
+  const { id: dataroomId } = router.query as { id: string };
+
   const {
     stats: dataroomStats,
     loading: dataroomLoading,
     error: dataroomError,
   } = useDataroomStats();
 
-  // Memoize the most viewed document calculation
+  const { folders, loading: foldersLoading } = useDataroomFoldersTree({
+    dataroomId,
+    include_documents: true,
+  });
+
+  const documentNamesById = useMemo(() => {
+    const map = new Map<string, string>();
+    folders?.forEach((item: any) => {
+      if (item?.document?.id) {
+        map.set(item.document.id, item.document.name);
+      }
+      item?.documents?.forEach((doc: any) => {
+        if (doc?.document?.id) {
+          map.set(doc.document.id, doc.document.name);
+        }
+      });
+    });
+    return map;
+  }, [folders]);
+
   const mostViewedDocument = useMemo(() => {
     if (!dataroomStats || selectedDocument) return null;
+    if (documentNamesById.size === 0) return null;
 
-    // Group views by document ID and count them
+    // View records persist after a document is removed, so only count views for
+    // documents still present in the dataroom to avoid selecting a stale one.
     const viewsByDocument = dataroomStats.documentViews.reduce(
       (acc, view) => {
         if (!view.documentId) return acc;
+        if (!documentNamesById.has(view.documentId)) return acc;
 
-        if (!acc[view.documentId]) {
-          acc[view.documentId] = { count: 0, name: "" };
-        }
-        acc[view.documentId].count += 1;
+        acc[view.documentId] = (acc[view.documentId] ?? 0) + 1;
         return acc;
       },
-      {} as Record<string, { count: number; name: string }>,
+      {} as Record<string, number>,
     );
 
-    // Find document with most views
     let maxViews = 0;
     let mostViewedId = "";
-    Object.entries(viewsByDocument).forEach(([docId, data]) => {
-      if (data.count > maxViews) {
-        maxViews = data.count;
+    Object.entries(viewsByDocument).forEach(([docId, count]) => {
+      if (count > maxViews) {
+        maxViews = count;
         mostViewedId = docId;
       }
     });
 
-    // Return the most viewed document if found
     return mostViewedId
       ? {
           id: mostViewedId,
-          name: mostViewedId, // We'll update the name once we have it
+          name: documentNamesById.get(mostViewedId) ?? mostViewedId,
         }
       : null;
-  }, [dataroomStats, selectedDocument]);
+  }, [dataroomStats, selectedDocument, documentNamesById]);
 
-  // Get document stats for either selected document or most viewed document
   const documentId = selectedDocument?.id || mostViewedDocument?.id;
-  const {
-    stats: documentStats,
-    loading: documentLoading,
-    error: documentError,
-  } = useDataroomDocumentStats(documentId);
+  const { stats: documentStats, loading: documentLoading } =
+    useDataroomDocumentStats(documentId);
 
-  // If neither is selected or we're still loading dataroom stats
-  const loading = documentLoading || (dataroomLoading && !documentId);
-  const error = documentError || (dataroomError && !documentId);
+  // The per-document chart is supplementary, so a document stats failure (e.g. a
+  // removed document) should not blank the overview; only dataroom stats are.
+  const loading =
+    documentLoading ||
+    (dataroomLoading && !documentId) ||
+    (foldersLoading && !selectedDocument);
+  const error = dataroomError && !documentId;
 
   if (loading) {
     return <div>Loading analytics...</div>;
@@ -89,7 +111,6 @@ export default function DataroomAnalyticsOverview({
 
   const completionRate = 0;
 
-  // Get display name for the currently viewed document
   const displayName =
     selectedDocument?.name ||
     (mostViewedDocument?.name !== mostViewedDocument?.id
