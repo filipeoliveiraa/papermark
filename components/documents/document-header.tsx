@@ -17,6 +17,7 @@ import {
   FileDownIcon,
   FileSpreadsheetIcon,
   FolderIcon,
+  FolderInputIcon,
   MoonIcon,
   ServerIcon,
   SheetIcon,
@@ -73,6 +74,7 @@ import { AddDocumentModal } from "./add-document-modal";
 import { AddToDataroomModal } from "./add-document-to-dataroom-modal";
 import AlertBanner from "./alert";
 import { ExportVisitsModal } from "./export-visits-modal";
+import { MoveToFolderModal } from "./move-folder-modal";
 
 export default function DocumentHeader({
   prismaDocument,
@@ -114,6 +116,7 @@ export default function DocumentHeader({
   const [isFirstClick, setIsFirstClick] = useState<boolean>(false);
   const [orientationLoading, setOrientationLoading] = useState<boolean>(false);
   const [addDataRoomOpen, setAddDataRoomOpen] = useState<boolean>(false);
+  const [moveFolderOpen, setMoveFolderOpen] = useState<boolean>(false);
   const [addDocumentVersion, setAddDocumentVersion] = useState<boolean>(false);
   const [openAddDocModal, setOpenAddDocModal] = useState<boolean>(false);
   const [planModalOpen, setPlanModalOpen] = useState<boolean>(false);
@@ -788,6 +791,19 @@ export default function DocumentHeader({
                       : "Enable Advanced Mode"}
                   </DropdownMenuItem>
                 )}
+              {!dataroomId && !isDataroomMember && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setIsFirstClick(false);
+                    setMenuOpen(false);
+                    setMoveFolderOpen(true);
+                  }}
+                >
+                  <FolderInputIcon className="mr-2 h-4 w-4" />
+                  Move to folder
+                </DropdownMenuItem>
+              )}
+
               {datarooms && datarooms.length !== 0 && (
                 <DropdownMenuItem onClick={() => setAddDataRoomOpen(true)}>
                   <BetweenHorizontalStartIcon className="mr-2 h-4 w-4" />
@@ -1082,6 +1098,16 @@ export default function DocumentHeader({
           setOpen={setAddDataRoomOpen}
           documentId={prismaDocument.id}
           documentName={prismaDocument.name}
+        />
+      ) : null}
+
+      {moveFolderOpen ? (
+        <MoveToFolderModal
+          open={moveFolderOpen}
+          setOpen={setMoveFolderOpen}
+          documentIds={[prismaDocument.id]}
+          itemName={prismaDocument.name}
+          folderParentId={prismaDocument.folderId!}
         />
       ) : null}
 

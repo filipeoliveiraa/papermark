@@ -177,11 +177,8 @@ export default async function handle(
       },
     };
 
-    // Set cache headers for faster subsequent loads
-    res.setHeader(
-      "Cache-Control",
-      "private, max-age=60, stale-while-revalidate=300",
-    );
+    // Always revalidate with the server since document metadata is mutable
+    res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
 
     return res.status(200).json(response);
   } catch (error) {
