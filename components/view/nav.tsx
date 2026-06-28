@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 
 import { createAdaptiveSurfacePalette } from "@/lib/utils/create-adaptive-surface-palette";
+import { determineTextColor } from "@/lib/utils/determine-text-color";
 import { downloadFromLinkEndpoint } from "@/lib/utils/download-document";
 
 import {
@@ -121,6 +122,25 @@ export default function Nav({
   const { t } = useTranslation("viewer");
   const [showConversations, setShowConversations] = useState(false);
   const navColorPalette = createAdaptiveSurfacePalette(brand?.brandColor);
+
+  const ctaLabel = (brand as { ctaLabel?: string | null } | null | undefined)
+    ?.ctaLabel;
+  const ctaUrlRaw = (brand as { ctaUrl?: string | null } | null | undefined)
+    ?.ctaUrl;
+  const accentButtonColor = (
+    brand as { accentButtonColor?: string | null } | null | undefined
+  )?.accentButtonColor;
+  const safeCtaUrl = (() => {
+    if (!ctaUrlRaw) return null;
+    try {
+      const url = new URL(ctaUrlRaw);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+      return url.toString();
+    } catch {
+      return null;
+    }
+  })();
+  const showCta = !!ctaLabel && !!safeCtaUrl;
 
   // Extract the dataroom path from the URL
   // This regex captures everything before "/d/" in the path
@@ -250,6 +270,23 @@ export default function Nav({
             ) : null}
           </div>
           <div className="absolute inset-y-0 right-0 flex items-center space-x-2 pr-2 sm:static sm:inset-auto sm:ml-6 sm:space-x-4 sm:pr-0">
+            {showCta && (
+              <a
+                href={safeCtaUrl!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-8 items-center justify-center rounded-md px-4 text-sm font-medium transition-colors hover:opacity-90 sm:h-10"
+                style={{
+                  backgroundColor:
+                    accentButtonColor || brand?.brandColor || "#111827",
+                  color: determineTextColor(
+                    accentButtonColor || brand?.brandColor || "#111827",
+                  ),
+                }}
+              >
+                {ctaLabel}
+              </a>
+            )}
             {isTeamMember && (
               <TooltipProvider delayDuration={100}>
                 <Tooltip>

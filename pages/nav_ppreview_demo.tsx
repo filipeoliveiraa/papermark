@@ -1,6 +1,7 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import { useBrandingPreviewParams } from "@/ee/features/branding/lib/use-branding-preview-params";
+import { determineTextColor } from "@/lib/utils/determine-text-color";
 
 export default function ViewPage() {
   // Seeded from the URL on first paint, then live-updated over postMessage so
@@ -59,10 +60,13 @@ export default function ViewPage() {
                   href={safeCtaUrl!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white"
+                  className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
                   style={{
                     backgroundColor:
                       accentButtonColor || brandColor || "#000000",
+                    color: determineTextColor(
+                      accentButtonColor || brandColor || "#000000",
+                    ),
                   }}
                 >
                   {ctaLabel}

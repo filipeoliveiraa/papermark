@@ -648,7 +648,10 @@ export async function fetchDocumentLinkData({
       logo: true,
       brandColor: true,
       accentColor: true,
+      accentButtonColor: true,
       welcomeMessage: true,
+      ctaLabel: true,
+      ctaUrl: true,
       defaultLanguage: true,
     },
   });

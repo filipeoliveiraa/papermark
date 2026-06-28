@@ -24,6 +24,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
+import { determineTextColor } from "@/lib/utils/determine-text-color";
 import { useLogoTone } from "@/ee/features/branding/lib/use-logo-tone";
 import { classifyDataroomBanner } from "@/ee/features/branding/lib/dataroom-banner";
 import { getDataroomPreviewDataset } from "@/ee/features/branding/lib/dataroom-preview-presets";
@@ -476,10 +477,13 @@ export default function ViewPage({ i18n }: ViewerI18nPageProps) {
                       href={ctaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex shrink-0 items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white"
+                      className="inline-flex shrink-0 items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
                       style={{
                         backgroundColor:
                           accentButtonColor || brandColor || "#111827",
+                        color: determineTextColor(
+                          accentButtonColor || brandColor || "#111827",
+                        ),
                       }}
                     >
                       {ctaLabel}
@@ -599,11 +603,13 @@ export default function ViewPage({ i18n }: ViewerI18nPageProps) {
                     href={ctaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium"
                     style={{
                       backgroundColor:
                         accentButtonColor || brandColor || "#ffffff",
-                      color: accentButtonColor ? "#ffffff" : "#000000",
+                      color: determineTextColor(
+                        accentButtonColor || brandColor || "#ffffff",
+                      ),
                     }}
                   >
                     {ctaLabel}
