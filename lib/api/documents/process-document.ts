@@ -1,11 +1,6 @@
-import { get } from "@vercel/edge-config";
-import { parsePageId } from "notion-utils";
-
+import { validateExternalDocumentUrl } from "@/lib/api/documents/validate-external-url";
 import { DocumentData } from "@/lib/documents/create-document";
-import { isTrustedTeam } from "@/lib/edge-config/trusted-teams";
 import { copyFileToBucketServer } from "@/lib/files/copy-file-to-bucket-server";
-import notion from "@/lib/notion";
-import { getNotionPageIdFromSlug } from "@/lib/notion/utils";
 import prisma from "@/lib/prisma";
 import {
   convertFilesToPdfTask,
@@ -13,7 +8,7 @@ import {
 } from "@/lib/trigger/convert-files";
 import { processVideo } from "@/lib/trigger/optimize-video-files";
 import { convertPdfToImageRoute } from "@/lib/trigger/pdf-to-image-route";
-import { getExtension, log } from "@/lib/utils";
+import { getExtension } from "@/lib/utils";
 import { conversionQueueName } from "@/lib/utils/trigger-utils";
 import { sendDocumentCreatedWebhook } from "@/lib/webhook/triggers/document-created";
 import { sendLinkCreatedWebhook } from "@/lib/webhook/triggers/link-created";
@@ -53,61 +48,9 @@ export const processDocument = async ({
   // Get passed type property or alternatively, the file extension and save it as the type
   const type = supportedFileType || getExtension(name);
 
-  // Check whether the Notion page is publically accessible or not
-  if (type === "notion") {
-    try {
-      let pageId = parsePageId(key, { uuid: false });
-
-      // If parsePageId fails, try to get page ID from slug
-      if (!pageId) {
-        try {
-          const pageIdFromSlug = await getNotionPageIdFromSlug(key);
-          pageId = pageIdFromSlug || undefined;
-        } catch (slugError) {
-          throw new Error("Unable to extract page ID from Notion URL");
-        }
-      }
-
-      // if the page isn't accessible then end the process here.
-      if (!pageId) {
-        throw new Error("Notion page not found");
-      }
-      await notion.getPage(pageId);
-    } catch (error) {
-      throw new Error("This Notion page isn't publically available.");
-    }
-  }
-
-  // For link type, validate URL format
-  if (type === "link") {
-    try {
-      new URL(key);
-
-      // Skip keyword check for trusted teams
-      const trusted = await isTrustedTeam(teamId);
-      if (!trusted) {
-        const keywords = await get("keywords");
-        if (Array.isArray(keywords) && keywords.length > 0) {
-          const matchedKeyword = keywords.find(
-            (keyword) =>
-              typeof keyword === "string" &&
-              key.toLowerCase().includes(keyword.toLowerCase()),
-          );
-
-          if (matchedKeyword) {
-            log({
-              message: `Link document creation blocked: ${matchedKeyword} \n\n \`Metadata: {teamId: ${teamId}, url: ${key}}\``,
-              type: "error",
-              mention: true,
-            });
-            throw new Error("This URL is not allowed");
-          }
-        }
-      }
-    } catch (error) {
-      throw new Error("Invalid URL format for link document.");
-    }
-  }
+  // For notion/link documents, validate the external URL (Notion page must be
+  // public; link URLs must be well-formed and not blocked). No-op otherwise.
+  await validateExternalDocumentUrl({ type, key, teamId });
 
   // `folderId` (resolved by callers like the public v1 API) wins over the
   // path-based lookup; the path lookup remains for the dashboard upload flow
