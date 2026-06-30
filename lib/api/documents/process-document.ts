@@ -9,6 +9,7 @@ import {
 import { processVideo } from "@/lib/trigger/optimize-video-files";
 import { convertPdfToImageRoute } from "@/lib/trigger/pdf-to-image-route";
 import { getExtension } from "@/lib/utils";
+import { isMarkdownFile } from "@/lib/utils/get-content-type";
 import { conversionQueueName } from "@/lib/utils/trigger-utils";
 import { sendDocumentCreatedWebhook } from "@/lib/webhook/triggers/document-created";
 import { sendLinkCreatedWebhook } from "@/lib/webhook/triggers/link-created";
@@ -74,6 +75,8 @@ export const processDocument = async ({
       name,
     );
 
+  const isMarkdown = isMarkdownFile({ name, contentType });
+
   // determine if the document is download only
   const isDownloadOnly =
     type === "zip" ||
@@ -82,6 +85,7 @@ export const processDocument = async ({
     type === "other" ||
     contentType === "text/tab-separated-values" ||
     type === "cad" ||
+    isMarkdown ||
     isDownloadOnlyByExtension;
 
   // Save data to the database
@@ -154,7 +158,8 @@ export const processDocument = async ({
     );
   } else if (
     (type === "docs" || type === "slides") &&
-    !isDownloadOnlyByExtension
+    !isDownloadOnlyByExtension &&
+    !isMarkdown
   ) {
     await convertFilesToPdfTask.trigger(
       {

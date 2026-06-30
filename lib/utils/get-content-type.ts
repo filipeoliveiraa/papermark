@@ -72,6 +72,19 @@ export function getSupportedContentType(contentType: string): string | null {
   }
 }
 
+// Checks the extension too because browsers often upload `.md` as `text/plain`.
+export function isMarkdownFile({
+  name,
+  contentType,
+}: {
+  name?: string | null;
+  contentType?: string | null;
+}): boolean {
+  if (contentType === "text/markdown") return true;
+  if (name && /\.(md|markdown|mdown|mkd|mdx)$/i.test(name)) return true;
+  return false;
+}
+
 export function getExtensionFromContentType(
   contentType: string,
 ): string | null {

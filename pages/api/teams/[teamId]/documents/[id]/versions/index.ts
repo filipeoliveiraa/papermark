@@ -13,6 +13,7 @@ import { processVideo } from "@/lib/trigger/optimize-video-files";
 import { convertPdfToImageRoute } from "@/lib/trigger/pdf-to-image-route";
 import { CustomUser } from "@/lib/types";
 import { log } from "@/lib/utils";
+import { isMarkdownFile } from "@/lib/utils/get-content-type";
 import { conversionQueueName } from "@/lib/utils/trigger-utils";
 import { documentUploadSchema } from "@/lib/zod/url-validation";
 
@@ -165,9 +166,12 @@ export default async function handle(
       const isDownloadOnlyByExtension =
         /\.(log|err|prj|jgw|tif|tiff|ecw|bak)$/i.test(url);
 
+      const isMarkdown = isMarkdownFile({ name: url, contentType });
+
       if (
         (type === "docs" || type === "slides") &&
-        !isDownloadOnlyByExtension
+        !isDownloadOnlyByExtension &&
+        !isMarkdown
       ) {
         await convertFilesToPdfTask.trigger(
           {
