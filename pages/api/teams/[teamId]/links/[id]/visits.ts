@@ -95,7 +95,7 @@ export default async function handle(
         },
       });
 
-      const numPages =
+      const currentDocNumPages =
         result?.document?.versions[0]?.numPages ||
         result?.document?.numPages ||
         0;
@@ -134,6 +134,49 @@ export default async function handle(
           ? views.slice(0, LIMITS.views)
           : views;
 
+      // A link can be transferred between documents over its lifetime, so a
+      // historical view may reference a *different* document than the one the
+      // link currently points at. Resolve each view's completion rate against
+      // the document that was actually viewed (falling back to the link's
+      // current document) instead of assuming a single page count.
+      const otherDocumentIds = Array.from(
+        new Set(
+          limitedViews
+            .map((view) => view.documentId)
+            .filter(
+              (docId): docId is string =>
+                !!docId && docId !== result?.document?.id,
+            ),
+        ),
+      );
+
+      const numPagesByDocumentId = new Map<string, number>();
+      if (result?.document?.id) {
+        numPagesByDocumentId.set(result.document.id, currentDocNumPages);
+      }
+
+      if (otherDocumentIds.length > 0) {
+        const otherDocuments = await prisma.document.findMany({
+          where: { id: { in: otherDocumentIds }, teamId },
+          select: {
+            id: true,
+            numPages: true,
+            versions: {
+              where: { isPrimary: true },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { numPages: true },
+            },
+          },
+        });
+        for (const doc of otherDocuments) {
+          numPagesByDocumentId.set(
+            doc.id,
+            doc.versions[0]?.numPages || doc.numPages || 0,
+          );
+        }
+      }
+
       const durationsPromises = limitedViews.map((view) => {
         return getViewPageDuration({
           documentId: view.documentId!,
@@ -154,9 +197,11 @@ export default async function handle(
 
       // Construct the response combining views and their respective durations
       const viewsWithDuration = limitedViews.map((view, index) => {
-        // calculate the completion rate
-        const completionRate = numPages
-          ? (durations[index].data.length / numPages) * 100
+        const viewNumPages = view.documentId
+          ? (numPagesByDocumentId.get(view.documentId) ?? currentDocNumPages)
+          : currentDocNumPages;
+        const completionRate = viewNumPages
+          ? (durations[index].data.length / viewNumPages) * 100
           : 0;
 
         return {

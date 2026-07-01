@@ -10,6 +10,7 @@ import { PlanEnum } from "@/ee/stripe/constants";
 import { DocumentVersion, LinkAudienceType } from "@prisma/client";
 import { isWithinInterval, subMinutes } from "date-fns";
 import {
+  ArrowRightLeftIcon,
   BoxesIcon,
   ChevronRightIcon,
   ClockFadingIcon,
@@ -82,6 +83,7 @@ import { Label } from "../ui/label";
 import { ButtonTooltip } from "../ui/tooltip";
 import { useDeleteLinkModal } from "./delete-link-modal";
 import EmbedCodeModal from "./embed-code-modal";
+import { useTransferLinkModal } from "./transfer-link-modal";
 import LinkActiveControls, {
   countActiveSettings,
 } from "./link-active-controls";
@@ -376,6 +378,13 @@ export default function LinksTable({
   const [linkToDelete, setLinkToDelete] = useState<LinkWithViews | null>(null);
   const { setShowDeleteLinkModal, DeleteLinkModal } = useDeleteLinkModal({
     link: linkToDelete,
+    targetType,
+  });
+  const [linkToTransfer, setLinkToTransfer] = useState<LinkWithViews | null>(
+    null,
+  );
+  const { setShowTransferLinkModal, TransferLinkModal } = useTransferLinkModal({
+    link: linkToTransfer,
     targetType,
   });
   const [isInviteModalOpen, setIsInviteModalOpen] = useState<boolean>(false);
@@ -1075,6 +1084,15 @@ export default function LinksTable({
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
+                              setLinkToTransfer(link);
+                              setShowTransferLinkModal(true);
+                            }}
+                          >
+                            <ArrowRightLeftIcon className="mr-2 h-4 w-4" />
+                            Transfer Link
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
                               setSelectedEmbedLink({
                                 id: link.id,
                                 name: link.name || `Link #${link.id.slice(-5)}`,
@@ -1251,6 +1269,7 @@ export default function LinksTable({
         ) : null}
 
         <DeleteLinkModal />
+        <TransferLinkModal />
       </div>
     </>
   );
