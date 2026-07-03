@@ -67,7 +67,7 @@ interface FileWithPaths extends File {
 export interface RejectedFile {
   fileName: string;
   message: string;
-  reason?: "error" | "plan-limit" | "max-files";
+  reason?: "error" | "plan-limit" | "max-files" | "file-type";
   /** Individual file paths skipped due to limits — used for downloadable list */
   skippedFileNames?: string[];
 }
@@ -590,18 +590,21 @@ export default function UploadZone({
         return;
       }
 
-      const rejected = rejectedFiles.map(({ file, errors }) => {
+      const rejected = rejectedFiles.map<RejectedFile>(({ file, errors }) => {
         let message = "";
+        let reason: RejectedFile["reason"] = "error";
         if (errors.find(({ code }) => code === "file-too-large")) {
           const fileSizeLimitMB = getFileSizeLimit(file.type, fileSizeLimits);
           message = `File size too big (max. ${fileSizeLimitMB} MB). Upgrade to a paid plan to increase the limit.`;
         } else if (errors.find(({ code }) => code === "file-invalid-type")) {
           const isSupported = SUPPORTED_DOCUMENT_MIME_TYPES.includes(file.type);
-          message = `File type not supported ${
-            isFree && !isTrial && isSupported ? `on free plan` : ""
-          }`;
+          // Supported on a paid plan but blocked on free → upgrading helps.
+          // Otherwise the type is simply unsupported and upgrading won't help.
+          const isPlanLimited = isFree && !isTrial && isSupported;
+          message = `File type not supported${isPlanLimited ? " on free plan" : ""}`;
+          reason = isPlanLimited ? "plan-limit" : "file-type";
         }
-        return { fileName: file.name, message };
+        return { fileName: file.name, message, reason };
       });
       onUploadRejected(rejected);
     },
@@ -1598,15 +1601,18 @@ export default function UploadZone({
       if (rejectedTypePerTopLevel.size > 0) {
         const rejectedEntries: RejectedFile[] = [];
         for (const [name, { paths, supportedOnPaid }] of rejectedTypePerTopLevel) {
+          // Only a genuine plan limit when the file type would be accepted on a
+          // paid plan and the user is actually on a free plan. Otherwise the
+          // type is simply unsupported, so upgrading wouldn't help.
+          const isPlanLimited = isFree && !isTrial && supportedOnPaid;
           rejectedEntries.push({
             fileName: `${name}: ${paths.length} file${
               paths.length !== 1 ? "s" : ""
             } not uploaded`,
-            message:
-              isFree && !isTrial && supportedOnPaid
-                ? "File type not supported on free plan"
-                : "File type not supported",
-            reason: "plan-limit",
+            message: isPlanLimited
+              ? "File type not supported on free plan"
+              : "File type not supported",
+            reason: isPlanLimited ? "plan-limit" : "file-type",
             skippedFileNames: paths,
           });
         }
