@@ -177,6 +177,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
       // Check feature flags for document links
       const docFeatureFlags = await getFeatureFlags({ teamId: teamId || undefined });
       const textSelectionEnabled = docFeatureFlags.textSelection;
+      const logoOnAccessFormEnabled = docFeatureFlags.logoOnAccessForm;
 
       return {
         props: {
@@ -213,9 +214,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
             teamId === "cm76hfyvy0002q623hmen99pf" ||
             teamId === "cm9ztf0s70005js04i689gefn" ||
             teamId === "cmk2hnmqh0000k304zcoezt6n",
-          logoOnAccessForm:
-            teamId === "cm7nlkrhm0000qgh0nvyrrywr" ||
-            teamId === "clup33by90000oewh4rfvp2eg",
+          logoOnAccessForm: logoOnAccessFormEnabled,
           textSelectionEnabled,
           ...i18nProps,
         },
@@ -255,6 +254,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
       const dataroomIndexEnabled =
         result.dataroomIndexEnabledForViewer ?? false;
       const textSelectionEnabled = featureFlags.textSelection;
+      const logoOnAccessFormEnabled = featureFlags.logoOnAccessForm;
 
       const lastUpdatedAt = link.dataroom.documents.reduce(
         (max: number, doc: any) => {
@@ -298,9 +298,7 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
             teamId === "cm76hfyvy0002q623hmen99pf" ||
             teamId === "cm9ztf0s70005js04i689gefn" ||
             teamId === "cmk2hnmqh0000k304zcoezt6n",
-          logoOnAccessForm:
-            teamId === "cm7nlkrhm0000qgh0nvyrrywr" ||
-            teamId === "clup33by90000oewh4rfvp2eg",
+          logoOnAccessForm: logoOnAccessFormEnabled,
           dataroomIndexEnabled,
           textSelectionEnabled,
           ...i18nProps,

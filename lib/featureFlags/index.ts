@@ -17,7 +17,8 @@ export type BetaFeatures =
   | "ai"
   | "sso"
   | "textSelection"
-  | "requestList";
+  | "requestList"
+  | "logoOnAccessForm";
 
 type BetaFeaturesRecord = Record<BetaFeatures, string[]>;
 
@@ -40,6 +41,7 @@ export const getFeatureFlags = async ({ teamId }: { teamId?: string }) => {
     sso: false,
     textSelection: false,
     requestList: false,
+    logoOnAccessForm: false,
   };
 
   // Return all features as false if edge config is not available

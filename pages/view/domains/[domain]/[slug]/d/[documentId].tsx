@@ -302,6 +302,7 @@ export async function getStaticProps(context: GetStaticPropsContext) {
     // Check feature flags
     const featureFlags = await getFeatureFlags({ teamId: teamId || undefined });
     const textSelectionEnabled = featureFlags.textSelection;
+    const logoOnAccessFormEnabled = featureFlags.logoOnAccessForm;
 
     const i18nProps = await buildViewerI18nPageProps(brand as any);
 
@@ -344,7 +345,7 @@ export async function getStaticProps(context: GetStaticPropsContext) {
           teamId === "cm76hfyvy0002q623hmen99pf" ||
           teamId === "cm9ztf0s70005js04i689gefn" ||
           teamId === "cmk2hnmqh0000k304zcoezt6n",
-        logoOnAccessForm: teamId === "cm7nlkrhm0000qgh0nvyrrywr",
+        logoOnAccessForm: logoOnAccessFormEnabled,
         textSelectionEnabled,
         ...i18nProps,
       },
