@@ -11,7 +11,10 @@ import {
   collectFingerprintHeaders,
   generateSessionFingerprint,
 } from "@/lib/auth/dataroom-auth";
-import { createLinkSession } from "@/lib/auth/link-session";
+import {
+  createLinkSession,
+  getLinkSessionCookieName,
+} from "@/lib/auth/link-session";
 import { verifyPreviewSession } from "@/lib/auth/preview-auth";
 import { PreviewSession } from "@/lib/auth/preview-auth";
 import { isEmbeddableUrl } from "@/lib/edge-config/embeddable-domains";
@@ -985,7 +988,7 @@ export async function POST(request: NextRequest) {
           fingerprint,
         );
 
-        response.cookies.set(`pm_ls_${linkId}`, sessionToken, {
+        response.cookies.set(getLinkSessionCookieName(linkId), sessionToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",

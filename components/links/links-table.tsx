@@ -366,6 +366,8 @@ export default function LinksTable({
   const [selectedEmbedLink, setSelectedEmbedLink] = useState<{
     id: string;
     name: string;
+    domain?: string | null;
+    slug?: string | null;
   } | null>(null);
   const [popoverOpen, setPopoverOpen] = useState<string | null>(null);
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -1096,6 +1098,10 @@ export default function LinksTable({
                               setSelectedEmbedLink({
                                 id: link.id,
                                 name: link.name || `Link #${link.id.slice(-5)}`,
+                                domain: link.domainId
+                                  ? link.domainSlug
+                                  : null,
+                                slug: link.domainId ? link.slug : null,
                               });
                               setEmbedModalOpen(true);
                             }}
@@ -1256,6 +1262,8 @@ export default function LinksTable({
             setIsOpen={setEmbedModalOpen}
             linkId={selectedEmbedLink.id}
             linkName={selectedEmbedLink.name}
+            domain={selectedEmbedLink.domain}
+            slug={selectedEmbedLink.slug}
           />
         )}
 
