@@ -309,7 +309,7 @@ export function AppSidebarContent() {
                 {linksLimit || documentsLimit ? (
                   <p className="mt-2 px-2 text-xs text-muted-foreground">
                     <Link
-                      href="/settings/upgrade"
+                      href="/settings/billing/upgrade"
                       className="font-medium text-foreground underline-offset-2 hover:underline"
                     >
                       Change plan

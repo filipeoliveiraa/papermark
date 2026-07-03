@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { useRouter } from "next/router";
 
 import { useState } from "react";
 import React from "react";
 
 import { useTeam } from "@/context/team-context";
-import { getStripe } from "@/ee/stripe/client";
 import { PlanEnum, getPlanFeatures } from "@/ee/stripe/constants";
 import { getPriceIdFromPlan } from "@/ee/stripe/functions/get-price-id-from-plan";
 import { PLANS } from "@/ee/stripe/utils";
@@ -34,7 +32,6 @@ export function UnlimitedPlanModal({
   open?: boolean;
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-  const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const [internalPeriod, setInternalPeriod] = useState<"yearly" | "monthly">(
     externalPeriod ?? "yearly",
@@ -71,7 +68,7 @@ export function UnlimitedPlanModal({
       })
         .then(async (res) => {
           const url = await res.json();
-          router.push(url);
+          window.location.href = url;
         })
         .catch((err) => {
           alert(err);
@@ -84,9 +81,9 @@ export function UnlimitedPlanModal({
       })
         .then(async (res) => {
           const data = await res.json();
-          const { id: sessionId } = data;
-          const stripe = await getStripe(isOldAccount);
-          stripe?.redirectToCheckout({ sessionId });
+          if (data.url) {
+            window.location.href = data.url;
+          }
         })
         .catch((err) => {
           alert(err);

@@ -163,6 +163,13 @@ const nextConfig = {
         permanent: false,
       },
       {
+        // The plan picker moved to /settings/billing/upgrade (App Router).
+        // Keep the old path working for bookmarks and previously sent emails.
+        source: "/settings/upgrade",
+        destination: "/settings/billing/upgrade",
+        permanent: false,
+      },
+      {
         source: "/:path*",
         destination: "https://presentation.atelierbatalla.com/:path*",
         permanent: true,
@@ -337,7 +344,9 @@ const nextConfig = {
     // oidc-provider uses Koa which has dynamic requires that webpack can't
     // statically analyze. Keep them out of the bundle; they'll be loaded at
     // runtime from node_modules.
-    serverComponentsExternalPackages: ["oidc-provider", "koa"],
+    // jsonpath (a dub dependency) reads its grammar file from disk at module
+    // load, which breaks when webpack bundles it into app-router routes.
+    serverComponentsExternalPackages: ["oidc-provider", "koa", "jsonpath"],
   },
   webpack: (config, { isServer }) => {
     // oidc-provider depends on Koa which uses dynamic requires webpack can't

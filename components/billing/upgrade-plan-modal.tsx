@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
 
 import { useTeam } from "@/context/team-context";
-import { getStripe } from "@/ee/stripe/client";
 import { Feature, PlanEnum, getPlanFeatures } from "@/ee/stripe/constants";
 import { getPriceIdFromPlan } from "@/ee/stripe/functions/get-price-id-from-plan";
 import { PLANS } from "@/ee/stripe/utils";
@@ -13,12 +12,19 @@ import { CheckIcon, CircleHelpIcon, UserPlusIcon, XIcon } from "lucide-react";
 
 import { useAnalytics } from "@/lib/analytics";
 import { usePlan } from "@/lib/swr/use-billing";
+import { useGeoCurrency } from "@/lib/swr/use-geo-currency";
+import { useSubscriptionCurrency } from "@/lib/swr/use-subscription-currency";
 import { capitalize, cn } from "@/lib/utils";
 
+import {
+  type Currency,
+  CurrencyToggle,
+  PeriodToggle,
+  PlanPrice,
+} from "@/components/billing/plan-price";
 import { UnlimitedPlanModal } from "@/components/billing/unlimited-plan-modal";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import {
   BadgeTooltip,
   Tooltip,
@@ -193,6 +199,17 @@ export function UpgradePlanModal({
 }) {
   const router = useRouter();
   const [period, setPeriod] = useState<"yearly" | "monthly">("yearly");
+  const geoCurrency = useGeoCurrency();
+  const { currency: subscriptionCurrency } = useSubscriptionCurrency();
+  const [currencyOverride, setCurrencyOverride] = useState<Currency | null>(
+    null,
+  );
+  // Existing customers are locked to the currency they already pay in (Stripe
+  // subscriptions cannot mix currencies). Otherwise default to the visitor's
+  // geo currency, with a manual toggle taking precedence.
+  const currency: Currency =
+    subscriptionCurrency ?? currencyOverride ?? geoCurrency ?? "eur";
+  const isCurrencyLocked = subscriptionCurrency != null;
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const teamInfo = useTeam();
   const teamId = teamInfo?.currentTeam?.id;
@@ -306,6 +323,7 @@ export function UpgradePlanModal({
       <DialogTrigger asChild>{buttonChild}</DialogTrigger>
       <DialogContent
         mobileFullScreen
+        onOpenAutoFocus={(e) => e.preventDefault()}
         className="max-h-[90vh] min-h-fit overflow-hidden bg-gray-50 p-0 text-foreground dark:bg-gray-900"
         style={{
           width: "90vw",
@@ -315,18 +333,21 @@ export function UpgradePlanModal({
         <div className="flex max-h-[95vh] flex-col max-sm:h-full max-sm:max-h-none">
           {/* Fixed header — billing period toggle stays visible while the cards scroll */}
           <div className="flex-none bg-gray-50 px-4 pb-5 pt-10 dark:bg-gray-900 sm:px-6 sm:pb-5 sm:pt-6">
-            <div className="flex items-center justify-center">
-              <span className="mr-2 text-sm">Monthly</span>
-              <Switch
-                checked={period === "yearly"}
-                onCheckedChange={() =>
-                  setPeriod(period === "monthly" ? "yearly" : "monthly")
-                }
-              />
-              <span className="ml-2 text-sm">
-                Annually{" "}
-                <span className="text-[#fb7a00]">(Save up to 35%)</span>
-              </span>
+            <div className="relative flex flex-col items-center gap-3 sm:block">
+              {!isCurrencyLocked && (
+                <div className="sm:absolute sm:left-0 sm:top-1/2 sm:-translate-y-1/2">
+                  <CurrencyToggle
+                    value={currency}
+                    onChange={setCurrencyOverride}
+                  />
+                </div>
+              )}
+              <div className="flex items-center justify-center gap-2">
+                <PeriodToggle value={period} onChange={setPeriod} />
+                <span className="text-sm text-[#fb7a00]">
+                  (Save up to 35%)
+                </span>
+              </div>
             </div>
           </div>
 
@@ -428,6 +449,7 @@ export function UpgradePlanModal({
 
                 const planFeatures = getPlanFeatures(effectivePlan, {
                   period,
+                  currency,
                   highlightFeatures: highlightForSelector,
                 });
 
@@ -546,19 +568,20 @@ export function UpgradePlanModal({
                       )}
                     </div>
 
-                    <div className="mb-2">
-                      <span className="text-balance text-4xl font-medium tabular-nums text-gray-900 dark:text-white">
-                        €
-                        {
-                          PLANS.find((p) => p.name === displayPlanName)?.price[
-                            period
-                          ].amount
-                        }
-                      </span>
-                      <span className="text-gray-500 dark:text-white/75">
-                        /month{period === "yearly" && ", billed annually"}
-                      </span>
-                    </div>
+                    <PlanPrice
+                      amount={
+                        PLANS.find((p) => p.name === displayPlanName)?.price[
+                          period
+                        ].amount ?? 0
+                      }
+                      amountUsd={
+                        PLANS.find((p) => p.name === displayPlanName)?.price[
+                          period
+                        ].amountUsd
+                      }
+                      period={period}
+                      currency={currency}
+                    />
 
                     {planOption === PlanEnum.DataRooms &&
                       isDataRoomsUpgrade &&
@@ -740,7 +763,7 @@ export function UpgradePlanModal({
                             fetch(
                               `/api/teams/${teamId}/billing/upgrade?priceId=${
                                 priceId
-                              }`,
+                              }&currency=${currency}`,
                               {
                                 method: "POST",
                                 headers: {
@@ -750,9 +773,9 @@ export function UpgradePlanModal({
                             )
                               .then(async (res) => {
                                 const data = await res.json();
-                                const { id: sessionId } = data;
-                                const stripe = await getStripe(isOldAccount);
-                                stripe?.redirectToCheckout({ sessionId });
+                                if (data.url) {
+                                  window.location.href = data.url;
+                                }
                               })
                               .catch((err) => {
                                 alert(err);
@@ -784,7 +807,7 @@ export function UpgradePlanModal({
             </span>{" "}
             and page by page document analytics.{" "}
             <Link
-              href={`/settings/upgrade${
+              href={`/settings/billing/upgrade${
                 clickedPlan === PlanEnum.Pro
                   ? "?view=documents"
                   : clickedPlan === PlanEnum.Business

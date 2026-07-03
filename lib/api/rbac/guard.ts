@@ -1,4 +1,5 @@
 import { NextApiResponse } from "next";
+import { NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
 
@@ -8,6 +9,39 @@ import {
   canAccessDataroom,
 } from "./entitlements";
 import { isDataroomScopedRole } from "./permissions";
+
+/**
+ * App-router variant of the team-level scope check. Billing routes are
+ * team-level actions, so a dataroom-scoped member is denied outright. Returns a
+ * 403 `NextResponse` when denied, or `null` when access is allowed.
+ */
+export async function denyDataroomScopedMember({
+  userId,
+  teamId,
+  role,
+}: {
+  userId: string;
+  teamId: string;
+  role?: string;
+}): Promise<NextResponse | null> {
+  let resolvedRole = role;
+  if (resolvedRole === undefined) {
+    const membership = await prisma.userTeam.findUnique({
+      where: { userId_teamId: { userId, teamId } },
+      select: { role: true },
+    });
+    resolvedRole = membership?.role;
+  }
+
+  if (!resolvedRole || !isDataroomScopedRole(resolvedRole)) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { error: "You do not have permission to perform this action." },
+    { status: 403 },
+  );
+}
 
 /**
  * Lightweight inline guard for team routes that have NOT yet been migrated to

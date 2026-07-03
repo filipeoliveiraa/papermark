@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import React from "react";
 
 import { useTeam } from "@/context/team-context";
-import { getStripe } from "@/ee/stripe/client";
 import { Feature, PlanEnum, getPlanFeatures } from "@/ee/stripe/constants";
 import { getPriceIdFromPlan } from "@/ee/stripe/functions/get-price-id-from-plan";
 import { PLANS } from "@/ee/stripe/utils";
@@ -522,9 +521,12 @@ export function UpgradePlanModalWithDiscount({
                                     throw new Error(errorMessage);
                                   }
                                   const data = await res.json();
-                                  const { id: sessionId } = data;
-                                  const stripe = await getStripe(isOldAccount);
-                                  stripe?.redirectToCheckout({ sessionId });
+                                  if (!data.url) {
+                                    throw new Error(
+                                      "Failed to start checkout",
+                                    );
+                                  }
+                                  window.location.href = data.url;
                                 })
                                 .catch((err) => {
                                   alert(err.message || err);
