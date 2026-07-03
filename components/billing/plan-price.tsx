@@ -10,6 +10,25 @@ export type { Currency };
 
 type Period = "monthly" | "yearly";
 
+// Picks the display symbol/value for a plan price, falling back to the EUR
+// amount when no USD price is configured. Shared so custom price layouts stay
+// consistent with <PlanPrice>.
+export function resolvePlanPrice({
+  amount,
+  amountUsd,
+  currency,
+}: {
+  amount: number;
+  amountUsd?: number;
+  currency: Currency;
+}): { symbol: string; value: number } {
+  const useUsd = currency === "usd" && amountUsd != null;
+  return {
+    symbol: useUsd ? CURRENCY_SYMBOL.usd : CURRENCY_SYMBOL.eur,
+    value: useUsd ? amountUsd : amount,
+  };
+}
+
 // Renders a plan's monthly price in the selected currency. Falls back to the
 // EUR amount when no USD price is configured for the plan.
 export const PlanPrice = ({
@@ -23,9 +42,7 @@ export const PlanPrice = ({
   period: Period;
   currency: Currency;
 }) => {
-  const useUsd = currency === "usd" && amountUsd != null;
-  const value = useUsd ? amountUsd : amount;
-  const symbol = useUsd ? CURRENCY_SYMBOL.usd : CURRENCY_SYMBOL.eur;
+  const { symbol, value } = resolvePlanPrice({ amount, amountUsd, currency });
 
   return (
     <div className="mb-2 text-balance text-4xl font-medium tabular-nums text-gray-900 dark:text-white">

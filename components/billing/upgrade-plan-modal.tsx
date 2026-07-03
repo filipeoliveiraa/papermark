@@ -208,7 +208,7 @@ export function UpgradePlanModal({
   // subscriptions cannot mix currencies). Otherwise default to the visitor's
   // geo currency, with a manual toggle taking precedence.
   const currency: Currency =
-    subscriptionCurrency ?? currencyOverride ?? geoCurrency ?? "eur";
+    subscriptionCurrency ?? currencyOverride ?? geoCurrency ?? "usd";
   const isCurrencyLocked = subscriptionCurrency != null;
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const teamInfo = useTeam();
@@ -829,6 +829,7 @@ export function UpgradePlanModal({
 
           <UnlimitedPlanModal
             period={period}
+            currency={currency}
             open={unlimitedModalOpen}
             setOpen={setUnlimitedModalOpen}
           />
