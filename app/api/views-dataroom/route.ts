@@ -39,7 +39,11 @@ import {
 import { recordLinkView } from "@/lib/tracking/record-link-view";
 import { CustomUser, WatermarkConfigSchema } from "@/lib/types";
 import { checkPassword, decryptEncrpytedPassword, log } from "@/lib/utils";
-import { extractEmailDomain, isEmailMatched } from "@/lib/utils/email-domain";
+import {
+  extractEmailDomain,
+  isEmailMatched,
+  normalizeGroupDomain,
+} from "@/lib/utils/email-domain";
 import { generateOTP } from "@/lib/utils/generate-otp";
 import { LOCALHOST_IP } from "@/lib/utils/geo";
 import { checkGlobalBlockList } from "@/lib/utils/global-block-list";
@@ -521,11 +525,14 @@ export async function POST(request: NextRequest) {
             (member) => member.viewer.email === effectiveEmail,
           );
 
-          // Extract domain from email
+          // Extract domain from email (canonical "@acme.com" form)
           const emailDomain = extractEmailDomain(effectiveEmail ?? "");
-          // Check domain access
+          // Check domain access. Normalize each stored domain so bare-domain
+          // rows (e.g. created before domain normalization) still match.
           const hasDomainAccess = emailDomain
-            ? group.domains.some((domain) => domain === emailDomain)
+            ? group.domains.some(
+                (domain) => normalizeGroupDomain(domain) === emailDomain,
+              )
             : false;
 
           if (!isMember && !hasDomainAccess) {
