@@ -16,7 +16,7 @@ import {
   LinkIcon,
   ListChecksIcon,
   LogsIcon,
-  MessageSquareIcon,
+  MessagesSquareIcon,
   ServerIcon,
   ShieldCheckIcon,
   UsersIcon,
@@ -258,7 +258,7 @@ export function MobileDataroomMoreMenu({
                   highlightItem={["qa"]}
                 >
                   <button type="button" className={rowClass(false)}>
-                    <MessageSquareIcon className="h-5 w-5" />
+                    <MessagesSquareIcon className="h-5 w-5" />
                     Q&A
                   </button>
                 </UpgradePlanModal>
@@ -270,7 +270,7 @@ export function MobileDataroomMoreMenu({
                     router.pathname.includes("conversations"),
                   )}
                 >
-                  <MessageSquareIcon className="h-5 w-5" />
+                  <MessagesSquareIcon className="h-5 w-5" />
                   Q&A
                 </Link>
               )}

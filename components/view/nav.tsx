@@ -4,8 +4,8 @@ import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 
 import { useViewerChatSafe } from "@/ee/features/ai/components/viewer-chat-provider";
+import { useConversationSidebarSafe } from "@/ee/features/conversations/components/viewer/conversation-sidebar-provider";
 import { Brand, DataroomBrand } from "@prisma/client";
-import { useTranslation } from "react-i18next";
 import {
   ArrowUpRight,
   BadgeInfoIcon,
@@ -16,6 +16,7 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { createAdaptiveSurfacePalette } from "@/lib/utils/create-adaptive-surface-palette";
@@ -55,6 +56,8 @@ import ReportForm from "./report-form";
 export type TNavData = {
   linkId: string;
   documentId: string;
+  documentName?: string;
+  dataroomName?: string;
   allowDownload?: boolean;
   brand?: Partial<Brand> | Partial<DataroomBrand> | null;
   isDataroom?: boolean;
@@ -100,6 +103,14 @@ export default function Nav({
   const chatContext = useViewerChatSafe();
   const isChatOpen = chatContext?.isOpen && chatContext?.isEnabled;
 
+  // Read the Q&A sidebar's open state from the same context that drives the
+  // content padding (ConversationSidebarLayout). Using this instead of the
+  // local `showConversations` keeps the navbar's counter-margin in lockstep
+  // with the padding — both flip in one commit — so the navbar doesn't jump
+  // while the panel opens/closes.
+  const conversationSidebar = useConversationSidebarSafe();
+  const isConversationSidebarOpen = !!conversationSidebar?.isOpen;
+
   const {
     linkId,
     allowDownload,
@@ -110,7 +121,9 @@ export default function Nav({
     isMobile,
     isPreview,
     documentId,
+    documentName,
     dataroomId,
+    dataroomName,
     conversationsEnabled,
     isTeamMember,
     annotationsEnabled,
@@ -149,7 +162,12 @@ export default function Nav({
 
   const downloadFile = async () => {
     if (isPreview) {
-      toast.error(t("toasts.cannotDownloadPreview", "You cannot download documents in preview mode."));
+      toast.error(
+        t(
+          "toasts.cannotDownloadPreview",
+          "You cannot download documents in preview mode.",
+        ),
+      );
       return;
     }
     if (!allowDownload || type === "notion") return;
@@ -171,10 +189,14 @@ export default function Nav({
 
     toast.promise(downloadPromise, {
       loading: hasWatermark
-        ? t("toasts.preparingDownloadWatermark", "Preparing download with watermark...")
+        ? t(
+            "toasts.preparingDownloadWatermark",
+            "Preparing download with watermark...",
+          )
         : t("toasts.preparingDownload", "Preparing download..."),
       success: t("toasts.downloadSuccess", "File downloaded successfully"),
-      error: (err) => err.message || t("toasts.downloadFailed", "Failed to download file"),
+      error: (err) =>
+        err.message || t("toasts.downloadFailed", "Failed to download file"),
     });
   };
 
@@ -206,12 +228,16 @@ export default function Nav({
 
   return (
     <nav
-      className="bg-black"
+      data-viewer-top-bar
+      className="bg-black transition-[margin] duration-300 ease-in-out"
       style={{
         backgroundColor: brand && brand.brandColor ? brand.brandColor : "black",
-        // Extend navbar to full width when chat panel is open (counteract parent padding)
-        marginRight: isChatOpen ? "-400px" : undefined,
-        // paddingRight: isChatOpen ? "400px" : undefined,
+        // The chat / Q&A panel shifts the content by padding the parent
+        // (transition-all duration-300). We cancel that padding with a
+        // matching-easing negative margin so the navbar stays full-width and
+        // visually static instead of jumping while the transition runs.
+        marginRight:
+          isChatOpen || isConversationSidebarOpen ? "-400px" : undefined,
       }}
     >
       <div className="mx-auto px-2 sm:px-6 lg:px-8">
@@ -300,7 +326,10 @@ export default function Nav({
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs text-wrap text-center">
-                      {t("nav.teamMemberTooltip", "Skipped verification because you are a team member; no analytics will be collected")}
+                      {t(
+                        "nav.teamMemberTooltip",
+                        "Skipped verification because you are a team member; no analytics will be collected",
+                      )}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -381,7 +410,9 @@ export default function Nav({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <span className="mr-2 text-xs">{t("nav.zoomIn", "Zoom in")}</span>
+                      <span className="mr-2 text-xs">
+                        {t("nav.zoomIn", "Zoom in")}
+                      </span>
                       <span className="ml-auto rounded-sm border bg-muted p-0.5 text-xs tracking-widest text-muted-foreground">
                         ⌘+
                       </span>
@@ -401,7 +432,9 @@ export default function Nav({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <span className="mr-2 text-xs">{t("nav.zoomOut", "Zoom out")}</span>
+                      <span className="mr-2 text-xs">
+                        {t("nav.zoomOut", "Zoom out")}
+                      </span>
                       <span className="ml-auto rounded-sm border bg-muted p-0.5 text-xs tracking-widest text-muted-foreground">
                         ⌘-
                       </span>
@@ -422,7 +455,9 @@ export default function Nav({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <span className="mr-2 text-xs">{t("nav.fullscreen", "Fullscreen")}</span>
+                        <span className="mr-2 text-xs">
+                          {t("nav.fullscreen", "Fullscreen")}
+                        </span>
                         <span className="ml-auto rounded-sm border bg-muted p-0.5 text-xs tracking-widest text-muted-foreground">
                           F
                         </span>
@@ -457,10 +492,12 @@ export default function Nav({
           </div>
         </div>
       </div>
-      {isDataroom && conversationsEnabled && showConversations ? (
+      {isDataroom && conversationsEnabled ? (
         <ConversationSidebar
           dataroomId={dataroomId}
           documentId={documentId}
+          documentName={documentName}
+          dataroomName={dataroomName}
           pageNumber={pageNumber}
           viewId={viewId || ""}
           viewerId={viewerId}

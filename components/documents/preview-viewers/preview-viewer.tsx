@@ -9,9 +9,14 @@ import { PreviewPagesViewer } from "./preview-pages-viewer";
 interface PreviewViewerProps {
   documentData: DocumentPreviewData;
   onClose: () => void;
+  initialPage?: number;
 }
 
-export function PreviewViewer({ documentData, onClose }: PreviewViewerProps) {
+export function PreviewViewer({
+  documentData,
+  onClose,
+  initialPage,
+}: PreviewViewerProps) {
   const { currentTeamId } = useTeam();
 
   const previewPagesEndpoint = currentTeamId
@@ -26,6 +31,7 @@ export function PreviewViewer({ documentData, onClose }: PreviewViewerProps) {
           documentData={documentData}
           onClose={onClose}
           pagesApiEndpoint={previewPagesEndpoint}
+          initialPage={initialPage}
         />
       );
     }

@@ -64,6 +64,9 @@ model User {
   participatedConversations ConversationParticipant[]
   messages                  Message[]
 
+  // Buy-side Q&A: questions authored by this user
+  createdDataroomQuestions DataroomQuestion[]
+
   // FAQ system
   publishedFaqItems  DataroomFaqItem[]
   createdAnnotations DocumentAnnotation[] // Annotations created by this user
@@ -230,6 +233,12 @@ model Viewer {
   invitations               ViewerInvitation[]
   participatedConversations ConversationParticipant[]
   messages                  Message[]
+
+  // Buy-side Q&A: admin-origin threads where this viewer is the recipient/seller
+  recipientConversations Conversation[] @relation("ConversationRecipient")
+
+  // Buy-side Q&A: question assignments targeting this viewer directly
+  questionAssignments DataroomQuestionAssignment[]
 
   uploadedDocuments DocumentUpload[] // uploaded documents by this viewer
 

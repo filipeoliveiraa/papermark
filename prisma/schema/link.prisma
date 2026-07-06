@@ -71,6 +71,9 @@ model Link {
   enableConversation Boolean        @default(false) // Controls if conversations are allowed on this link
   conversations      Conversation[]
 
+  // Buy-side Q&A: question assignments routed to this link
+  questionAssignments DataroomQuestionAssignment[]
+
   // FAQ system
   dataroomFaqItems DataroomFaqItem[]
 

@@ -23,6 +23,9 @@ model Dataroom {
   conversationsEnabled Boolean        @default(false)
   conversations        Conversation[]
 
+  // Buy-side Q&A questions (admin-originated due-diligence questions)
+  questions DataroomQuestion[]
+
   // FAQ system
   faqItems DataroomFaqItem[]
 
@@ -214,6 +217,9 @@ model DataroomDocument {
 
   conversations Conversation[]
 
+  // Buy-side Q&A questions referencing this document
+  questions DataroomQuestion[]
+
   // FAQ system
   dataroomFAQs DataroomFaqItem[]
 
@@ -307,7 +313,9 @@ model ViewerGroup {
   conversations Conversation[]
   invitations   ViewerInvitation[]
 
-  taskAssignments TaskAssignment[]
+  // Buy-side Q&A: question assignments routed to this group's link(s)
+  questionAssignments DataroomQuestionAssignment[]
+  taskAssignments     TaskAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

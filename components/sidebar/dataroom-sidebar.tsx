@@ -18,7 +18,7 @@ import {
   LinkIcon,
   ListChecksIcon,
   LogsIcon,
-  MessageSquareIcon,
+  MessagesSquareIcon,
   SendIcon,
   ShieldCheckIcon,
   ShieldIcon,
@@ -219,7 +219,7 @@ export function DataroomSidebarContent() {
     {
       title: "Q&A",
       href: `/datarooms/${dataroomId}/conversations`,
-      icon: MessageSquareIcon,
+      icon: MessagesSquareIcon,
       segment: "conversations",
     },
     ...(isRequestListFeatureEnabled && dataroom?.requestListEnabled
