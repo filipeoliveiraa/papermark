@@ -1,5 +1,6 @@
 import { DefaultPermissionStrategy, ItemType, Prisma } from "@prisma/client";
 
+import { resolveRootItemAccessFlags } from "@/lib/dataroom/root-item-access";
 import { safeSlugify } from "@/lib/utils";
 
 /**
@@ -54,9 +55,7 @@ async function withUniqueConstraintRetry<T>(args: {
       await tx.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepointName}"`);
       return result;
     } catch (error) {
-      await tx.$executeRawUnsafe(
-        `ROLLBACK TO SAVEPOINT "${savepointName}"`,
-      );
+      await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT "${savepointName}"`);
       await tx.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepointName}"`);
 
       if (
@@ -103,7 +102,10 @@ export interface BulkFolderResult {
 }
 
 class BulkValidationError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
     super(message);
     this.name = "BulkValidationError";
   }
@@ -148,13 +150,22 @@ function buildLevels(folders: BulkFolderInput[]): BulkFolderInput[][] {
   const byId = new Map<string, BulkFolderInput>();
   for (const f of folders) {
     if (!f.tempId) {
-      throw new BulkValidationError("MISSING_TEMP_ID", "Each folder needs a tempId");
+      throw new BulkValidationError(
+        "MISSING_TEMP_ID",
+        "Each folder needs a tempId",
+      );
     }
     if (!f.name || f.name.trim() === "") {
-      throw new BulkValidationError("EMPTY_NAME", `Folder ${f.tempId} has an empty name`);
+      throw new BulkValidationError(
+        "EMPTY_NAME",
+        `Folder ${f.tempId} has an empty name`,
+      );
     }
     if (byId.has(f.tempId)) {
-      throw new BulkValidationError("DUPLICATE_TEMP_ID", `Duplicate tempId: ${f.tempId}`);
+      throw new BulkValidationError(
+        "DUPLICATE_TEMP_ID",
+        `Duplicate tempId: ${f.tempId}`,
+      );
     }
     byId.set(f.tempId, f);
   }
@@ -240,9 +251,7 @@ function resolveParentId(
  */
 async function resolveExternalParentPaths(
   folders: BulkFolderInput[],
-  findRows: (
-    paths: string[],
-  ) => Promise<{ id: string; path: string }[]>,
+  findRows: (paths: string[]) => Promise<{ id: string; path: string }[]>,
 ): Promise<Map<string, string>> {
   const paths = new Set<string>();
   for (const f of folders) {
@@ -279,7 +288,12 @@ async function resolveLevelPaths(args: {
   const { level, parentPathOf, findExisting } = args;
   if (level.length === 0) return new Map();
 
-  const candidatesPerFolder: { tempId: string; name: string; basePath: string; candidates: string[] }[] = [];
+  const candidatesPerFolder: {
+    tempId: string;
+    name: string;
+    basePath: string;
+    candidates: string[];
+  }[] = [];
   const allCandidates = new Set<string>();
 
   for (const f of level) {
@@ -290,7 +304,12 @@ async function resolveLevelPaths(args: {
     for (let i = 1; i <= MAX_SLUG_SUFFIX; i++) {
       candidates.push(basePath + safeSlugify(`${f.name} (${i})`));
     }
-    candidatesPerFolder.push({ tempId: f.tempId, name: f.name, basePath, candidates });
+    candidatesPerFolder.push({
+      tempId: f.tempId,
+      name: f.name,
+      basePath,
+      candidates,
+    });
     for (const c of candidates) allCandidates.add(c);
   }
 
@@ -570,6 +589,8 @@ async function applyDefaultPermissionsBulk(args: {
       select: {
         defaultPermissionStrategy: true,
         defaultGroupPermissionStrategy: true,
+        defaultRootItemAccess: true,
+        defaultGroupRootItemAccess: true,
       },
     }),
     tx.viewerGroup.findMany({
@@ -625,15 +646,24 @@ async function applyDefaultPermissionsBulk(args: {
         ),
   ]);
 
+  const groupRootFlags = resolveRootItemAccessFlags(
+    dataroom.defaultGroupRootItemAccess,
+  );
+  const linkRootFlags = resolveRootItemAccessFlags(
+    dataroom.defaultRootItemAccess,
+  );
+
   // Viewer-group ACLs.
   if (groupInherits && viewerGroups.length > 0) {
     const sourcePerms = rootParentId
       ? parentViewerPerms
-      : viewerGroups.map((g) => ({
-          groupId: g.id,
-          canView: true,
-          canDownload: false,
-        }));
+      : groupRootFlags
+        ? viewerGroups.map((g) => ({
+            groupId: g.id,
+            canView: groupRootFlags.canView,
+            canDownload: groupRootFlags.canDownload,
+          }))
+        : [];
 
     if (sourcePerms.length > 0) {
       const data = newFolderIds.flatMap((folderId) =>
@@ -658,12 +688,14 @@ async function applyDefaultPermissionsBulk(args: {
   if (linkInherits && permissionGroups.length > 0) {
     const sourcePerms = rootParentId
       ? parentLinkPerms
-      : permissionGroups.map((g) => ({
-          groupId: g.id,
-          canView: true,
-          canDownload: false,
-          canDownloadOriginal: false,
-        }));
+      : linkRootFlags
+        ? permissionGroups.map((g) => ({
+            groupId: g.id,
+            canView: linkRootFlags.canView,
+            canDownload: linkRootFlags.canDownload,
+            canDownloadOriginal: false,
+          }))
+        : [];
 
     if (sourcePerms.length > 0) {
       const data = newFolderIds.flatMap((folderId) =>

@@ -1,10 +1,15 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
-import { DefaultPermissionStrategy, ItemType } from "@prisma/client";
+import {
+  DefaultPermissionStrategy,
+  ItemType,
+  RootItemAccess,
+} from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 
 import { enforceDataroomMemberScope } from "@/lib/api/rbac/guard";
+import { resolveRootItemAccessFlags } from "@/lib/dataroom/root-item-access";
 import { resolveFreeFolderPath } from "@/lib/folders/bulk-create";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
@@ -33,6 +38,8 @@ async function applyDefaultFolderPermissions(
       select: {
         defaultPermissionStrategy: true,
         defaultGroupPermissionStrategy: true,
+        defaultRootItemAccess: true,
+        defaultGroupRootItemAccess: true,
         teamId: true,
       },
     }),
@@ -82,6 +89,7 @@ async function applyDefaultFolderPermissions(
       folderId,
       viewerGroups,
       strategy: dataroom.defaultGroupPermissionStrategy,
+      rootItemAccess: dataroom.defaultGroupRootItemAccess,
       parentFolderId,
     }),
     applyForPermissionGroups({
@@ -89,6 +97,7 @@ async function applyDefaultFolderPermissions(
       folderId,
       permissionGroups,
       strategy: dataroom.defaultPermissionStrategy,
+      rootItemAccess: dataroom.defaultRootItemAccess,
       parentFolderId,
     }),
   ]);
@@ -99,9 +108,11 @@ async function applyForViewerGroups(opts: {
   folderId: string;
   viewerGroups: { id: string }[];
   strategy: DefaultPermissionStrategy;
+  rootItemAccess: RootItemAccess;
   parentFolderId: string | null;
 }) {
-  const { folderId, viewerGroups, strategy, parentFolderId } = opts;
+  const { folderId, viewerGroups, strategy, rootItemAccess, parentFolderId } =
+    opts;
 
   if (strategy !== DefaultPermissionStrategy.INHERIT_FROM_PARENT) return;
   if (viewerGroups.length === 0) return;
@@ -130,13 +141,16 @@ async function applyForViewerGroups(opts: {
     return;
   }
 
+  const flags = resolveRootItemAccessFlags(rootItemAccess);
+  if (!flags) return;
+
   await prisma.viewerGroupAccessControls.createMany({
     data: viewerGroups.map((group) => ({
       groupId: group.id,
       itemId: folderId,
       itemType: ItemType.DATAROOM_FOLDER,
-      canView: true,
-      canDownload: false,
+      canView: flags.canView,
+      canDownload: flags.canDownload,
     })),
     skipDuplicates: true,
   });
@@ -147,9 +161,16 @@ async function applyForPermissionGroups(opts: {
   folderId: string;
   permissionGroups: { id: string }[];
   strategy: DefaultPermissionStrategy;
+  rootItemAccess: RootItemAccess;
   parentFolderId: string | null;
 }) {
-  const { folderId, permissionGroups, strategy, parentFolderId } = opts;
+  const {
+    folderId,
+    permissionGroups,
+    strategy,
+    rootItemAccess,
+    parentFolderId,
+  } = opts;
 
   if (strategy !== DefaultPermissionStrategy.INHERIT_FROM_PARENT) return;
   if (permissionGroups.length === 0) return;
@@ -184,13 +205,16 @@ async function applyForPermissionGroups(opts: {
     return;
   }
 
+  const flags = resolveRootItemAccessFlags(rootItemAccess);
+  if (!flags) return;
+
   await prisma.permissionGroupAccessControls.createMany({
     data: permissionGroups.map((group) => ({
       groupId: group.id,
       itemId: folderId,
       itemType: ItemType.DATAROOM_FOLDER,
-      canView: true,
-      canDownload: false,
+      canView: flags.canView,
+      canDownload: flags.canDownload,
       canDownloadOriginal: false,
     })),
     skipDuplicates: true,

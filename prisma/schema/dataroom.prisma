@@ -61,6 +61,12 @@ model Dataroom {
   // defaultPermissionStrategy so links and groups can have different defaults.
   defaultGroupPermissionStrategy DefaultPermissionStrategy @default(INHERIT_FROM_PARENT)
 
+  // How root-level items (which have no parent folder to inherit from) are
+  // exposed when the INHERIT_FROM_PARENT strategy applies. One per scope,
+  // matching the link/group strategy split above.
+  defaultRootItemAccess      RootItemAccess @default(VIEW_ONLY) // links (permission groups)
+  defaultGroupRootItemAccess RootItemAccess @default(VIEW_ONLY) // viewer groups
+
   // bulk download setting
   allowBulkDownload Boolean @default(true) // Allow bulk download of entire dataroom
 
@@ -369,6 +375,14 @@ enum DefaultPermissionStrategy {
   INHERIT_FROM_PARENT
   ASK_EVERY_TIME
   HIDDEN_BY_DEFAULT
+}
+
+// Default access granted to root-level items under INHERIT_FROM_PARENT,
+// where there is no parent folder whose permissions could be copied.
+enum RootItemAccess {
+  VIEW_ONLY
+  VIEW_AND_DOWNLOAD
+  HIDDEN
 }
 
 model PermissionGroup {

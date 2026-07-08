@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
-import { DefaultPermissionStrategy } from "@prisma/client";
+import { DefaultPermissionStrategy, RootItemAccess } from "@prisma/client";
 
 import { withTeamApi } from "@/lib/api/auth/with-session-team";
 import { errorhandler } from "@/lib/errorHandler";
@@ -69,6 +69,8 @@ const patchHandler = withTeamApi(
         enableVisitorUploadChangeNotifications,
         defaultPermissionStrategy,
         defaultGroupPermissionStrategy,
+        defaultRootItemAccess,
+        defaultGroupRootItemAccess,
         allowBulkDownload,
         showLastUpdated,
         tags,
@@ -83,6 +85,8 @@ const patchHandler = withTeamApi(
         enableVisitorUploadChangeNotifications?: boolean;
         defaultPermissionStrategy?: DefaultPermissionStrategy;
         defaultGroupPermissionStrategy?: DefaultPermissionStrategy;
+        defaultRootItemAccess?: RootItemAccess;
+        defaultGroupRootItemAccess?: RootItemAccess;
         allowBulkDownload?: boolean;
         showLastUpdated?: boolean;
         tags?: string[];
@@ -126,6 +130,17 @@ const patchHandler = withTeamApi(
         });
       }
 
+      for (const value of [defaultRootItemAccess, defaultGroupRootItemAccess]) {
+        if (
+          value !== undefined &&
+          !Object.values(RootItemAccess).includes(value)
+        ) {
+          return res.status(400).json({
+            message: "Invalid root item access value",
+          });
+        }
+      }
+
       const updatedDataroom = await prisma.$transaction(async (tx) => {
         const dataroom = await tx.dataroom.update({
           where: {
@@ -149,6 +164,10 @@ const patchHandler = withTeamApi(
             ...(defaultPermissionStrategy && { defaultPermissionStrategy }),
             ...(defaultGroupPermissionStrategy && {
               defaultGroupPermissionStrategy,
+            }),
+            ...(defaultRootItemAccess && { defaultRootItemAccess }),
+            ...(defaultGroupRootItemAccess && {
+              defaultGroupRootItemAccess,
             }),
             ...(typeof allowBulkDownload === "boolean" && {
               allowBulkDownload,

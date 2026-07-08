@@ -1,14 +1,25 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
-import { DefaultPermissionStrategy, ItemType } from "@prisma/client";
+import {
+  DefaultPermissionStrategy,
+  ItemType,
+  RootItemAccess,
+} from "@prisma/client";
 import { getServerSession } from "next-auth";
 
+import { resolveRootItemAccessFlags } from "@/lib/dataroom/root-item-access";
 import { errorhandler } from "@/lib/errorHandler";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
 
 type GroupTarget = "VIEWER_GROUP" | "PERMISSION_GROUP";
+
+type DataroomDocumentRef = {
+  id: string;
+  documentId: string;
+  folderId: string | null;
+};
 
 const VALID_STRATEGIES = new Set<string>([
   "INHERIT_FROM_PARENT",
@@ -22,10 +33,7 @@ async function revalidateLinksForDataroom(dataroomId: string): Promise<void> {
       where: {
         dataroomId,
         deletedAt: null,
-        OR: [
-          { permissionGroupId: { not: null } },
-          { groupId: { not: null } },
-        ],
+        OR: [{ permissionGroupId: { not: null } }, { groupId: { not: null } }],
       },
       select: { id: true, domainId: true },
     });
@@ -75,13 +83,9 @@ export default async function handler(
   const userId = (session.user as CustomUser).id;
 
   try {
-    const {
-      documentIds,
-      strategy,
-      groupStrategy,
-      linkStrategy,
-      folderPath,
-    } = req.body as {
+    // `folderPath` is still sent by older clients but no longer trusted; the
+    // containing folder is resolved from each document's own `folderId`.
+    const { documentIds, strategy, groupStrategy, linkStrategy } = req.body as {
       documentIds: string[];
       strategy?: string;
       groupStrategy?: string;
@@ -125,6 +129,8 @@ export default async function handler(
         teamId: true,
         defaultPermissionStrategy: true,
         defaultGroupPermissionStrategy: true,
+        defaultRootItemAccess: true,
+        defaultGroupRootItemAccess: true,
       },
     });
 
@@ -167,14 +173,14 @@ export default async function handler(
         dataroomId,
         dataroomDocuments,
         strategy: effectiveGroupStrategy,
-        folderPath,
+        rootItemAccess: dataroom.defaultGroupRootItemAccess,
         target: "VIEWER_GROUP",
       }),
       applyPermissionStrategy({
         dataroomId,
         dataroomDocuments,
         strategy: effectiveLinkStrategy,
-        folderPath,
+        rootItemAccess: dataroom.defaultRootItemAccess,
         target: "PERMISSION_GROUP",
       }),
     ]);
@@ -195,16 +201,13 @@ export default async function handler(
 
 async function applyPermissionStrategy(opts: {
   dataroomId: string;
-  dataroomDocuments: {
-    id: string;
-    documentId: string;
-    folderId: string | null;
-  }[];
+  dataroomDocuments: DataroomDocumentRef[];
   strategy: DefaultPermissionStrategy;
-  folderPath?: string;
+  rootItemAccess: RootItemAccess;
   target: GroupTarget;
 }) {
-  const { dataroomId, dataroomDocuments, strategy, folderPath, target } = opts;
+  const { dataroomId, dataroomDocuments, strategy, rootItemAccess, target } =
+    opts;
 
   // ASK_EVERY_TIME and HIDDEN_BY_DEFAULT both intentionally leave the document
   // hidden until something else writes the access control rows (the unified
@@ -212,29 +215,103 @@ async function applyPermissionStrategy(opts: {
   // HIDDEN_BY_DEFAULT).
   if (strategy !== DefaultPermissionStrategy.INHERIT_FROM_PARENT) return;
 
-  const isRootLevel = !folderPath || folderPath.length === 0;
-
-  if (isRootLevel) {
-    await applyRootLevelPermissions(dataroomId, dataroomDocuments, target);
-  } else {
-    await inheritFromParentFolder(
-      dataroomId,
-      dataroomDocuments,
-      folderPath!,
-      target,
-    );
+  // Group documents by the folder they actually live in (server-side truth,
+  // not the client-provided path). Root-level documents have no parent to
+  // inherit from and get the dataroom's root-item default instead.
+  const rootDocuments: DataroomDocumentRef[] = [];
+  const documentsByFolderId = new Map<string, DataroomDocumentRef[]>();
+  for (const doc of dataroomDocuments) {
+    if (doc.folderId === null) {
+      rootDocuments.push(doc);
+    } else {
+      const list = documentsByFolderId.get(doc.folderId) ?? [];
+      list.push(doc);
+      documentsByFolderId.set(doc.folderId, list);
+    }
   }
+
+  await Promise.all([
+    rootDocuments.length > 0
+      ? applyRootLevelPermissions(
+          dataroomId,
+          rootDocuments,
+          rootItemAccess,
+          target,
+        )
+      : Promise.resolve(),
+    ...Array.from(documentsByFolderId, ([folderId, docs]) =>
+      inheritFromContainingFolder(folderId, docs, target),
+    ),
+  ]);
+}
+
+/**
+ * Upsert-equivalent for default-permission rows: remove any existing rows for
+ * the exact (group, document) pairs we're about to write, then insert the new
+ * values. Unlike `createMany({ skipDuplicates: true })`, a stale row (e.g.
+ * `canView=false` left behind by an earlier write) is corrected instead of
+ * silently kept.
+ */
+async function upsertViewerGroupDocumentRows(
+  data: {
+    groupId: string;
+    itemId: string;
+    itemType: ItemType;
+    canView: boolean;
+    canDownload: boolean;
+  }[],
+) {
+  if (data.length === 0) return;
+  const groupIds = Array.from(new Set(data.map((d) => d.groupId)));
+  const itemIds = Array.from(new Set(data.map((d) => d.itemId)));
+  await prisma.$transaction([
+    prisma.viewerGroupAccessControls.deleteMany({
+      where: {
+        groupId: { in: groupIds },
+        itemId: { in: itemIds },
+        itemType: ItemType.DATAROOM_DOCUMENT,
+      },
+    }),
+    prisma.viewerGroupAccessControls.createMany({ data }),
+  ]);
+}
+
+async function upsertPermissionGroupDocumentRows(
+  data: {
+    groupId: string;
+    itemId: string;
+    itemType: ItemType;
+    canView: boolean;
+    canDownload: boolean;
+    canDownloadOriginal: boolean;
+  }[],
+) {
+  if (data.length === 0) return;
+  const groupIds = Array.from(new Set(data.map((d) => d.groupId)));
+  const itemIds = Array.from(new Set(data.map((d) => d.itemId)));
+  await prisma.$transaction([
+    prisma.permissionGroupAccessControls.deleteMany({
+      where: {
+        groupId: { in: groupIds },
+        itemId: { in: itemIds },
+        itemType: ItemType.DATAROOM_DOCUMENT,
+      },
+    }),
+    prisma.permissionGroupAccessControls.createMany({ data }),
+  ]);
 }
 
 async function applyRootLevelPermissions(
   dataroomId: string,
-  dataroomDocuments: {
-    id: string;
-    documentId: string;
-    folderId: string | null;
-  }[],
+  dataroomDocuments: DataroomDocumentRef[],
+  rootItemAccess: RootItemAccess,
   target: GroupTarget,
 ) {
+  const flags = resolveRootItemAccessFlags(rootItemAccess);
+  // HIDDEN: no rows are written, so the documents stay invisible until an
+  // admin grants access explicitly.
+  if (!flags) return;
+
   if (target === "VIEWER_GROUP") {
     const viewerGroups = await prisma.viewerGroup.findMany({
       where: { dataroomId },
@@ -242,22 +319,17 @@ async function applyRootLevelPermissions(
     });
     if (viewerGroups.length === 0) return;
 
-    const data = viewerGroups.flatMap((group) =>
-      dataroomDocuments.map((doc) => ({
-        groupId: group.id,
-        itemId: doc.id,
-        itemType: ItemType.DATAROOM_DOCUMENT,
-        canView: true,
-        canDownload: false,
-      })),
+    await upsertViewerGroupDocumentRows(
+      viewerGroups.flatMap((group) =>
+        dataroomDocuments.map((doc) => ({
+          groupId: group.id,
+          itemId: doc.id,
+          itemType: ItemType.DATAROOM_DOCUMENT,
+          canView: flags.canView,
+          canDownload: flags.canDownload,
+        })),
+      ),
     );
-
-    if (data.length > 0) {
-      await prisma.viewerGroupAccessControls.createMany({
-        data,
-        skipDuplicates: true,
-      });
-    }
     return;
   }
 
@@ -267,85 +339,64 @@ async function applyRootLevelPermissions(
   });
   if (permissionGroups.length === 0) return;
 
-  const data = permissionGroups.flatMap((group) =>
-    dataroomDocuments.map((doc) => ({
-      groupId: group.id,
-      itemId: doc.id,
-      itemType: ItemType.DATAROOM_DOCUMENT,
-      canView: true,
-      canDownload: false,
-      canDownloadOriginal: false,
-    })),
-  );
-
-  if (data.length > 0) {
-    await prisma.permissionGroupAccessControls.createMany({
-      data,
-      skipDuplicates: true,
-    });
-  }
-}
-
-async function inheritFromParentFolder(
-  dataroomId: string,
-  dataroomDocuments: {
-    id: string;
-    documentId: string;
-    folderId: string | null;
-  }[],
-  folderPath: string,
-  target: GroupTarget,
-) {
-  const pathSegments = folderPath.split("/").filter(Boolean);
-  const parentPath = "/" + pathSegments.slice(0, -1).join("/");
-
-  const parentFolder = await prisma.dataroomFolder.findUnique({
-    where: {
-      dataroomId_path: { dataroomId, path: parentPath },
-    },
-    select: { id: true },
-  });
-
-  if (!parentFolder) {
-    await applyRootLevelPermissions(dataroomId, dataroomDocuments, target);
-    return;
-  }
-
-  if (target === "VIEWER_GROUP") {
-    const parentViewerPermissions =
-      await prisma.viewerGroupAccessControls.findMany({
-        where: {
-          itemId: parentFolder.id,
-          itemType: ItemType.DATAROOM_FOLDER,
-        },
-        select: { groupId: true, canView: true, canDownload: true },
-      });
-
-    if (parentViewerPermissions.length === 0) return;
-
-    const data = parentViewerPermissions.flatMap((parentPerm) =>
+  await upsertPermissionGroupDocumentRows(
+    permissionGroups.flatMap((group) =>
       dataroomDocuments.map((doc) => ({
-        groupId: parentPerm.groupId,
+        groupId: group.id,
         itemId: doc.id,
         itemType: ItemType.DATAROOM_DOCUMENT,
-        canView: parentPerm.canView,
-        canDownload: parentPerm.canDownload,
+        canView: flags.canView,
+        canDownload: flags.canDownload,
+        canDownloadOriginal: false,
       })),
-    );
+    ),
+  );
+}
 
-    if (data.length > 0) {
-      await prisma.viewerGroupAccessControls.createMany({
-        data,
-        skipDuplicates: true,
-      });
-    }
+/**
+ * Copies the ACLs of the folder the documents actually live in onto the
+ * documents. Groups without a row on the folder get no row on the document
+ * (not visible), mirroring the folder exactly.
+ *
+ * Note this intentionally reads the *containing* folder's permissions — a
+ * previous version derived the parent from the client-supplied folder path
+ * with an off-by-one (`slice(0, -1)`), inheriting from the grandparent and
+ * leaving freshly uploaded documents without any viewable row.
+ */
+async function inheritFromContainingFolder(
+  folderId: string,
+  dataroomDocuments: DataroomDocumentRef[],
+  target: GroupTarget,
+) {
+  if (target === "VIEWER_GROUP") {
+    const folderPermissions = await prisma.viewerGroupAccessControls.findMany({
+      where: {
+        itemId: folderId,
+        itemType: ItemType.DATAROOM_FOLDER,
+      },
+      select: { groupId: true, canView: true, canDownload: true },
+    });
+
+    if (folderPermissions.length === 0) return;
+
+    await upsertViewerGroupDocumentRows(
+      folderPermissions.flatMap((folderPerm) =>
+        dataroomDocuments.map((doc) => ({
+          groupId: folderPerm.groupId,
+          itemId: doc.id,
+          itemType: ItemType.DATAROOM_DOCUMENT,
+          canView: folderPerm.canView,
+          canDownload: folderPerm.canDownload,
+        })),
+      ),
+    );
     return;
   }
 
-  const parentPermissionGroupPermissions =
-    await prisma.permissionGroupAccessControls.findMany({
+  const folderPermissions = await prisma.permissionGroupAccessControls.findMany(
+    {
       where: {
-        itemId: parentFolder.id,
+        itemId: folderId,
         itemType: ItemType.DATAROOM_FOLDER,
       },
       select: {
@@ -354,25 +405,21 @@ async function inheritFromParentFolder(
         canDownload: true,
         canDownloadOriginal: true,
       },
-    });
-
-  if (parentPermissionGroupPermissions.length === 0) return;
-
-  const data = parentPermissionGroupPermissions.flatMap((parentPerm) =>
-    dataroomDocuments.map((doc) => ({
-      groupId: parentPerm.groupId,
-      itemId: doc.id,
-      itemType: ItemType.DATAROOM_DOCUMENT,
-      canView: parentPerm.canView,
-      canDownload: parentPerm.canDownload,
-      canDownloadOriginal: parentPerm.canDownloadOriginal,
-    })),
+    },
   );
 
-  if (data.length > 0) {
-    await prisma.permissionGroupAccessControls.createMany({
-      data,
-      skipDuplicates: true,
-    });
-  }
+  if (folderPermissions.length === 0) return;
+
+  await upsertPermissionGroupDocumentRows(
+    folderPermissions.flatMap((folderPerm) =>
+      dataroomDocuments.map((doc) => ({
+        groupId: folderPerm.groupId,
+        itemId: doc.id,
+        itemType: ItemType.DATAROOM_DOCUMENT,
+        canView: folderPerm.canView,
+        canDownload: folderPerm.canDownload,
+        canDownloadOriginal: folderPerm.canDownloadOriginal,
+      })),
+    ),
+  );
 }
