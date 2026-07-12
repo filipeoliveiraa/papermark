@@ -7,6 +7,7 @@ import { waitUntil } from "@vercel/functions";
 import { z } from "zod";
 
 import { hashToken } from "@/lib/api/auth/token";
+import { onDataroomDocumentsAttached } from "@/lib/dataroom/apply-default-permissions";
 import {
   createDocument,
   createNewDocumentVersion,
@@ -28,8 +29,8 @@ import {
   getSupportedContentType,
 } from "@/lib/utils/get-content-type";
 import {
-  fetchPublicHttpsUrlToBuffer,
   type PublicHttpsDownload,
+  fetchPublicHttpsUrlToBuffer,
 } from "@/lib/utils/ssrf-protection";
 import { sendLinkCreatedWebhook } from "@/lib/webhook/triggers/link-created";
 import { webhookFileUrlSchema } from "@/lib/zod/url-validation";
@@ -41,6 +42,9 @@ export const config = {
 };
 
 const MAX_WEBHOOK_FILE_BYTES = 100 * 1024 * 1024;
+const API_DOCS_URL = "https://www.papermark.com/docs/api";
+const LEGACY_API_NOTICE =
+  `This endpoint is deprecated; use the v1 API: ${API_DOCS_URL}`;
 
 // Define a common link schema to reuse
 const LinkSchema = z.object({
@@ -142,6 +146,10 @@ export default async function incomingWebhookHandler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
+  res.setHeader("Deprecation", "true");
+  res.setHeader("Link", `<${API_DOCS_URL}>; rel="successor-version"`);
+  res.setHeader("X-Papermark-API-Notice", LEGACY_API_NOTICE);
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -631,7 +639,9 @@ async function handleDocumentCreate(
         enableFeedback: link.enableFeedback,
         enableScreenshotProtection: link.enableScreenshotProtection,
         enableConfidentialView:
-          link.enableConfidentialView ?? preset?.enableConfidentialView ?? false,
+          link.enableConfidentialView ??
+          preset?.enableConfidentialView ??
+          false,
         showBanner: link.showBanner ?? preset?.showBanner ?? false,
         audienceType: link.audienceType,
         groupId: isGroupAudience ? link.groupId : null,
@@ -682,12 +692,23 @@ async function handleDocumentCreate(
       }
     }
 
-    await prisma.dataroomDocument.create({
+    const newDataroomDocument = await prisma.dataroomDocument.create({
       data: {
         dataroomId,
         documentId: document.id,
         folderId: dataroomFolderId || null,
       },
+    });
+
+    await onDataroomDocumentsAttached({
+      dataroomId,
+      dataroomDocuments: [
+        {
+          id: newDataroomDocument.id,
+          folderId: newDataroomDocument.folderId,
+        },
+      ],
+      schedule: waitUntil,
     });
   }
 
@@ -839,9 +860,7 @@ async function handleDocumentUpdate(
     });
   } catch (error) {
     console.error("Document update error:", error);
-    return res
-      .status(500)
-      .json({ error: "Failed to create document version" });
+    return res.status(500).json({ error: "Failed to create document version" });
   }
 }
 
@@ -1011,7 +1030,9 @@ async function handleLinkCreate(
         enableFeedback: link.enableFeedback,
         enableScreenshotProtection: link.enableScreenshotProtection,
         enableConfidentialView:
-          link.enableConfidentialView ?? preset?.enableConfidentialView ?? false,
+          link.enableConfidentialView ??
+          preset?.enableConfidentialView ??
+          false,
         showBanner: link.showBanner ?? preset?.showBanner ?? false,
         audienceType: link.audienceType,
         groupId: isGroupAudience ? link.groupId : null,
@@ -1513,7 +1534,9 @@ async function handleDataroomCreate(
           enableFeedback: link.enableFeedback,
           enableScreenshotProtection: link.enableScreenshotProtection,
           enableConfidentialView:
-            link.enableConfidentialView ?? preset?.enableConfidentialView ?? false,
+            link.enableConfidentialView ??
+            preset?.enableConfidentialView ??
+            false,
           showBanner: link.showBanner ?? preset?.showBanner ?? false,
           audienceType: link.audienceType,
           groupId: isGroupAudience ? link.groupId : null,

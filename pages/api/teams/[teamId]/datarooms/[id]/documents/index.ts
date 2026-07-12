@@ -12,6 +12,7 @@ import { waitUntil } from "@vercel/functions";
 import { withTeamApi } from "@/lib/api/auth/with-session-team";
 import { assertDocumentAccess } from "@/lib/api/rbac/entitlements";
 import { isDataroomScopedRole } from "@/lib/api/rbac/permissions";
+import { onDataroomDocumentsAttached } from "@/lib/dataroom/apply-default-permissions";
 import { errorhandler } from "@/lib/errorHandler";
 import { getFeatureFlags } from "@/lib/featureFlags";
 import prisma from "@/lib/prisma";
@@ -188,12 +189,20 @@ const postHandler = withTeamApi(
                 orderBy: { createdAt: "desc" },
                 take: 1,
               },
-              _count: {
-                select: { viewerGroups: true, permissionGroups: true },
-              },
             },
           },
         },
+      });
+
+      await onDataroomDocumentsAttached({
+        dataroomId,
+        dataroomDocuments: [
+          {
+            id: dataroomDocument.id,
+            folderId: dataroomDocument.folderId,
+          },
+        ],
+        schedule: waitUntil,
       });
 
       // Auto-index document if dataroom has AI agents enabled

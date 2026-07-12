@@ -1,17 +1,18 @@
 import { NextApiRequest, NextApiResponse } from "next";
 
 import {
+  SUPPORTED_AI_CONTENT_TYPES,
   addFileToVectorStoreTask,
   processDocumentForAITask,
-  SUPPORTED_AI_CONTENT_TYPES,
 } from "@/ee/features/ai/lib/trigger";
 import { waitUntil } from "@vercel/functions";
 
 import { withTeamApi } from "@/lib/api/auth/with-session-team";
 import { assertDocumentAccess } from "@/lib/api/rbac/entitlements";
 import { isDataroomScopedRole } from "@/lib/api/rbac/permissions";
-import { getFeatureFlags } from "@/lib/featureFlags";
+import { onDataroomDocumentsAttached } from "@/lib/dataroom/apply-default-permissions";
 import { errorhandler } from "@/lib/errorHandler";
+import { getFeatureFlags } from "@/lib/featureFlags";
 import prisma from "@/lib/prisma";
 
 export const config = {
@@ -121,6 +122,17 @@ const postHandler = withTeamApi(
         });
       }
 
+      await onDataroomDocumentsAttached({
+        dataroomId: dataroom.id,
+        dataroomDocuments: [
+          {
+            id: dataroomDocument.id,
+            folderId: dataroomDocument.folderId,
+          },
+        ],
+        schedule: waitUntil,
+      });
+
       // Auto-index document if dataroom has AI agents enabled
       if (dataroom.agentsEnabled && dataroom.vectorStoreId) {
         const primaryVersion = document.versions[0];
@@ -129,7 +141,11 @@ const postHandler = withTeamApi(
         // Check if AI feature is enabled for the team
         const features = await getFeatureFlags({ teamId });
 
-        if (features.ai && primaryVersion && SUPPORTED_AI_CONTENT_TYPES.includes(contentType)) {
+        if (
+          features.ai &&
+          primaryVersion &&
+          SUPPORTED_AI_CONTENT_TYPES.includes(contentType)
+        ) {
           const filePath =
             primaryVersion.originalFile && contentType !== "application/pdf"
               ? primaryVersion.originalFile
