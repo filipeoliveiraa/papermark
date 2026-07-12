@@ -135,6 +135,11 @@ model DocumentUpload {
   dataroomDocumentId String?
   dataroomDocument   DataroomDocument? @relation(fields: [dataroomDocumentId], references: [id], onDelete: SetNull)
 
+  // Optional Request List task this upload fulfills. Set when a visitor uploads
+  // directly from an UPLOAD task card so admins can see the file on the request.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
   // Additional metadata
   originalFilename String?
   fileSize         BigInt?
@@ -152,6 +157,7 @@ model DocumentUpload {
   @@index([teamId])
   @@index([dataroomId])
   @@index([dataroomDocumentId])
+  @@index([taskId])
 }
 
 model PendingDocumentUpload {

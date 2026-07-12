@@ -1028,8 +1028,12 @@ export default function DataroomViewer({
                             </div>
                           ) : null}
 
-                          {/* Tabs: Documents / My Uploads */}
-                          {viewData?.enableVisitorUpload && hasUploads && (
+                          {/* Tabs: Documents / My Uploads. Request List uploads
+                              also land here, so show the tab when either visitor
+                              upload or a request list is available. */}
+                          {(viewData?.enableVisitorUpload ||
+                            requestListEnabled) &&
+                            hasUploads && (
                             <div
                               className="mt-4 flex items-center gap-1 border-b"
                               style={{

@@ -23,6 +23,7 @@ export default function ViewerUploadZone({
   onUploadRejected,
   viewerData,
   teamId,
+  taskId,
   maxFileSize = 350, // 350 MB default, matches paid admin document limits
   disabled = false,
 }: {
@@ -39,6 +40,9 @@ export default function ViewerUploadZone({
     dataroomId?: string;
   };
   teamId: string;
+  /** When set, uploads fulfill a Request List task and bypass the link's
+   *  generic upload toggle (gated by task assignment server-side). */
+  taskId?: string;
   maxFileSize?: number;
   disabled?: boolean;
 }) {
@@ -97,6 +101,7 @@ export default function ViewerUploadZone({
           viewerData,
           teamId,
           numPages,
+          taskId,
         });
 
         const uploadResult = await complete;
@@ -160,7 +165,14 @@ export default function ViewerUploadZone({
         toast.error("An error occurred during upload");
       }
     },
-    [onUploadStart, onUploadProgress, onUploadComplete, viewerData, teamId],
+    [
+      onUploadStart,
+      onUploadProgress,
+      onUploadComplete,
+      viewerData,
+      teamId,
+      taskId,
+    ],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

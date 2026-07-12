@@ -137,11 +137,20 @@ model Task {
   teamId     String
   team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
+  // Optional destination folder for UPLOAD tasks: visitor files for this request
+  // are forced into this folder. Null = no per-task target (uploads fall back to
+  // the link's upload allow-list / root). SetNull so deleting the folder just
+  // clears the target rather than the task.
+  uploadFolderId String?
+  uploadFolder   DataroomFolder? @relation("TaskUploadFolder", fields: [uploadFolderId], references: [id], onDelete: SetNull)
+
   createdByUserId String?
   createdByUser   User?   @relation("createdTasks", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   assignments TaskAssignment[]
   activities  TaskActivity[]
+  // Files uploaded by visitors to fulfill this task (UPLOAD type).
+  uploads     DocumentUpload[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -149,6 +158,7 @@ model Task {
   @@index([taskListId])
   @@index([dataroomId])
   @@index([teamId])
+  @@index([uploadFolderId])
   @@index([taskListId, orderIndex])
 }
 
@@ -188,7 +198,7 @@ model TaskActivity {
   id         String  @id @default(cuid())
   taskId     String
   task       Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  type       String // CREATED | ASSIGNED | STATUS_CHANGED | COMMENT (validated by Zod)
+  type       String // CREATED | ASSIGNED | STATUS_CHANGED | UPLOADED | COMMENT (validated by Zod)
   comment    String?
   fromStatus String?
   toStatus   String?
@@ -252,6 +262,8 @@ model DataroomFolder {
   documents         DataroomDocument[]
   childFolders      DataroomFolder[]   @relation("SubFolders")
   parentFolder      DataroomFolder?    @relation("SubFolders", fields: [parentId], references: [id], onDelete: SetNull)
+  // Request-list tasks that force uploads into this folder.
+  uploadTasks       Task[]             @relation("TaskUploadFolder")
   dataroomId        String
   dataroom          Dataroom           @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
   orderIndex        Int?

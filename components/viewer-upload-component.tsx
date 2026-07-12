@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 
+import { usePendingUploads } from "@/context/pending-uploads-context";
 import { FileUp } from "lucide-react";
 import { toast } from "sonner";
 
-import { usePendingUploads } from "@/context/pending-uploads-context";
 import { DocumentData } from "@/lib/documents/create-document";
 import { newId } from "@/lib/id-helper";
 import { cn } from "@/lib/utils";
@@ -15,11 +15,15 @@ export function ViewerUploadComponent({
   viewerData,
   teamId,
   folderId,
+  taskId,
   onUploadSuccess,
 }: {
   viewerData: { id: string; linkId: string; dataroomId?: string };
   teamId: string;
   folderId?: string;
+  /** When set, the upload fulfills a Request List task (links it to the task
+   *  and auto-submits the request). */
+  taskId?: string;
   onUploadSuccess?: () => void;
 }) {
   const [uploads, setUploads] = useState<
@@ -123,6 +127,7 @@ export function ViewerUploadComponent({
           documentData,
           dataroomId: viewerData.dataroomId,
           folderId: folderId,
+          taskId: taskId,
         }),
       });
 
@@ -143,7 +148,11 @@ export function ViewerUploadComponent({
         result.document.fileType,
       );
 
-      // Update pending upload with real document data
+      // Update pending upload with real document data. Crucially, reconcile the
+      // folder with the destination the server actually chose: forced
+      // destinations (per-task `uploadFolderId` or the link's upload allow-list)
+      // can differ from the client-guessed `folderId`, so trust the server so
+      // the file shows under its real folder — not stuck in Home.
       if (pendingId) {
         updatePendingUpload(pendingId, {
           status: needsProcessing ? "processing" : "complete",
@@ -151,6 +160,7 @@ export function ViewerUploadComponent({
           dataroomDocumentId: result.document.dataroomDocumentId,
           documentVersionId: result.document.documentVersionId,
           fileType: result.document.fileType,
+          folderId: result.document.folderId ?? null,
         });
       }
 
@@ -180,6 +190,7 @@ export function ViewerUploadComponent({
       onUploadRejected={(rejected) => setRejectedFiles(rejected)}
       viewerData={viewerData}
       teamId={teamId}
+      taskId={taskId}
     >
       {isUploading ? (
         <div className="min-w-0 space-y-3">
@@ -194,10 +205,7 @@ export function ViewerUploadComponent({
                   {upload.fileName}
                 </p>
                 <div className="mt-1.5 flex items-center gap-2">
-                  <Progress
-                    value={upload.progress}
-                    className="h-1.5 flex-1"
-                  />
+                  <Progress value={upload.progress} className="h-1.5 flex-1" />
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {upload.progress}%
                   </span>

@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 
 import { PendingUploadsProvider } from "@/context/pending-uploads-context";
+import { useViewerRequestList } from "@/ee/features/request-lists/lib/swr/use-viewer-request-list";
 import { DataroomBrand } from "@prisma/client";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
@@ -125,6 +126,18 @@ export default function DataroomView({
   const dataroomViewBackgroundColor = shouldApplyAccentToDataroomView
     ? brand?.accentColor
     : "#ffffff";
+
+  // Request List uploads land in the same DocumentUpload table as voluntary
+  // visitor uploads, so track the viewer's uploads whenever either feature can
+  // produce them — even when the link's generic visitor-upload toggle is off.
+  const { enabled: requestListEnabled } = useViewerRequestList({
+    linkId: link.id,
+    dataroomId: dataroom?.id,
+    viewerId: viewData.viewerId,
+    isPreview: viewData.isPreview,
+  });
+  const trackViewerUploads =
+    !!viewData.enableVisitorUpload || requestListEnabled;
 
   const handleSubmission = async (): Promise<void> => {
     setIsLoading(true);
@@ -308,8 +321,8 @@ export default function DataroomView({
   if (submitted) {
     return (
       <PendingUploadsProvider
-          linkId={viewData.enableVisitorUpload ? link.id : undefined}
-          dataroomId={viewData.enableVisitorUpload ? dataroom?.id : undefined}
+          linkId={trackViewerUploads ? link.id : undefined}
+          dataroomId={trackViewerUploads ? dataroom?.id : undefined}
         >
         <div
           className="flex min-h-screen flex-col bg-white"
