@@ -32,6 +32,15 @@ const TRACK_DENYLIST = [
 // there and the saved value would not match what the user actually sees.
 const TRACK_DENY_SEGMENTS = ["conversations"];
 
+// Branding preview iframes (e.g. /room_ppreview_demo, /nav_ppreview_demo,
+// /entrance_ppreview_demo, /custom_fields_ppreview_demo) are rendered inside
+// the branding editors' same-origin <iframe>s. Since _app mounts the tracker on
+// every non-excluded page, the iframe would otherwise record itself as the
+// "last visited" destination and bounce the user into a standalone preview page
+// on their next entry. Any route whose segment ends with this suffix is such a
+// preview and must never be tracked.
+const PREVIEW_DEMO_SUFFIX = "_ppreview_demo";
+
 // Pages that don't count as "being inside the app" yet for entry handling:
 // rendering any page outside this list marks the tab session as entered.
 const ENTRY_NEUTRAL_PATHS = [
@@ -61,6 +70,9 @@ function isTrackablePath(path: string): boolean {
   if (pathname.includes("[")) return false;
   if (matchesPathPrefix(pathname, TRACK_DENYLIST)) return false;
   const segments = pathname.split("/");
+  if (segments.some((segment) => segment.endsWith(PREVIEW_DEMO_SUFFIX))) {
+    return false;
+  }
   return !TRACK_DENY_SEGMENTS.some((denied) => segments.includes(denied));
 }
 
