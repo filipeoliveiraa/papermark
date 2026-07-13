@@ -152,6 +152,10 @@ model Task {
   // Files uploaded by visitors to fulfill this task (UPLOAD type).
   uploads     DocumentUpload[]
 
+  // Debounce cursor: createdAt of the newest activity already emailed. Advanced
+  // only after a notification batch is sent, so retries re-send rather than skip.
+  lastActivityNotifiedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

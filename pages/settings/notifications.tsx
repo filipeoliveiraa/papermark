@@ -81,8 +81,8 @@ const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
       },
       {
         type: "DATAROOM_TASK",
-        title: "Request updated",
-        description: "When a visitor updates a request list task",
+        title: "Request list activity",
+        description: "When a request is commented on, uploaded to, or has its status changed",
         icon: ListChecksIcon,
       },
     ],
