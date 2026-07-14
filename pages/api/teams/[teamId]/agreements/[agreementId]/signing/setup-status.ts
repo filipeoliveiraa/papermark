@@ -12,6 +12,7 @@ import {
   isSigningAgreement,
 } from "@/lib/signing/agreements";
 import { getSigningClient } from "@/lib/signing/client";
+import { DEFAULT_SIGNING_SETUP_FAILURE_MESSAGE } from "@/lib/signing/setup-status";
 import { CustomUser } from "@/lib/types";
 
 const setupStatusQuerySchema = z.object({
@@ -96,13 +97,20 @@ export default async function handle(
         runId: run.id,
         status: run.status,
       });
-      return res
-        .status(500)
-        .end("Failed to start the signing template authoring flow.");
+      // Return a terminal `failed` state (200) rather than a 5xx so the polling
+      // client can distinguish a genuinely failed run from a transient server
+      // error (which it should keep retrying).
+      return res.status(200).json({
+        state: "failed",
+        runId: run.id,
+        status: run.status,
+        message: DEFAULT_SIGNING_SETUP_FAILURE_MESSAGE,
+      });
     }
 
     if (!run.isCompleted) {
       return res.status(202).json({
+        state: "pending",
         runId: run.id,
         status: run.status,
         metadata: run.metadata,
@@ -132,6 +140,7 @@ export default async function handle(
       );
 
     return res.status(200).json({
+      state: "completed",
       presignToken: presignToken.token,
       expiresAt: presignToken.expiresAt,
       externalId: output.data.externalId,

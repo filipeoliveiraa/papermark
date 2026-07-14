@@ -21,6 +21,11 @@ import {
 } from "@/lib/documents/create-document";
 import { putFile } from "@/lib/files/put-file";
 import {
+  DEFAULT_SIGNING_SETUP_STATUS_TEXT,
+  type SigningSetupResolution,
+  resolveSigningSetupResponse,
+} from "@/lib/signing/setup-status";
+import {
   MAX_SIGNING_TEMPLATE_PDF_BYTES,
   SIGNING_TEMPLATE_PDF_CONTENT_TYPE,
   getSigningTemplateTooLargeMessage,
@@ -56,8 +61,12 @@ const agreementUrlSchema = z
   });
 
 const SIGNING_RECIPIENT_COUNT = 1;
-// Safety net: give up if realtime never reaches a terminal state so the UI never spins forever.
+// Safety net: give up if setup never reaches a terminal state so the UI never spins forever.
 const SIGNING_SETUP_TIMEOUT_MS = 2 * 60 * 1000;
+// Poll the setup-status endpoint as a fallback for Trigger.dev Realtime, which
+// can be blocked/dropped on restrictive networks and leave the UI spinning.
+const SIGNING_SETUP_POLL_INTERVAL_MS = 2500;
+const SIGNING_SETUP_POLL_KICKOFF_MS = 1500;
 
 const SIGNING_SETUP_FAILURE_STATUSES = new Set([
   "FAILED",
@@ -150,10 +159,20 @@ export default function AgreementSheet({
   const [isLoadingSigningAuthoring, setIsLoadingSigningAuthoring] =
     useState(false);
   const [signingRun, setSigningRun] = useState<PendingSigningRun | null>(null);
+  // Progress text sourced from polling, used when realtime updates never arrive.
+  const [setupFallbackStatusText, setSetupFallbackStatusText] = useState<
+    string | null
+  >(null);
   const autoStartedSigningAuthoringRef = useRef<string | null>(null);
   // Tracks the run id we've already finalized so the realtime effect and the
   // watchdog timeout can never resolve the same run twice.
   const signingRunFinalizedRef = useRef<string | null>(null);
+  // Mirrors the active run id so an in-flight request whose run was superseded
+  // by a retry can be discarded instead of mutating the current run's state.
+  const activeSigningRunIdRef = useRef<string | null>(null);
+  // Allows only one status request in flight per run, so a completed run mints
+  // at most one presign token even when realtime and polling fire together.
+  const inFlightSigningRunIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (editAgreement) {
@@ -189,8 +208,11 @@ export default function AgreementSheet({
     setIsSyncingTemplate(false);
     setIsLoadingSigningAuthoring(false);
     setSigningRun(null);
+    setSetupFallbackStatusText(null);
     autoStartedSigningAuthoringRef.current = null;
     signingRunFinalizedRef.current = null;
+    activeSigningRunIdRef.current = null;
+    inFlightSigningRunIdRef.current = null;
   };
 
   const handleClose = (open: boolean) => {
@@ -280,33 +302,39 @@ export default function AgreementSheet({
     return { runId, publicAccessToken };
   };
 
-  // One-shot finalize once the run reports COMPLETED — the presign token must be minted server-side, not polled.
-  const fetchSigningSetupResult = useCallback(
+  // Read the setup run's state. Used by both the realtime handler and the
+  // polling fallback, so it never throws on transient failures: those resolve
+  // to "pending" so the caller keeps waiting instead of tearing the run down.
+  const fetchSigningSetupStatus = useCallback(
     async ({
       agreementId,
       runId,
     }: {
       agreementId: string;
       runId: string;
-    }): Promise<SigningSetupResponse> => {
+    }): Promise<SigningSetupResolution> => {
       if (!teamId) {
-        throw new Error("Team context is missing.");
+        return { state: "pending" };
       }
 
-      const statusResponse = await fetch(
-        `/api/teams/${teamId}/agreements/${agreementId}/signing/setup-status?runId=${encodeURIComponent(
-          runId,
-        )}`,
-      );
-
-      if (!statusResponse.ok) {
-        const errorText = await statusResponse.text().catch(() => "");
-        throw new Error(
-          errorText || "Failed to start the signing template authoring flow.",
+      let statusResponse: Response;
+      try {
+        statusResponse = await fetch(
+          `/api/teams/${teamId}/agreements/${agreementId}/signing/setup-status?runId=${encodeURIComponent(
+            runId,
+          )}`,
         );
+      } catch {
+        // Network blip — treat as transient so polling keeps retrying.
+        return { state: "pending" };
       }
 
-      return (await statusResponse.json()) as SigningSetupResponse;
+      const contentType = statusResponse.headers.get("content-type") || "";
+      const body = contentType.includes("application/json")
+        ? await statusResponse.json().catch(() => null)
+        : await statusResponse.text().catch(() => null);
+
+      return resolveSigningSetupResponse(statusResponse.status, body);
     },
     [teamId],
   );
@@ -333,13 +361,12 @@ export default function AgreementSheet({
     [teamId],
   );
 
-  const { run: signingSetupRun, error: signingSetupRunError } = useRealtimeRun(
-    signingRun?.runId,
-    {
-      accessToken: signingRun?.accessToken,
-      enabled: !!signingRun,
-    },
-  );
+  // Realtime is the fast path for progress + completion, but it is best-effort:
+  // the polling fallback below is the authoritative driver of finalize/fail.
+  const { run: signingSetupRun } = useRealtimeRun(signingRun?.runId, {
+    accessToken: signingRun?.accessToken,
+    enabled: !!signingRun,
+  });
 
   const failSigningRun = useCallback(
     async (run: PendingSigningRun, message: string) => {
@@ -357,76 +384,134 @@ export default function AgreementSheet({
 
       setSigningRun(null);
       setPendingSigningAgreement(null);
+      setSetupFallbackStatusText(null);
       toast.error(message);
     },
     [rollbackAgreement, teamId],
   );
 
-  // Drive signing template setup from Trigger.dev Realtime instead of polling:
-  // react to the run's terminal state as it streams in.
+  // Keep the active run id in sync so late async work can detect supersession.
+  useEffect(() => {
+    activeSigningRunIdRef.current = signingRun?.runId ?? null;
+  }, [signingRun]);
+
+  // Single, idempotent resolver shared by realtime, polling, and the watchdog.
+  // Only a terminal state (completed/failed) resolves the run; everything else
+  // (pending, transient errors) leaves it running so the next tick can retry.
+  const resolveSigningRun = useCallback(
+    async (run: PendingSigningRun) => {
+      // Skip runs that are superseded (retry), already finalized, or already
+      // being resolved — the last check dedupes concurrent realtime + polling
+      // so a completed run mints at most one presign token.
+      if (
+        activeSigningRunIdRef.current !== run.runId ||
+        signingRunFinalizedRef.current === run.runId ||
+        inFlightSigningRunIdRef.current === run.runId
+      ) {
+        return;
+      }
+
+      inFlightSigningRunIdRef.current = run.runId;
+
+      let result: SigningSetupResolution;
+      try {
+        result = await fetchSigningSetupStatus({
+          agreementId: run.agreement.id,
+          runId: run.runId,
+        });
+      } finally {
+        if (inFlightSigningRunIdRef.current === run.runId) {
+          inFlightSigningRunIdRef.current = null;
+        }
+      }
+
+      // Discard a late response whose run was superseded or finalized while the
+      // request was in flight, so it can never mutate a retried run's state.
+      if (
+        activeSigningRunIdRef.current !== run.runId ||
+        signingRunFinalizedRef.current === run.runId
+      ) {
+        return;
+      }
+
+      if (result.state === "pending") {
+        if (result.text) {
+          setSetupFallbackStatusText(result.text);
+        }
+        return;
+      }
+
+      if (result.state === "failed") {
+        await failSigningRun(run, result.message);
+        return;
+      }
+
+      // Completed: claim the run so the watchdog/polling can't tear it down.
+      signingRunFinalizedRef.current = run.runId;
+      setCreatedAgreement(run.agreement);
+      setSigningSetup(result.setup);
+      setSigningRun(null);
+      setPendingSigningAgreement(null);
+      setSetupFallbackStatusText(null);
+    },
+    [failSigningRun, fetchSigningSetupStatus],
+  );
+
+  // Fast path: when realtime reports a terminal state, resolve immediately.
+  // Guard on the run id because `useRealtimeRun` keeps the previous run's data
+  // (its SWR cache key is stable) until the new subscription streams in, which
+  // would otherwise fail/complete a fresh retry using stale data.
   useEffect(() => {
     if (!signingRun || signingRunFinalizedRef.current === signingRun.runId) {
       return;
     }
 
-    if (signingSetupRunError) {
-      void failSigningRun(
-        signingRun,
-        signingSetupRunError.message ||
-          "Failed to start the signing template authoring flow.",
-      );
+    if (signingSetupRun && signingSetupRun.id !== signingRun.runId) {
       return;
     }
 
     const status = signingSetupRun?.status;
+    const isTerminal =
+      status === "COMPLETED" ||
+      (!!status && SIGNING_SETUP_FAILURE_STATUSES.has(status));
 
-    if (status && SIGNING_SETUP_FAILURE_STATUSES.has(status)) {
-      void failSigningRun(
-        signingRun,
-        "Failed to start the signing template authoring flow.",
-      );
+    if (!isTerminal) {
       return;
     }
 
-    if (status === "COMPLETED") {
-      const run = signingRun;
-      // Claim the run before the async finalize so re-renders (e.g. metadata
-      // updates) can't kick off a second finalize.
-      signingRunFinalizedRef.current = run.runId;
+    void resolveSigningRun(signingRun);
+  }, [signingRun, signingSetupRun, resolveSigningRun]);
 
-      void (async () => {
-        try {
-          const setup = await fetchSigningSetupResult({
-            agreementId: run.agreement.id,
-            runId: run.runId,
-          });
-          setCreatedAgreement(run.agreement);
-          setSigningSetup(setup);
-          setSigningRun(null);
-          setPendingSigningAgreement(null);
-        } catch (error) {
-          console.error(error);
-          // Release the guard so the shared failure handler can run.
-          signingRunFinalizedRef.current = null;
-          await failSigningRun(
-            run,
-            error instanceof Error
-              ? error.message
-              : "Failed to start the signing template authoring flow.",
-          );
-        }
-      })();
+  // Fallback: poll the setup-status endpoint so the flow completes even when
+  // Trigger.dev Realtime is blocked, dropped, or lagging.
+  useEffect(() => {
+    if (!signingRun) {
+      return;
     }
-  }, [
-    signingRun,
-    signingSetupRun?.status,
-    signingSetupRunError,
-    failSigningRun,
-    fetchSigningSetupResult,
-  ]);
 
-  // Watchdog: never leave the UI spinning if realtime stalls (e.g. the run is
-  // stuck QUEUED or the subscription drops without a terminal state).
+    const run = signingRun;
+    let cancelled = false;
+
+    const poll = () => {
+      if (cancelled) {
+        return;
+      }
+      void resolveSigningRun(run);
+    };
+
+    const kickoffId = setTimeout(poll, SIGNING_SETUP_POLL_KICKOFF_MS);
+    const intervalId = setInterval(poll, SIGNING_SETUP_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(kickoffId);
+      clearInterval(intervalId);
+    };
+  }, [signingRun, resolveSigningRun]);
+
+  // Watchdog: never leave the UI spinning forever. Before giving up, make one
+  // last status check so a run that actually completed (but whose update we
+  // missed) is finalized instead of being wrongly rolled back.
   useEffect(() => {
     if (!signingRun) {
       return;
@@ -434,14 +519,19 @@ export default function AgreementSheet({
 
     const run = signingRun;
     const timeoutId = setTimeout(() => {
-      void failSigningRun(
-        run,
-        "Signing template setup is taking longer than expected. Please try again.",
-      );
+      void (async () => {
+        await resolveSigningRun(run);
+        if (signingRunFinalizedRef.current !== run.runId) {
+          await failSigningRun(
+            run,
+            "Signing template setup is taking longer than expected. Please try again.",
+          );
+        }
+      })();
     }, SIGNING_SETUP_TIMEOUT_MS);
 
     return () => clearTimeout(timeoutId);
-  }, [signingRun, failSigningRun]);
+  }, [signingRun, resolveSigningRun, failSigningRun]);
 
   const openExistingSigningTemplate = useCallback(
     async (agreement: Agreement) => {
@@ -841,9 +931,20 @@ export default function AgreementSheet({
     isLoadingSigningAuthoring &&
     !showSigningAuthoring;
   const showSigningSetupLoader = !!signingRun && !showSigningAuthoring;
+  // Only trust realtime metadata that belongs to the current run; stale data
+  // from a previous attempt lingers in the hook's cache until it re-subscribes.
+  const realtimeStatusText =
+    signingRun && signingSetupRun?.id === signingRun.runId
+      ? (
+          signingSetupRun?.metadata as
+            | { status?: { text?: string } }
+            | undefined
+        )?.status?.text
+      : undefined;
   const signingSetupStatusText =
-    (signingSetupRun?.metadata as { status?: { text?: string } } | undefined)
-      ?.status?.text ?? "Preparing signing template...";
+    realtimeStatusText ??
+    setupFallbackStatusText ??
+    DEFAULT_SIGNING_SETUP_STATUS_TEXT;
 
   return (
     <Sheet open={isOpen} onOpenChange={handleClose}>
