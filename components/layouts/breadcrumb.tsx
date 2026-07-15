@@ -265,8 +265,6 @@ const SettingsBreadcrumb = () => {
         return "Slack";
       case "/settings/incoming-webhooks":
         return "Incoming Webhooks";
-      case "/settings/branding":
-        return "Branding";
       default:
         return "Settings";
     }
@@ -512,6 +510,19 @@ export const AppBreadcrumb = () => {
     // Account routes
     if (path.startsWith("/account")) {
       return <AccountBreadcrumb />;
+    }
+
+    // Global branding route
+    if (path === "/branding") {
+      return (
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>Branding</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      );
     }
 
     // Root documents route
