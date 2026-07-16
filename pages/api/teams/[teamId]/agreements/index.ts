@@ -24,7 +24,7 @@ const createAgreementSchema = z
       .max(150, "Name must be less than 150 characters"),
     content: z
       .string()
-      .max(1500, "Content must be less than 1500 characters")
+      .max(3000, "Content must be less than 3000 characters")
       .optional(),
     contentType: z.enum(["LINK", "TEXT", "SIGNING"]).default("SIGNING"),
     requireName: z.boolean().default(false),
@@ -141,7 +141,7 @@ export default async function handle(
       const sanitizedContent =
         contentType === "SIGNING"
           ? content?.trim()
-          : validateContent(content || "", 1500);
+          : validateContent(content || "", 3000);
 
       const agreement = await prisma.$transaction(async (tx) => {
         const created = await tx.agreement.create({

@@ -1193,7 +1193,7 @@ export default function AgreementSheet({
                         }
                         disabled={isOnlyView}
                         rows={6}
-                        maxLength={1500}
+                        maxLength={3000}
                       />
                       <div className="flex justify-between text-xs">
                         <p className="text-muted-foreground">
@@ -1202,16 +1202,16 @@ export default function AgreementSheet({
                         </p>
                         <p
                           className={`${
-                            data.textContent.length > 1400
+                            data.textContent.length > 2900
                               ? "text-orange-500"
                               : "text-muted-foreground"
                           } ${
-                            data.textContent.length >= 1500
+                            data.textContent.length >= 3000
                               ? "font-semibold text-red-500"
                               : ""
                           }`}
                         >
-                          {data.textContent.length}/1500
+                          {data.textContent.length}/3000
                         </p>
                       </div>
                     </div>

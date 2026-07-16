@@ -17,7 +17,7 @@ const updateAgreementSchema = z.object({
     .optional(),
   content: z
     .string()
-    .max(1500, "Content must be less than 1500 characters")
+    .max(3000, "Content must be less than 3000 characters")
     .optional(),
   requireName: z.boolean().optional(),
 });
@@ -105,7 +105,7 @@ export default async function handle(
         data.content =
           existing.contentType === "LINK"
             ? content.trim()
-            : validateContent(content, 1500);
+            : validateContent(content, 3000);
       }
 
       if (Object.keys(data).length === 0) {
