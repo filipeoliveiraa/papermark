@@ -35,6 +35,7 @@ export type DEFAULT_ACCESS_FORM_TYPE = {
 export default function AccessForm({
   data,
   email,
+  password,
   brand,
   setData,
   onSubmitHandler,
@@ -50,6 +51,7 @@ export default function AccessForm({
   isLoading,
   linkId,
   disableEditEmail,
+  disableEditPassword,
   useCustomAccessForm,
   customFields,
   logoOnAccessForm,
@@ -57,6 +59,7 @@ export default function AccessForm({
 }: {
   data: DEFAULT_ACCESS_FORM_TYPE;
   email: string | null | undefined;
+  password?: string | null | undefined;
   setData: React.Dispatch<React.SetStateAction<DEFAULT_ACCESS_FORM_TYPE>>;
   onSubmitHandler: React.FormEventHandler<HTMLFormElement>;
   brand?: Partial<Brand> | Partial<DataroomBrand> | null;
@@ -72,6 +75,7 @@ export default function AccessForm({
   isLoading: boolean;
   linkId?: string;
   disableEditEmail?: boolean;
+  disableEditPassword?: boolean;
   useCustomAccessForm?: boolean;
   customFields?: Partial<CustomField>[];
   logoOnAccessForm?: boolean;
@@ -92,6 +96,7 @@ export default function AccessForm({
   );
   const lockEmailField = Boolean(disableEditEmail) || isAgreementLocked;
   const lockNameField = isAgreementLocked;
+  const lockPasswordField = Boolean(disableEditPassword);
 
   useEffect(() => {
     const userEmail = email;
@@ -102,6 +107,18 @@ export default function AccessForm({
       }));
     }
   }, [email, setData]);
+
+  // Prefill the passcode from a link param (e.g. ?passcode=...) so it can be
+  // shared alongside the email. Only seed when the field is still empty to
+  // preserve any edits the viewer makes.
+  useEffect(() => {
+    if (password) {
+      setData((prevData: DEFAULT_ACCESS_FORM_TYPE) => ({
+        ...prevData,
+        password: prevData.password ?? password,
+      }));
+    }
+  }, [password, setData]);
 
   const isFormValid = () => {
     if (requireEmail) {
@@ -198,7 +215,10 @@ export default function AccessForm({
                 />
               ) : null}
               {requirePassword ? (
-                <PasswordSection {...{ data, setData, brand }} />
+                <PasswordSection
+                  {...{ data, setData, brand }}
+                  disableEditPassword={lockPasswordField}
+                />
               ) : null}
               {customFields?.length ? (
                 <CustomFieldsSection

@@ -83,6 +83,8 @@ export default function DataroomDocumentView({
   useAdvancedExcelViewer,
   previewToken,
   disableEditEmail,
+  urlPasscode,
+  disableEditPassword,
   useCustomAccessForm,
   isEmbedded,
   preview,
@@ -104,6 +106,8 @@ export default function DataroomDocumentView({
   useAdvancedExcelViewer?: boolean;
   previewToken?: string;
   disableEditEmail?: boolean;
+  urlPasscode?: string;
+  disableEditPassword?: boolean;
   useCustomAccessForm?: boolean;
   isEmbedded?: boolean;
   preview?: boolean;
@@ -158,6 +162,7 @@ export default function DataroomDocumentView({
       body: JSON.stringify({
         ...data,
         email: data.email ?? verifiedEmail ?? userEmail ?? null,
+        password: data.password ?? urlPasscode ?? undefined,
         linkId: link.id,
         documentId: link.dataroomDocument.document.id,
         documentName: link.dataroomDocument.document.name,
@@ -390,6 +395,7 @@ export default function DataroomDocumentView({
       <AccessForm
         data={data}
         email={userEmail}
+        password={urlPasscode}
         setData={setData}
         onSubmitHandler={handleSubmit}
         requireEmail={emailProtected}
@@ -404,6 +410,7 @@ export default function DataroomDocumentView({
         isLoading={isLoading}
         linkId={link.id}
         disableEditEmail={disableEditEmail}
+        disableEditPassword={disableEditPassword}
         useCustomAccessForm={useCustomAccessForm}
         brand={brand}
         customFields={link.customFields}

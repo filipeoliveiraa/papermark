@@ -14,10 +14,12 @@ export default function PasswordSection({
   data,
   setData,
   brand,
+  disableEditPassword,
 }: {
   data: DEFAULT_ACCESS_FORM_TYPE;
   setData: Dispatch<SetStateAction<DEFAULT_ACCESS_FORM_TYPE>>;
   brand?: Partial<Brand> | Partial<DataroomBrand> | null;
+  disableEditPassword?: boolean;
 }) {
   const { password } = data;
   const theme = useAccessFormTheme();
@@ -47,13 +49,14 @@ export default function PasswordSection({
             borderColor: theme.controlBorderColor,
             "--access-placeholder": theme.controlPlaceholderColor,
             "--access-input-focus": theme.controlBorderStrongColor,
-            color: theme.textColor,
+            color: disableEditPassword ? theme.subtleTextColor : theme.textColor,
           } as CSSProperties}
           value={password || ""}
           placeholder={t("fields.password.placeholder", "Enter passcode")}
           onChange={(e) => {
             setData({ ...data, password: e.target.value });
           }}
+          disabled={disableEditPassword}
           aria-invalid="true"
           data-1p-ignore
         />

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import NotFound from "@/pages/404";
 
 import { useAnalytics } from "@/lib/analytics";
+import { useUrlPasscode } from "@/lib/hooks/use-url-passcode";
 
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import DataroomView from "@/components/view/dataroom/dataroom-view";
@@ -20,6 +21,7 @@ function EmbedPageInner(props: ViewPageProps) {
   const router = useRouter();
   const [isEmbedded, setIsEmbedded] = useState<boolean | null>(null);
   const analytics = useAnalytics();
+  const urlPasscode = useUrlPasscode();
 
   useEffect(() => {
     // Only run when router is ready and linkId is present
@@ -72,6 +74,7 @@ function EmbedPageInner(props: ViewPageProps) {
     d: string;
     previewToken?: string;
   };
+  const disableEditPassword = !!disableEditEmail && !!urlPasscode;
   const { linkType, brand } = props.linkData;
 
   // Render the document view for DOCUMENT_LINK
@@ -121,6 +124,8 @@ function EmbedPageInner(props: ViewPageProps) {
           useAdvancedExcelViewer={props.useAdvancedExcelViewer}
           previewToken={previewToken}
           disableEditEmail={!!disableEditEmail}
+          urlPasscode={urlPasscode}
+          disableEditPassword={disableEditPassword}
           useCustomAccessForm={props.useCustomAccessForm}
           verifiedEmail={verifiedEmail}
           isEmbedded
@@ -172,6 +177,8 @@ function EmbedPageInner(props: ViewPageProps) {
           brand={brand}
           previewToken={previewToken}
           disableEditEmail={!!disableEditEmail}
+          urlPasscode={urlPasscode}
+          disableEditPassword={disableEditPassword}
           useCustomAccessForm={props.useCustomAccessForm}
           verifiedEmail={verifiedEmail}
           isEmbedded

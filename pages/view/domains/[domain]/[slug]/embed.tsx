@@ -6,6 +6,7 @@ import NotFound from "@/pages/404";
 import { Brand, DataroomBrand } from "@prisma/client";
 
 import { useAnalytics } from "@/lib/analytics";
+import { useUrlPasscode } from "@/lib/hooks/use-url-passcode";
 import { type ViewerI18nPageProps } from "@/lib/i18n/viewer-page-props";
 import { LinkWithDataroom, LinkWithDocument } from "@/lib/types";
 
@@ -49,6 +50,7 @@ function EmbedPageInner(props: DomainEmbedPageProps) {
   const router = useRouter();
   const [isEmbedded, setIsEmbedded] = useState<boolean | null>(null);
   const analytics = useAnalytics();
+  const urlPasscode = useUrlPasscode();
 
   useEffect(() => {
     if (!router.isReady || !router.query.slug) return;
@@ -109,6 +111,7 @@ function EmbedPageInner(props: DomainEmbedPageProps) {
     d: string;
     previewToken?: string;
   };
+  const disableEditPassword = !!disableEditEmail && !!urlPasscode;
 
   const { linkType } = props.linkData;
 
@@ -155,6 +158,8 @@ function EmbedPageInner(props: DomainEmbedPageProps) {
           useAdvancedExcelViewer={props.useAdvancedExcelViewer}
           previewToken={previewToken}
           disableEditEmail={!!disableEditEmail}
+          urlPasscode={urlPasscode}
+          disableEditPassword={disableEditPassword}
           useCustomAccessForm={props.useCustomAccessForm}
           logoOnAccessForm={props.logoOnAccessForm}
           verifiedEmail={verifiedEmail}
@@ -205,6 +210,8 @@ function EmbedPageInner(props: DomainEmbedPageProps) {
           brand={brand}
           previewToken={previewToken}
           disableEditEmail={!!disableEditEmail}
+          urlPasscode={urlPasscode}
+          disableEditPassword={disableEditPassword}
           useCustomAccessForm={props.useCustomAccessForm}
           logoOnAccessForm={props.logoOnAccessForm}
           verifiedEmail={verifiedEmail}

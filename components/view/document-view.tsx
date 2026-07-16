@@ -69,6 +69,8 @@ export default function DocumentView({
   useAdvancedExcelViewer,
   previewToken,
   disableEditEmail,
+  urlPasscode,
+  disableEditPassword,
   useCustomAccessForm,
   logoOnAccessForm,
   isEmbedded,
@@ -92,6 +94,8 @@ export default function DocumentView({
   useAdvancedExcelViewer?: boolean;
   previewToken?: string;
   disableEditEmail?: boolean;
+  urlPasscode?: string;
+  disableEditPassword?: boolean;
   useCustomAccessForm?: boolean;
   isEmbedded?: boolean;
   logoOnAccessForm?: boolean;
@@ -136,6 +140,7 @@ export default function DocumentView({
       body: JSON.stringify({
         ...data,
         email: data.email ?? verifiedEmail ?? userEmail ?? null,
+        password: data.password ?? urlPasscode ?? undefined,
         linkId: link.id,
         documentId: document.id,
         documentName: document.name,
@@ -280,6 +285,7 @@ export default function DocumentView({
       <AccessForm
         data={data}
         email={userEmail}
+        password={urlPasscode}
         setData={setData}
         onSubmitHandler={handleSubmit}
         requireEmail={emailProtected}
@@ -295,6 +301,7 @@ export default function DocumentView({
         brand={brand}
         linkId={link.id}
         disableEditEmail={disableEditEmail}
+        disableEditPassword={disableEditPassword}
         useCustomAccessForm={useCustomAccessForm}
         customFields={link.customFields}
         logoOnAccessForm={logoOnAccessForm}

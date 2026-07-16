@@ -13,6 +13,7 @@ import z from "zod";
 
 import { fetchLinkDataById } from "@/lib/api/links/link-data";
 import { getFeatureFlags } from "@/lib/featureFlags";
+import { useUrlPasscode } from "@/lib/hooks/use-url-passcode";
 import {
   buildViewerI18nPageProps,
   type ViewerI18nPageProps,
@@ -78,6 +79,7 @@ function DataroomDocumentViewPageInner({
   const { data: session, status } = useSession();
   const [storedToken, setStoredToken] = useState<string | undefined>(undefined);
   const [storedEmail, setStoredEmail] = useState<string | undefined>(undefined);
+  const urlPasscode = useUrlPasscode();
 
   useEffect(() => {
     // Retrieve token from cookie on component mount
@@ -122,6 +124,7 @@ function DataroomDocumentViewPageInner({
     previewToken?: string;
     preview?: string;
   };
+  const disableEditPassword = !!disableEditEmail && !!urlPasscode;
   const { link, brand } = linkData;
 
   // Render the document view for DATAROOM_LINK
@@ -194,6 +197,8 @@ function DataroomDocumentViewPageInner({
         useAdvancedExcelViewer={useAdvancedExcelViewer}
         previewToken={previewToken}
         disableEditEmail={!!disableEditEmail}
+        urlPasscode={urlPasscode}
+        disableEditPassword={disableEditPassword}
         useCustomAccessForm={useCustomAccessForm}
         logoOnAccessForm={logoOnAccessForm}
         token={storedToken}

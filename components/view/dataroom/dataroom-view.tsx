@@ -67,6 +67,8 @@ export default function DataroomView({
   verifiedEmail,
   previewToken,
   disableEditEmail,
+  urlPasscode,
+  disableEditPassword,
   useCustomAccessForm,
   logoOnAccessForm,
   isEmbedded,
@@ -83,6 +85,8 @@ export default function DataroomView({
   verifiedEmail?: string;
   previewToken?: string;
   disableEditEmail?: boolean;
+  urlPasscode?: string;
+  disableEditPassword?: boolean;
   useCustomAccessForm?: boolean;
   isEmbedded?: boolean;
   preview?: boolean;
@@ -149,6 +153,7 @@ export default function DataroomView({
       body: JSON.stringify({
         ...data,
         email: data.email ?? verifiedEmail ?? userEmail ?? null,
+        password: data.password ?? urlPasscode ?? undefined,
         linkId: link.id,
         userId: userId ?? null,
         dataroomId: dataroom?.id,
@@ -287,6 +292,7 @@ export default function DataroomView({
       <AccessForm
         data={data}
         email={userEmail}
+        password={urlPasscode}
         setData={setData}
         onSubmitHandler={handleSubmit}
         requireEmail={emailProtected}
@@ -301,6 +307,7 @@ export default function DataroomView({
         isLoading={isLoading}
         linkId={link.id}
         disableEditEmail={disableEditEmail}
+        disableEditPassword={disableEditPassword}
         useCustomAccessForm={useCustomAccessForm}
         brand={brand}
         customFields={link.customFields}
