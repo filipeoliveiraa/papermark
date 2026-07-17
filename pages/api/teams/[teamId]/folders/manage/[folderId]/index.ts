@@ -97,12 +97,14 @@ async function deleteFolderAndContents(folderId: string, teamId: string) {
     await deleteFolderAndContents(childFolder.id, teamId);
   }
 
-  // Delete all documents in the folder
+  // Delete all documents in the folder. Notion and web-link documents store an
+  // external URL rather than a real storage object, so they're excluded from
+  // the storage cleanup below (deleteFile would fail on their URL).
   const documents = await prisma.document.findMany({
     where: {
       folderId: folderId,
       type: {
-        not: "notion",
+        notIn: ["notion", "link"],
       },
     },
     include: {

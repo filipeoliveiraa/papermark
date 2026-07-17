@@ -324,8 +324,13 @@ export default async function handle(
         return res.status(404).json({ message: "Document not found" });
       }
 
-      //if it is not notion document then only delete the document from storage
-      if (documentVersions.type !== "notion") {
+      // Notion and web-link documents don't store any bytes: their `file` holds
+      // an external URL, not a storage object. Skip storage deletion for them
+      // (calling deleteFile on the URL would throw and abort the delete).
+      if (
+        documentVersions.type !== "notion" &&
+        documentVersions.type !== "link"
+      ) {
         // delete the files from storage
         for (const version of documentVersions.versions) {
           await deleteFile({
