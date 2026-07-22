@@ -73,7 +73,8 @@
     "uploadingTo": "Uploading to:",
     "setByOwner": "(set by the dataroom owner)",
     "success": "Document uploaded successfully!",
-    "successDescription": "Your document is now visible in the dataroom."
+    "successDescription": "Your document is now visible in the dataroom.",
+    "previewDisabled": "Uploading files isn't available in preview mode."
   },
   "download": {
     "folderTitle": "Download folder: {{name}}",
@@ -167,6 +168,7 @@
     "generating": "Generating...",
     "successToast": "Index file generated successfully",
     "errorToast": "Failed to generate index",
-    "genericError": "Something went wrong. Please try again."
+    "genericError": "Something went wrong. Please try again.",
+    "previewDisabled": "Generating an index file isn't available in preview mode."
   }
 }

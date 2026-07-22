@@ -373,6 +373,7 @@ export default function DataroomNav({
       allowDownload={allowDownload}
       allowBulkDownload={allowBulkDownload}
       viewerEmail={viewerEmail}
+      isPreview={isPreview}
       onToggleConversations={() => setShowConversations(!showConversations)}
       onOpenDownload={openDownloadModal}
     />

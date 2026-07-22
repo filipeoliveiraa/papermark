@@ -7,6 +7,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,7 @@ export function DocumentUploadModal({
   folderId,
   folderName,
   allowedFolders,
+  isPreview,
   triggerClassName,
 }: {
   linkId: string;
@@ -65,6 +67,7 @@ export function DocumentUploadModal({
    * `undefined` means "no restriction".
    */
   allowedFolders?: AllowedFolder[] | null;
+  isPreview?: boolean;
   /** Optional className applied to the trigger button so callers can theme it
    *  to the surrounding surface (e.g. dark viewer background). */
   triggerClassName?: string;
@@ -127,7 +130,18 @@ export function DocumentUploadModal({
   return (
     <>
       <Button
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          if (isPreview) {
+            toast.error(
+              t(
+                "upload.previewDisabled",
+                "Uploading files isn't available in preview mode.",
+              ),
+            );
+            return;
+          }
+          setIsOpen(true);
+        }}
         size="sm"
         variant="outline"
         className={cn(

@@ -37,6 +37,7 @@ export function DataroomTrailingActions({
   allowDownload,
   allowBulkDownload,
   viewerEmail,
+  isPreview,
   onToggleConversations,
   onOpenDownload,
 }: {
@@ -52,6 +53,7 @@ export function DataroomTrailingActions({
   allowDownload?: boolean;
   allowBulkDownload?: boolean;
   viewerEmail?: string | null;
+  isPreview?: boolean;
   onToggleConversations: () => void;
   onOpenDownload: () => void;
 }) {
@@ -116,7 +118,7 @@ export function DataroomTrailingActions({
           {t("trailingActions.viewQA", "View Q&A")}
         </Button>
       )}
-      {allowDownload && allowBulkDownload && viewerEmail ? (
+      {allowDownload && allowBulkDownload && (viewerEmail || isPreview) ? (
         <ButtonTooltip content={t("trailingActions.downloadDataroom", "Download Dataroom")}>
           <Button
             onClick={onOpenDownload}

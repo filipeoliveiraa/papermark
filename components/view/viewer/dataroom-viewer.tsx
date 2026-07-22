@@ -31,6 +31,7 @@ import {
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { PanelLeftIcon, UploadIcon, XIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import {
@@ -726,31 +727,35 @@ export default function DataroomViewer({
               isModernLayout ? (
                 <>
                   <IntroductionInfoButton />
-                  {enableIndexFile && viewId && viewerId && (
-                    <IndexFileDialog
-                      linkId={linkId}
-                      viewId={viewId}
-                      dataroomId={dataroom?.id}
-                      viewerId={viewerId}
-                      viewerEmail={viewerEmail}
-                      triggerClassName={viewerThemedTriggerClass}
-                    />
-                  )}
-                  {viewData?.enableVisitorUpload && viewerId && (
-                    <DocumentUploadModal
-                      linkId={linkId}
-                      dataroomId={dataroom?.id}
-                      viewerId={viewerId}
-                      folderId={folderId ?? undefined}
-                      folderName={
-                        folderId
-                          ? folders.find((f) => f.id === folderId)?.name
-                          : undefined
-                      }
-                      allowedFolders={viewData?.uploadFolderAllowList}
-                      triggerClassName={viewerThemedTriggerClass}
-                    />
-                  )}
+                  {enableIndexFile &&
+                    (isPreview || (viewId && viewerId)) && (
+                      <IndexFileDialog
+                        linkId={linkId}
+                        viewId={viewId ?? ""}
+                        dataroomId={dataroom?.id}
+                        viewerId={viewerId}
+                        viewerEmail={viewerEmail}
+                        isPreview={isPreview}
+                        triggerClassName={viewerThemedTriggerClass}
+                      />
+                    )}
+                  {viewData?.enableVisitorUpload &&
+                    (isPreview || viewerId) && (
+                      <DocumentUploadModal
+                        linkId={linkId}
+                        dataroomId={dataroom?.id}
+                        viewerId={viewerId ?? ""}
+                        isPreview={isPreview}
+                        folderId={folderId ?? undefined}
+                        folderName={
+                          folderId
+                            ? folders.find((f) => f.id === folderId)?.name
+                            : undefined
+                        }
+                        allowedFolders={viewData?.uploadFolderAllowList}
+                        triggerClassName={viewerThemedTriggerClass}
+                      />
+                    )}
                   {requestListEnabled && (
                     <RequestListButton className={viewerThemedTriggerClass} />
                   )}
@@ -941,25 +946,28 @@ export default function DataroomViewer({
                                     leftIconClassName="text-[var(--viewer-control-icon)]"
                                     clearIconClassName="text-[var(--viewer-control-icon)] hover:text-[var(--viewer-text)]"
                                   />
-                                  {enableIndexFile && viewId && viewerId && (
-                                    <IndexFileDialog
-                                      linkId={linkId}
-                                      viewId={viewId}
-                                      dataroomId={dataroom?.id}
-                                      viewerId={viewerId}
-                                      viewerEmail={viewerEmail}
-                                      triggerClassName={
-                                        viewerThemedTriggerClass
-                                      }
-                                    />
-                                  )}
+                                  {enableIndexFile &&
+                                    (isPreview || (viewId && viewerId)) && (
+                                      <IndexFileDialog
+                                        linkId={linkId}
+                                        viewId={viewId ?? ""}
+                                        dataroomId={dataroom?.id}
+                                        viewerId={viewerId}
+                                        viewerEmail={viewerEmail}
+                                        isPreview={isPreview}
+                                        triggerClassName={
+                                          viewerThemedTriggerClass
+                                        }
+                                      />
+                                    )}
 
                                   {viewData?.enableVisitorUpload &&
-                                    viewerId && (
+                                    (isPreview || viewerId) && (
                                       <DocumentUploadModal
                                         linkId={linkId}
                                         dataroomId={dataroom?.id}
-                                        viewerId={viewerId}
+                                        viewerId={viewerId ?? ""}
+                                        isPreview={isPreview}
                                         folderId={folderId ?? undefined}
                                         folderName={
                                           folderId
@@ -1000,6 +1008,7 @@ export default function DataroomViewer({
                                       allowDownload={allowDownload}
                                       allowBulkDownload={allowBulkDownload}
                                       viewerEmail={viewerEmail}
+                                      isPreview={isPreview}
                                       onToggleConversations={() =>
                                         window.dispatchEvent(
                                           new CustomEvent(
@@ -1008,7 +1017,15 @@ export default function DataroomViewer({
                                         )
                                       }
                                       onOpenDownload={() => {
-                                        if (isPreview) return;
+                                        if (isPreview) {
+                                          toast.error(
+                                            t(
+                                              "navToasts.cannotDownloadPreview",
+                                              "You cannot download datarooms in preview mode.",
+                                            ),
+                                          );
+                                          return;
+                                        }
                                         if (
                                           !allowDownload ||
                                           !allowBulkDownload

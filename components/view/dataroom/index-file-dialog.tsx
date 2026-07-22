@@ -30,6 +30,7 @@ interface IndexFileDialogProps {
   dataroomId: string;
   viewerEmail?: string;
   viewerId?: string;
+  isPreview?: boolean;
   /** Optional className applied to the trigger button so callers can override
    *  the default outline styling (e.g. theme it to a viewer surface color). */
   triggerClassName?: string;
@@ -42,6 +43,7 @@ export default function IndexFileDialog({
   dataroomId,
   viewerEmail,
   viewerId,
+  isPreview,
   triggerClassName,
 }: IndexFileDialogProps) {
   const { t } = useTranslation("dataroom");
@@ -52,6 +54,16 @@ export default function IndexFileDialog({
   const analytics = useAnalytics();
 
   const handleGenerateIndex = async () => {
+    if (isPreview) {
+      toast.error(
+        t(
+          "indexFile.previewDisabled",
+          "Generating an index file isn't available in preview mode.",
+        ),
+      );
+      return;
+    }
+
     if (!linkId) {
       toast.error(t("indexFile.genericError", "Something went wrong. Please try again."));
       return;
@@ -122,8 +134,21 @@ export default function IndexFileDialog({
     }
   };
 
+  const handleOpenChange = (open: boolean) => {
+    if (open && isPreview) {
+      toast.error(
+        t(
+          "indexFile.previewDisabled",
+          "Generating an index file isn't available in preview mode.",
+        ),
+      );
+      return;
+    }
+    setIsOpen(open);
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button
           variant="outline"
