@@ -49,6 +49,17 @@ export const addFileToVectorStoreQueue = queue({
   concurrencyLimit: 10,
 });
 
+// Redaction queues
+export const detectRedactionsQueue = queue({
+  name: "detect-redactions",
+  concurrencyLimit: 5,
+});
+
+export const applyRedactionsQueue = queue({
+  name: "apply-redactions",
+  concurrencyLimit: 5,
+});
+
 // Plan-based conversion queues (used at trigger time)
 const concurrencyConfig: Record<string, number> = {
   free: 1,

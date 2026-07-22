@@ -17,6 +17,7 @@ export type BetaFeatures =
   | "ai"
   | "sso"
   | "textSelection"
+  | "redaction"
   | "requestList"
   | "logoOnAccessForm";
 
@@ -40,6 +41,7 @@ export const getFeatureFlags = async ({ teamId }: { teamId?: string }) => {
     ai: false,
     sso: false,
     textSelection: false,
+    redaction: false,
     requestList: false,
     logoOnAccessForm: false,
   };

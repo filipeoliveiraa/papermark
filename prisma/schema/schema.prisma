@@ -70,6 +70,7 @@ model User {
   // FAQ system
   publishedFaqItems  DataroomFaqItem[]
   createdAnnotations DocumentAnnotation[] // Annotations created by this user
+  createdRedactionJobs DocumentRedactionJob[] // Redaction jobs created by this user
 
   installedIntegrations InstalledIntegration[]
 
