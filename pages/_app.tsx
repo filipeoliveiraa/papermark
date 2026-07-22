@@ -35,7 +35,7 @@ export default function App({
     <>
       <Head>
         <title>Papermark | The Open Source DocSend Alternative</title>
-        <meta name="theme-color" content="#000000" />
+        <meta name="theme-color" content="#000000" key="theme-color" />
         <meta
           name="description"
           content="Papermark is an open-source document sharing alternative to DocSend with built-in analytics."

@@ -21,6 +21,10 @@ import AccessForm, {
 
 import EmailVerificationMessage from "../access-form/email-verification-form";
 import ViewData, { TViewDocumentData } from "../view-data";
+import {
+  DEFAULT_VIEWER_BACKGROUND_COLOR,
+  ViewerThemeColor,
+} from "../viewer-theme-color";
 import { DownloadOtpVerification } from "./download-otp-verification";
 
 type RowData = { [key: string]: any };
@@ -143,6 +147,8 @@ export default function DataroomDocumentView({
 
   const [code, setCode] = useState<string | null>(null);
   const [isInvalidCode, setIsInvalidCode] = useState<boolean>(false);
+  const viewerBackgroundColor =
+    brand?.accentColor || DEFAULT_VIEWER_BACKGROUND_COLOR;
 
   // Set when the server requires inline OTP re-auth before granting access.
   const [uploadReauth, setUploadReauth] = useState<{
@@ -335,16 +341,19 @@ export default function DataroomDocumentView({
   // Components to render when email is submitted but verification is pending
   if (verificationRequested) {
     return (
-      <EmailVerificationMessage
-        onSubmitHandler={handleSubmit}
-        data={data}
-        isLoading={isLoading}
-        code={code}
-        setCode={setCode}
-        isInvalidCode={isInvalidCode}
-        setIsInvalidCode={setIsInvalidCode}
-        brand={brand}
-      />
+      <>
+        <ViewerThemeColor color={brand?.accentColor} />
+        <EmailVerificationMessage
+          onSubmitHandler={handleSubmit}
+          data={data}
+          isLoading={isLoading}
+          code={code}
+          setCode={setCode}
+          isInvalidCode={isInvalidCode}
+          setIsInvalidCode={setIsInvalidCode}
+          brand={brand}
+        />
+      </>
     );
   }
 
@@ -352,117 +361,129 @@ export default function DataroomDocumentView({
   // `handleSubmission` retries cleanly.
   if (uploadReauth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-6 shadow-sm">
-          <div className="space-y-1">
-            <h1 className="text-lg font-semibold">{t("reauth.title", "Verify it's you")}</h1>
-            <p className="text-sm text-muted-foreground">
-              <Trans
-                ns="access-form"
-                i18nKey="reauth.description"
-                values={{ email: uploadReauth.email }}
-                components={{ email: <strong /> }}
-              />
-            </p>
-          </div>
-          <DownloadOtpVerification
-            linkId={link.id}
-            email={uploadReauth.email}
-            sendOtpOnMount
-            description={
+      <>
+        <ViewerThemeColor color={brand?.accentColor} />
+        <div className="flex min-h-screen items-center justify-center bg-background px-4">
+          <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-6 shadow-sm">
+            <div className="space-y-1">
+              <h1 className="text-lg font-semibold">
+                {t("reauth.title", "Verify it's you")}
+              </h1>
               <p className="text-sm text-muted-foreground">
                 <Trans
                   ns="access-form"
-                  i18nKey="reauth.otpDescription"
+                  i18nKey="reauth.description"
                   values={{ email: uploadReauth.email }}
                   components={{ email: <strong /> }}
                 />
               </p>
-            }
-            onVerified={() => {
-              setUploadReauth(null);
-              void handleSubmission();
-            }}
-          />
+            </div>
+            <DownloadOtpVerification
+              linkId={link.id}
+              email={uploadReauth.email}
+              sendOtpOnMount
+              description={
+                <p className="text-sm text-muted-foreground">
+                  <Trans
+                    ns="access-form"
+                    i18nKey="reauth.otpDescription"
+                    values={{ email: uploadReauth.email }}
+                    components={{ email: <strong /> }}
+                  />
+                </p>
+              }
+              onVerified={() => {
+                setUploadReauth(null);
+                void handleSubmission();
+              }}
+            />
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  // If link is not submitted and does not have email / password protection, show the access form
   if (!submitted && isProtected) {
     return (
-      <AccessForm
-        data={data}
-        email={userEmail}
-        password={urlPasscode}
-        setData={setData}
-        onSubmitHandler={handleSubmit}
-        requireEmail={emailProtected}
-        requirePassword={!!linkPassword}
-        requireAgreement={enableAgreement!}
-        agreementId={link.agreement?.id}
-        agreementName={link.agreement?.name}
-        agreementContent={link.agreement?.content}
-        agreementContentType={link.agreement?.contentType}
-        signingProvider={link.agreement?.signingProvider}
-        requireName={link.agreement?.requireName}
-        isLoading={isLoading}
-        linkId={link.id}
-        disableEditEmail={disableEditEmail}
-        disableEditPassword={disableEditPassword}
-        useCustomAccessForm={useCustomAccessForm}
-        brand={brand}
-        customFields={link.customFields}
-        logoOnAccessForm={logoOnAccessForm}
-      />
+      <>
+        <ViewerThemeColor color={brand?.accentColor} />
+        <AccessForm
+          data={data}
+          email={userEmail}
+          password={urlPasscode}
+          setData={setData}
+          onSubmitHandler={handleSubmit}
+          requireEmail={emailProtected}
+          requirePassword={!!linkPassword}
+          requireAgreement={enableAgreement!}
+          agreementId={link.agreement?.id}
+          agreementName={link.agreement?.name}
+          agreementContent={link.agreement?.content}
+          agreementContentType={link.agreement?.contentType}
+          signingProvider={link.agreement?.signingProvider}
+          requireName={link.agreement?.requireName}
+          isLoading={isLoading}
+          linkId={link.id}
+          disableEditEmail={disableEditEmail}
+          disableEditPassword={disableEditPassword}
+          useCustomAccessForm={useCustomAccessForm}
+          brand={brand}
+          customFields={link.customFields}
+          logoOnAccessForm={logoOnAccessForm}
+        />
+      </>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner className="h-20 w-20" />
-      </div>
-    );
-  }
-  return (
-    <div
-      className="bg-gray-950"
-      style={{
-        backgroundColor:
-          brand && brand.accentColor ? brand.accentColor : "rgb(3, 7, 18)",
-      }}
-    >
-      {submitted ? (
-        <ViewData
-          dataroomId={link.dataroomId!}
-          link={link}
-          document={link.dataroomDocument.document as TViewDocumentData}
-          viewData={viewData}
-          notionData={notionData}
-          brand={brand}
-          showPoweredByBanner={false}
-          showAccountCreationSlide={false}
-          useAdvancedExcelViewer={
-            viewData.useAdvancedExcelViewer ?? useAdvancedExcelViewer
-          }
-          viewerEmail={
-            viewData.viewerEmail ??
-            data.email ??
-            verifiedEmail ??
-            userEmail ??
-            undefined
-          }
-          canDownload={viewData.canDownload}
-          textSelectionEnabled={textSelectionEnabled}
-          previewToken={previewToken}
-        />
-      ) : (
+      <>
+        <ViewerThemeColor color={brand?.accentColor} />
         <div className="flex h-screen items-center justify-center">
           <LoadingSpinner className="h-20 w-20" />
         </div>
-      )}
-    </div>
+      </>
+    );
+  }
+  return (
+    <>
+      <ViewerThemeColor color={viewerBackgroundColor} />
+      <div
+        className="bg-gray-950"
+        style={{
+          backgroundColor: viewerBackgroundColor,
+        }}
+      >
+        {submitted ? (
+          <ViewData
+            dataroomId={link.dataroomId!}
+            link={link}
+            document={link.dataroomDocument.document as TViewDocumentData}
+            viewData={viewData}
+            notionData={notionData}
+            brand={brand}
+            showPoweredByBanner={false}
+            showAccountCreationSlide={false}
+            useAdvancedExcelViewer={
+              viewData.useAdvancedExcelViewer ?? useAdvancedExcelViewer
+            }
+            viewerEmail={
+              viewData.viewerEmail ??
+              data.email ??
+              verifiedEmail ??
+              userEmail ??
+              undefined
+            }
+            canDownload={viewData.canDownload}
+            textSelectionEnabled={textSelectionEnabled}
+            previewToken={previewToken}
+          />
+        ) : (
+          <div className="flex h-screen items-center justify-center">
+            <LoadingSpinner className="h-20 w-20" />
+          </div>
+        )}
+      </div>
+    </>
   );
 }

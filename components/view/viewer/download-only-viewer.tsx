@@ -68,10 +68,10 @@ export default function DownloadOnlyViewer({
       );
     };
 
-    if (router.query.token) {
+    if (router.isReady && router.query.token) {
       removeQueryParams(["token", "email", "domain", "slug", "linkId"]);
     }
-  }, []);
+  }, [router, router.isReady]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {

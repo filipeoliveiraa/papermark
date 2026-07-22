@@ -19,6 +19,10 @@ import AccessForm, {
 
 import EmailVerificationMessage from "./access-form/email-verification-form";
 import ViewData, { TViewDocumentData } from "./view-data";
+import {
+  DEFAULT_VIEWER_BACKGROUND_COLOR,
+  ViewerThemeColor,
+} from "./viewer-theme-color";
 
 type RowData = { [key: string]: any };
 type SheetData = {
@@ -129,6 +133,8 @@ export default function DocumentView({
   );
   const [code, setCode] = useState<string | null>(null);
   const [isInvalidCode, setIsInvalidCode] = useState<boolean>(false);
+  const viewerBackgroundColor =
+    brand?.accentColor || DEFAULT_VIEWER_BACKGROUND_COLOR;
 
   const handleSubmission = async (): Promise<void> => {
     setIsLoading(true);
@@ -266,86 +272,97 @@ export default function DocumentView({
   // Components to render when email is submitted but verification is pending
   if (verificationRequested) {
     return (
-      <EmailVerificationMessage
-        onSubmitHandler={handleSubmit}
-        data={data}
-        isLoading={isLoading}
-        code={code}
-        setCode={setCode}
-        isInvalidCode={isInvalidCode}
-        setIsInvalidCode={setIsInvalidCode}
-        brand={brand}
-      />
+      <>
+        <ViewerThemeColor color={brand?.accentColor} />
+        <EmailVerificationMessage
+          onSubmitHandler={handleSubmit}
+          data={data}
+          isLoading={isLoading}
+          code={code}
+          setCode={setCode}
+          isInvalidCode={isInvalidCode}
+          setIsInvalidCode={setIsInvalidCode}
+          brand={brand}
+        />
+      </>
     );
   }
 
-  // If link is not submitted and does not have email / password protection, show the access form
+  // If link is not submitted and is protected by email / password, show the access form
   if (!submitted && isProtected) {
     return (
-      <AccessForm
-        data={data}
-        email={userEmail}
-        password={urlPasscode}
-        setData={setData}
-        onSubmitHandler={handleSubmit}
-        requireEmail={emailProtected}
-        requirePassword={!!linkPassword}
-        requireAgreement={enableAgreement!}
-        agreementId={link.agreement?.id}
-        agreementName={link.agreement?.name}
-        agreementContent={link.agreement?.content}
-        agreementContentType={link.agreement?.contentType}
-        signingProvider={link.agreement?.signingProvider}
-        requireName={link.agreement?.requireName}
-        isLoading={isLoading}
-        brand={brand}
-        linkId={link.id}
-        disableEditEmail={disableEditEmail}
-        disableEditPassword={disableEditPassword}
-        useCustomAccessForm={useCustomAccessForm}
-        customFields={link.customFields}
-        logoOnAccessForm={logoOnAccessForm}
-        linkWelcomeMessage={link.welcomeMessage}
-      />
+      <>
+        <ViewerThemeColor color={brand?.accentColor} />
+        <AccessForm
+          data={data}
+          email={userEmail}
+          password={urlPasscode}
+          setData={setData}
+          onSubmitHandler={handleSubmit}
+          requireEmail={emailProtected}
+          requirePassword={!!linkPassword}
+          requireAgreement={enableAgreement!}
+          agreementId={link.agreement?.id}
+          agreementName={link.agreement?.name}
+          agreementContent={link.agreement?.content}
+          agreementContentType={link.agreement?.contentType}
+          signingProvider={link.agreement?.signingProvider}
+          requireName={link.agreement?.requireName}
+          isLoading={isLoading}
+          brand={brand}
+          linkId={link.id}
+          disableEditEmail={disableEditEmail}
+          disableEditPassword={disableEditPassword}
+          useCustomAccessForm={useCustomAccessForm}
+          customFields={link.customFields}
+          logoOnAccessForm={logoOnAccessForm}
+          linkWelcomeMessage={link.welcomeMessage}
+        />
+      </>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner className="h-20 w-20" />
-      </div>
+      <>
+        <ViewerThemeColor color={brand?.accentColor} />
+        <div className="flex h-screen items-center justify-center">
+          <LoadingSpinner className="h-20 w-20" />
+        </div>
+      </>
     );
   }
 
   return (
-    <div
-      className="bg-gray-950"
-      style={{
-        backgroundColor:
-          brand && brand.accentColor ? brand.accentColor : "rgb(3, 7, 18)",
-      }}
-    >
-      {submitted ? (
-        <ViewData
-          link={link}
-          viewData={viewData}
-          document={document as unknown as TViewDocumentData}
-          notionData={notionData}
-          brand={brand}
-          showPoweredByBanner={showPoweredByBanner}
-          showAccountCreationSlide={showAccountCreationSlide}
-          useAdvancedExcelViewer={useAdvancedExcelViewer}
-          viewerEmail={data.email ?? verifiedEmail ?? userEmail ?? undefined}
-          annotationsEnabled={annotationsEnabled}
-          textSelectionEnabled={textSelectionEnabled}
-          previewToken={previewToken}
-        />
-      ) : (
-        <div className="flex h-screen items-center justify-center">
-          <LoadingSpinner className="h-20 w-20" />
-        </div>
-      )}
-    </div>
+    <>
+      <ViewerThemeColor color={viewerBackgroundColor} />
+      <div
+        className="bg-gray-950"
+        style={{
+          backgroundColor: viewerBackgroundColor,
+        }}
+      >
+        {submitted ? (
+          <ViewData
+            link={link}
+            viewData={viewData}
+            document={document as unknown as TViewDocumentData}
+            notionData={notionData}
+            brand={brand}
+            showPoweredByBanner={showPoweredByBanner}
+            showAccountCreationSlide={showAccountCreationSlide}
+            useAdvancedExcelViewer={useAdvancedExcelViewer}
+            viewerEmail={data.email ?? verifiedEmail ?? userEmail ?? undefined}
+            annotationsEnabled={annotationsEnabled}
+            textSelectionEnabled={textSelectionEnabled}
+            previewToken={previewToken}
+          />
+        ) : (
+          <div className="flex h-screen items-center justify-center">
+            <LoadingSpinner className="h-20 w-20" />
+          </div>
+        )}
+      </div>
+    </>
   );
 }

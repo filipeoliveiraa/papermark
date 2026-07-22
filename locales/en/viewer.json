@@ -6,10 +6,16 @@
     "linksOnCurrentPage": "Links on current page",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
+    "resetZoom": "Fit to screen",
     "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
     "downloadDocument": "Download document",
     "teamMemberTooltip": "Skipped verification because you are a team member; no analytics will be collected",
     "changeLanguage": "Change language"
+  },
+  "fullscreenControls": {
+    "rotate": "Rotate",
+    "exitFullscreen": "Exit fullscreen"
   },
   "toasts": {
     "preparingDownload": "Preparing download...",

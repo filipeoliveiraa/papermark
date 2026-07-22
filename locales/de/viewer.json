@@ -11,6 +11,10 @@
     "teamMemberTooltip": "Verifizierung übersprungen, da Sie Teammitglied sind; es werden keine Analysen erfasst",
     "changeLanguage": "Sprache ändern"
   },
+  "fullscreenControls": {
+    "rotate": "Drehen",
+    "exitFullscreen": "Vollbild beenden"
+  },
   "toasts": {
     "preparingDownload": "Download wird vorbereitet ...",
     "preparingDownloadWatermark": "Download mit Wasserzeichen wird vorbereitet ...",

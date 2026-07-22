@@ -142,16 +142,26 @@ export default function DocumentCard({
     }
 
     e.preventDefault();
-    // Open in new tab
-    if (domain && slug) {
-      window.open(`/${slug}/d/${document.dataroomDocumentId}`, "_blank");
+
+    const targetUrl =
+      domain && slug
+        ? `/${slug}/d/${document.dataroomDocumentId}`
+        : `/view/${linkId}/d/${document.dataroomDocumentId}${
+            previewToken ? `?previewToken=${previewToken}&preview=1` : ""
+          }`;
+
+    // On mobile, navigate in the same tab. Opening a new tab there forces the
+    // visitor to re-run the access form and juggle tabs to get back. Same-tab
+    // navigation reuses the existing dataroom session; the nav "Home"
+    // breadcrumb returns them to the dataroom. Desktop keeps new-tab so
+    // multiple documents can be compared side by side. Read the breakpoint on
+    // demand instead of subscribing every card to window resizes (a dataroom
+    // with N documents would otherwise install N resize listeners).
+    const isMobile = window.matchMedia("(max-width: 640px)").matches;
+    if (isMobile) {
+      router.push(targetUrl);
     } else {
-      window.open(
-        `/view/${linkId}/d/${document.dataroomDocumentId}${
-          previewToken ? `?previewToken=${previewToken}&preview=1` : ""
-        }`,
-        "_blank",
-      );
+      window.open(targetUrl, "_blank");
     }
   };
 

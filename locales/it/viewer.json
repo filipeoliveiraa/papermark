@@ -11,6 +11,10 @@
     "teamMemberTooltip": "Verifica saltata perché sei un membro del team; non verranno raccolti dati analitici",
     "changeLanguage": "Cambia lingua"
   },
+  "fullscreenControls": {
+    "rotate": "Ruota",
+    "exitFullscreen": "Esci dallo schermo intero"
+  },
   "toasts": {
     "preparingDownload": "Preparazione del download...",
     "preparingDownloadWatermark": "Preparazione del download con filigrana...",

@@ -11,6 +11,10 @@
     "teamMemberTooltip": "あなたはチームメンバーのため認証をスキップしました。分析データは収集されません",
     "changeLanguage": "言語を変更"
   },
+  "fullscreenControls": {
+    "rotate": "回転",
+    "exitFullscreen": "全画面表示を終了"
+  },
   "toasts": {
     "preparingDownload": "ダウンロードを準備中...",
     "preparingDownloadWatermark": "ウォーターマーク付きダウンロードを準備中...",

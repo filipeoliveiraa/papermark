@@ -11,7 +11,7 @@ import {
   BadgeInfoIcon,
   Download,
   Maximize,
-  MessageCircle,
+  Minimize,
   Slash,
   ZoomInIcon,
   ZoomOutIcon,
@@ -84,6 +84,8 @@ export default function Nav({
   handleZoomIn,
   handleZoomOut,
   handleFullscreen,
+  isFullscreen,
+  hidePageCount,
 }: {
   navData: TNavData;
   type?: "pdf" | "notion" | "sheet";
@@ -94,6 +96,8 @@ export default function Nav({
   handleZoomIn?: () => void;
   handleZoomOut?: () => void;
   handleFullscreen?: () => void;
+  isFullscreen?: boolean;
+  hidePageCount?: boolean;
 }) {
   const router = useRouter();
   const asPath = router.asPath;
@@ -134,7 +138,8 @@ export default function Nav({
 
   const { t } = useTranslation("viewer");
   const [showConversations, setShowConversations] = useState(false);
-  const navColorPalette = createAdaptiveSurfacePalette(brand?.brandColor);
+  const brandColor = brand?.brandColor || "black";
+  const navColorPalette = createAdaptiveSurfacePalette(brandColor);
 
   const ctaLabel = (brand as { ctaLabel?: string | null } | null | undefined)
     ?.ctaLabel;
@@ -229,9 +234,9 @@ export default function Nav({
   return (
     <nav
       data-viewer-top-bar
-      className="bg-black transition-[margin] duration-300 ease-in-out"
+      className="transition-[margin] duration-300 ease-in-out"
       style={{
-        backgroundColor: brand && brand.brandColor ? brand.brandColor : "black",
+        backgroundColor: brandColor,
         // The chat / Q&A panel shifts the content by padding the parent
         // (transition-all duration-300). We cancel that padding with a
         // matching-easing negative margin so the navbar stays full-width and
@@ -240,6 +245,14 @@ export default function Nav({
           isChatOpen || isConversationSidebarOpen ? "-400px" : undefined,
       }}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[80]"
+        style={{
+          height: "env(safe-area-inset-top, 0px)",
+          backgroundColor: brandColor,
+        }}
+      />
       <div className="mx-auto px-2 sm:px-6 lg:px-8">
         <div className="relative flex h-16 items-center justify-between">
           <div className="flex flex-1 items-center justify-start">
@@ -257,7 +270,8 @@ export default function Nav({
                 <Link
                   href={`https://www.papermark.com?utm_campaign=navbar&utm_medium=navbar&utm_source=papermark-${linkId}`}
                   target="_blank"
-                  className="text-2xl font-bold tracking-tighter text-white"
+                  className="text-2xl font-bold tracking-tighter"
+                  style={{ color: navColorPalette.textColor }}
                 >
                   Papermark
                 </Link>
@@ -396,6 +410,33 @@ export default function Nav({
               </Button>
             ) : null}
 
+            {/* Mobile controls: pinch is the primary zoom gesture (pinch back
+                out to fit), so the top bar exposes only a fullscreen toggle.
+                Keeping the bar sparse avoids overflow on narrow screens. */}
+            {isMobile && handleFullscreen && (
+              <Button
+                onClick={handleFullscreen}
+                className="size-8 bg-gray-900 text-white hover:bg-gray-900/80"
+                size="icon"
+                title={
+                  isFullscreen
+                    ? t("nav.exitFullscreen", "Exit fullscreen")
+                    : t("nav.fullscreen", "Fullscreen")
+                }
+                aria-label={
+                  isFullscreen
+                    ? t("nav.exitFullscreen", "Exit fullscreen")
+                    : t("nav.fullscreen", "Fullscreen")
+                }
+              >
+                {isFullscreen ? (
+                  <Minimize className="h-4 w-4" />
+                ) : (
+                  <Maximize className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+
             {!isMobile && handleZoomIn && handleZoomOut && (
               <div className="flex gap-1">
                 <TooltipProvider delayDuration={50}>
@@ -450,13 +491,24 @@ export default function Nav({
                           onClick={handleFullscreen}
                           className="bg-gray-900 text-white hover:bg-gray-900/80"
                           size="icon"
+                          aria-label={
+                            isFullscreen
+                              ? t("nav.exitFullscreen", "Exit fullscreen")
+                              : t("nav.fullscreen", "Fullscreen")
+                          }
                         >
-                          <Maximize className="h-5 w-5" />
+                          {isFullscreen ? (
+                            <Minimize className="h-5 w-5" />
+                          ) : (
+                            <Maximize className="h-5 w-5" />
+                          )}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
                         <span className="mr-2 text-xs">
-                          {t("nav.fullscreen", "Fullscreen")}
+                          {isFullscreen
+                            ? t("nav.exitFullscreen", "Exit fullscreen")
+                            : t("nav.fullscreen", "Fullscreen")}
                         </span>
                         <span className="ml-auto rounded-sm border bg-muted p-0.5 text-xs tracking-widest text-muted-foreground">
                           F
@@ -468,7 +520,7 @@ export default function Nav({
               </div>
             )}
 
-            {pageNumber && numPages && numPages > 1 ? (
+            {!hidePageCount && pageNumber && numPages && numPages > 1 ? (
               <div className="flex h-8 items-center space-x-1 rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white sm:h-10 sm:px-4 sm:py-2 sm:text-sm">
                 <span style={{ fontVariantNumeric: "tabular-nums" }}>
                   {pageNumber}

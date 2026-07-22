@@ -11,6 +11,10 @@
     "teamMemberTooltip": "Verificação ignorada porque você é membro da equipe; nenhuma análise será coletada",
     "changeLanguage": "Alterar idioma"
   },
+  "fullscreenControls": {
+    "rotate": "Girar",
+    "exitFullscreen": "Sair da tela cheia"
+  },
   "toasts": {
     "preparingDownload": "Preparando download...",
     "preparingDownloadWatermark": "Preparando download com marca d'água...",
