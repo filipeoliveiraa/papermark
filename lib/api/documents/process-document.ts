@@ -1,11 +1,13 @@
+import { tasks } from "@trigger.dev/sdk";
+
 import { validateExternalDocumentUrl } from "@/lib/api/documents/validate-external-url";
 import { DocumentData } from "@/lib/documents/create-document";
 import { copyFileToBucketServer } from "@/lib/files/copy-file-to-bucket-server";
 import prisma from "@/lib/prisma";
-import {
+import type {
   convertFilesToPdfTask,
   convertKeynoteToPdfTask,
-} from "@/lib/trigger/convert-files";
+} from "@/ee/features/conversions/lib/trigger/convert-files";
 import { processVideo } from "@/lib/trigger/optimize-video-files";
 import { convertPdfToImageRoute } from "@/lib/trigger/pdf-to-image-route";
 import { getExtension } from "@/lib/utils";
@@ -139,7 +141,8 @@ export const processDocument = async ({
     (contentType === "application/vnd.apple.keynote" ||
       contentType === "application/x-iwork-keynote-sffkey")
   ) {
-    await convertKeynoteToPdfTask.trigger(
+    await tasks.trigger<typeof convertKeynoteToPdfTask>(
+      "convert-keynote-to-pdf",
       {
         documentId: document.id,
         documentVersionId: document.versions[0].id,
@@ -161,7 +164,8 @@ export const processDocument = async ({
     !isDownloadOnlyByExtension &&
     !isMarkdown
   ) {
-    await convertFilesToPdfTask.trigger(
+    await tasks.trigger<typeof convertFilesToPdfTask>(
+      "convert-files-to-pdf",
       {
         documentId: document.id,
         documentVersionId: document.versions[0].id,

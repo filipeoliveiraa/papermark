@@ -2,35 +2,30 @@ import type { MouseEvent, MutableRefObject } from "react";
 
 import { getContainedImageRect } from "@/lib/hooks/use-fullscreen";
 import { WatermarkConfig } from "@/lib/types";
+import { type PageLink } from "@/lib/types/page-link";
 import { getSafeLinkHref } from "@/lib/utils/sanitize-link-href";
 
 import { SVGWatermark } from "../watermark-svg";
+import {
+  partitionPageLinks,
+  renderMediaOverlay,
+  scaleCoordinates,
+} from "./page-media";
 
 export type HorizontalViewerPage = {
   file: string | null;
   pageNumber: string;
   embeddedLinks: string[];
-  pageLinks: {
-    href: string;
-    coords: string;
-    isInternal?: boolean;
-    targetPage?: number;
-  }[];
+  pageLinks: PageLink[];
   metadata: { width: number; height: number; scaleFactor: number };
 };
 
 type PageDimensions = Record<number, { width: number; height: number }>;
 
-const scaleCoordinates = (coords: string, scaleFactor: number) => {
-  return coords
-    .split(",")
-    .map((coord) => parseFloat(coord) * scaleFactor)
-    .join(",");
-};
-
 export function HorizontalPageContent({
   page,
   index,
+  isCurrentPage,
   imgHeight,
   imgMaxHeight,
   imgMaxWidth,
@@ -46,6 +41,7 @@ export function HorizontalPageContent({
 }: {
   page: HorizontalViewerPage;
   index: number;
+  isCurrentPage: boolean;
   imgHeight?: string;
   imgMaxHeight: string;
   imgMaxWidth?: string;
@@ -111,7 +107,11 @@ export function HorizontalPageContent({
       {watermarkConfig && watermarkRect ? (
         <div
           className="pointer-events-none absolute"
-          style={{ left: watermarkRect.left, top: watermarkRect.top }}
+          style={{
+            left: watermarkRect.left,
+            top: watermarkRect.top,
+            zIndex: 20,
+          }}
         >
           <SVGWatermark
             config={watermarkConfig}
@@ -131,75 +131,81 @@ export function HorizontalPageContent({
         </div>
       ) : null}
 
-      {page.pageLinks ? (
-        <map name={`page-map-${index + 1}`}>
-          {page.pageLinks
-            .filter((link) => !link.href.endsWith(".gif"))
-            .map((link, linkIndex) => {
-              const safeHref = getSafeLinkHref(link.href);
-              if (!safeHref) {
-                return null;
-              }
-              const isInternal = safeHref.startsWith("#");
-              return (
-                <area
-                  key={linkIndex}
-                  shape="rect"
-                  coords={scaleCoordinates(
-                    link.coords,
-                    getScaleFactor({
-                      naturalHeight: page.metadata.height,
-                      scaleFactor: page.metadata.scaleFactor,
-                    }),
-                  )}
-                  href={safeHref}
-                  onClick={(event) => onLinkClick(safeHref, event)}
-                  target={isInternal ? "_self" : "_blank"}
-                  rel={isInternal ? undefined : "noopener noreferrer"}
-                />
-              );
-            })}
-        </map>
-      ) : null}
+      {(() => {
+        if (!page.pageLinks) return null;
+        const { links, media } = partitionPageLinks(
+          page.pageLinks as PageLink[],
+        );
+        const displayScale = getScaleFactor({
+          naturalHeight: page.metadata.height,
+          scaleFactor: page.metadata.scaleFactor,
+        });
 
-      {page.pageLinks && imageDimensions[index]
-        ? page.pageLinks
-            .filter((link) => link.href.endsWith(".gif"))
-            .map((link, linkIndex) => {
-              const [x1, y1, x2, y2] = scaleCoordinates(
-                link.coords,
-                getScaleFactor({
-                  naturalHeight: page.metadata.height,
-                  scaleFactor: page.metadata.scaleFactor,
-                }),
-              )
-                .split(",")
-                .map(Number);
+        // In fullscreen the <img> is given an explicit height plus
+        // `object-contain`, so the visible image is letterboxed inside a larger
+        // element box. Track the actual contained image rect (same math as the
+        // watermark) so GIF/video overlays scale and sit on the image instead
+        // of drifting into the letterbox bands and mis-scaling off the box.
+        const mediaBox = imageDimensions[index];
+        const mediaAspectRatio =
+          page.metadata.height > 0
+            ? page.metadata.width / page.metadata.height
+            : 0;
+        const mediaRect = mediaBox
+          ? getContainedImageRect(
+              mediaBox.width,
+              mediaBox.height,
+              mediaAspectRatio,
+            )
+          : null;
+        const mediaScale =
+          mediaRect && page.metadata.height > 0
+            ? (page.metadata.scaleFactor * mediaRect.height) /
+              page.metadata.height
+            : displayScale;
+        const mediaLeftOffset = mediaRect ? mediaRect.left : 0;
+        const mediaTopOffset = mediaRect ? mediaRect.top : 0;
 
-              const overlayWidth = x2 - x1;
-              const overlayHeight = y2 - y1;
-              const containerWidth =
-                imageRefs.current[index]?.parentElement?.clientWidth || 0;
-              const imageWidth = imageDimensions[index].width;
-              const leftOffset = (containerWidth - imageWidth) / 2;
+        return (
+          <>
+            {links.length > 0 ? (
+              <map name={`page-map-${index + 1}`}>
+                {links.map((link, linkIndex) => {
+                  const safeHref = getSafeLinkHref(link.href);
+                  if (!safeHref) {
+                    return null;
+                  }
+                  const isInternal = safeHref.startsWith("#");
+                  return (
+                    <area
+                      key={linkIndex}
+                      shape="rect"
+                      coords={scaleCoordinates(link.coords, displayScale)}
+                      href={safeHref}
+                      onClick={(event) => onLinkClick(safeHref, event)}
+                      target={isInternal ? "_self" : "_blank"}
+                      rel={isInternal ? undefined : "noopener noreferrer"}
+                    />
+                  );
+                })}
+              </map>
+            ) : null}
 
-              return (
-                <img
-                  key={`overlay-${index}-${linkIndex}`}
-                  src={link.href}
-                  alt={`Overlay ${index + 1}`}
-                  style={{
-                    position: "absolute",
-                    top: y1,
-                    left: x1 + leftOffset,
-                    width: `${overlayWidth}px`,
-                    height: `${overlayHeight}px`,
-                    pointerEvents: "none",
-                  }}
-                />
-              );
-            })
-        : null}
+            {imageDimensions[index]
+              ? media.map((link, linkIndex) =>
+                  renderMediaOverlay({
+                    key: `overlay-${index}-${linkIndex}`,
+                    link,
+                    displayScale: mediaScale,
+                    leftOffset: mediaLeftOffset,
+                    topOffset: mediaTopOffset,
+                    isCurrentPage,
+                  }),
+                )
+              : null}
+          </>
+        );
+      })()}
     </div>
   );
 }

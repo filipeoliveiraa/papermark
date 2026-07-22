@@ -708,6 +708,7 @@ export default function PagesHorizontalViewer({
     <HorizontalPageContent
       page={page}
       index={index}
+      isCurrentPage={pageNumber === index + 1}
       imgHeight={imgHeight}
       imgMaxHeight={imgMaxHeight}
       imgMaxWidth={imgMaxWidth}

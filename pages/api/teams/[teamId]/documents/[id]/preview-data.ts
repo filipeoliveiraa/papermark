@@ -6,6 +6,7 @@ import { getTeamStorageConfigById } from "@/ee/features/storage/config";
 
 import { enforceDocumentMemberScope } from "@/lib/api/rbac/guard";
 import { getFile } from "@/lib/files/get-file";
+import { signPageLinks } from "@/lib/files/sign-page-links";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
 import { log } from "@/lib/utils";
@@ -125,12 +126,16 @@ export default async function handle(
       returnData.pages = await Promise.all(
         primaryVersion.pages.map(async (page, index) => {
           const { storageType, ...otherPageData } = page;
+          const inWindow = index < INITIAL_PAGES_TO_LOAD;
           return {
             ...otherPageData,
-            file:
-              index < INITIAL_PAGES_TO_LOAD
-                ? await getFile({ data: page.file, type: storageType })
-                : null,
+            file: inWindow
+              ? await getFile({ data: page.file, type: storageType })
+              : null,
+            pageLinks: inWindow
+              ? (await signPageLinks(otherPageData.pageLinks)) ??
+                otherPageData.pageLinks
+              : otherPageData.pageLinks,
           };
         }),
       );

@@ -21,6 +21,7 @@ import { isEmbeddableUrl } from "@/lib/edge-config/embeddable-domains";
 import { sendOtpVerificationEmail } from "@/lib/emails/send-email-otp-verification";
 import { getFeatureFlags } from "@/lib/featureFlags";
 import { getFile } from "@/lib/files/get-file";
+import { signPageLinks } from "@/lib/files/sign-page-links";
 import { newId } from "@/lib/id-helper";
 import { notifyDocumentView } from "@/lib/integrations/slack/events";
 import prisma from "@/lib/prisma";
@@ -812,12 +813,18 @@ export async function POST(request: NextRequest) {
         documentPages = await Promise.all(
           documentPages.map(async (page, index) => {
             const { storageType, ...otherPage } = page;
+            const inWindow = index >= signStart && index < signEnd;
             return {
               ...otherPage,
-              file:
-                index >= signStart && index < signEnd
-                  ? await getFile({ data: page.file, type: storageType })
-                  : null,
+              file: inWindow
+                ? await getFile({ data: page.file, type: storageType })
+                : null,
+              // Always sign overlay URLs alongside whichever pages we sign
+              // file URLs for; lazy-loaded pages re-sign via /api/views/pages.
+              pageLinks: inWindow
+                ? (await signPageLinks(otherPage.pageLinks)) ??
+                  otherPage.pageLinks
+                : otherPage.pageLinks,
             };
           }),
         );

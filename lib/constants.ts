@@ -101,6 +101,7 @@ export const SUPPORTED_DOCUMENT_MIME_TYPES = [
   "image/png", // .png
   "image/jpeg", // .jpeg
   "image/jpg", // .jpg
+  "image/gif", // .gif (also: animated overlays extracted from .pptx slides)
   "application/zip", // .zip
   "application/x-zip-compressed", // .zip
   "application/vnd.rar", // .rar

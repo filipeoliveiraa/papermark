@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth/auth-options";
 import { verifyDataroomSession } from "@/lib/auth/dataroom-auth";
 import { verifyPreviewSession } from "@/lib/auth/preview-auth";
 import { getFile } from "@/lib/files/get-file";
+import { signPageLinks } from "@/lib/files/sign-page-links";
 import prisma from "@/lib/prisma";
 import { ratelimit } from "@/lib/redis";
 import { CustomUser } from "@/lib/types";
@@ -249,15 +250,21 @@ async function fetchAndReturnPages(
       file: true,
       storageType: true,
       pageNumber: true,
+      pageLinks: true,
     },
   });
 
   const pagesWithUrls = await Promise.all(
     documentPages.map(async (page) => {
-      const { storageType, ...otherPage } = page;
+      const { storageType, pageLinks } = page;
+      // Re-sign overlay URLs alongside the page-image URL — they share the
+      // same TTL and the viewer needs both refreshed when it lazy-loads a
+      // page outside the initial window.
+      const signedLinks = await signPageLinks(pageLinks);
       return {
-        pageNumber: otherPage.pageNumber,
+        pageNumber: page.pageNumber,
         file: await getFile({ data: page.file, type: storageType }),
+        ...(signedLinks ? { pageLinks: signedLinks } : {}),
       };
     }),
   );

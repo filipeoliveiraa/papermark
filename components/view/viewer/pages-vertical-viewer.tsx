@@ -18,6 +18,7 @@ import {
 import { useSafePageViewTracker } from "@/lib/tracking/safe-page-view-tracker";
 import { getTrackingOptions } from "@/lib/tracking/tracking-config";
 import { WatermarkConfig } from "@/lib/types";
+import { type PageLink } from "@/lib/types/page-link";
 import { cn } from "@/lib/utils";
 import { getSafeLinkHref } from "@/lib/utils/sanitize-link-href";
 import { useMediaQuery } from "@/lib/utils/use-media-query";
@@ -31,15 +32,13 @@ import { ViewerThemeColor } from "../viewer-theme-color";
 import { SVGWatermark } from "../watermark-svg";
 import { AwayPoster } from "./away-poster";
 import { FullscreenControls } from "./fullscreen-controls";
+import {
+  partitionPageLinks,
+  renderMediaOverlay,
+  scaleCoordinates,
+} from "./page-media";
 
 import "@/styles/custom-viewer-styles.css";
-
-const scaleCoordinates = (coords: string, scaleFactor: number) => {
-  return coords
-    .split(",")
-    .map((coord) => parseFloat(coord) * scaleFactor)
-    .join(",");
-};
 
 const calculateOptimalWidth = (
   containerWidth: number,
@@ -88,12 +87,7 @@ export default function PagesVerticalViewer({
     file: string | null;
     pageNumber: string;
     embeddedLinks: string[];
-    pageLinks: {
-      href: string;
-      coords: string;
-      isInternal?: boolean;
-      targetPage?: number;
-    }[];
+    pageLinks: PageLink[];
     metadata: { width: number; height: number; scaleFactor: number };
   }[];
   feedbackEnabled: boolean;
@@ -995,7 +989,10 @@ export default function PagesVerticalViewer({
                             />
 
                             {watermarkConfig && imageDimensions[index] ? (
-                              <div className="absolute left-0 top-0">
+                              <div
+                                className="pointer-events-none absolute left-0 top-0"
+                                style={{ zIndex: 20 }}
+                              >
                                 <SVGWatermark
                                   config={watermarkConfig}
                                   viewerData={{
@@ -1012,82 +1009,75 @@ export default function PagesVerticalViewer({
                             ) : null}
                           </div>
 
-                          {page.pageLinks ? (
-                            <map name={`page-map-${index + 1}`}>
-                              {page.pageLinks
-                                .filter((link) => !link.href.endsWith(".gif"))
-                                .map((link, linkIndex) => {
-                                  const safeHref = getSafeLinkHref(link.href);
-                                  if (!safeHref) {
-                                    return null;
-                                  }
-                                  const isInternal = safeHref.startsWith("#");
-                                  return (
-                                    <area
-                                      key={linkIndex}
-                                      shape="rect"
-                                      coords={scaleCoordinates(
-                                        link.coords,
-                                        getScaleFactor({
-                                          naturalHeight: page.metadata.height,
-                                          scaleFactor: page.metadata.scaleFactor,
-                                          pageIndex: index,
-                                        }),
-                                      )}
-                                      href={safeHref}
-                                      onClick={(e) =>
-                                        handleLinkClick(safeHref, e)
+                          {(() => {
+                            if (!page.pageLinks) return null;
+                            const { links, media } = partitionPageLinks(
+                              page.pageLinks as PageLink[],
+                            );
+                            const displayScale = getScaleFactor({
+                              naturalHeight: page.metadata.height,
+                              scaleFactor: page.metadata.scaleFactor,
+                              pageIndex: index,
+                            });
+                            // Vertical layout uses px-4/md:px-8 outer padding
+                            // instead of a center-aligned image, so the overlay
+                            // origin is shifted by the active padding.
+                            const leftOffset = isMobile ? 16 : 32;
+                            const isCurrentPage = pageNumber === index + 1;
+
+                            return (
+                              <>
+                                {links.length > 0 ? (
+                                  <map name={`page-map-${index + 1}`}>
+                                    {links.map((link, linkIndex) => {
+                                      const safeHref = getSafeLinkHref(
+                                        link.href,
+                                      );
+                                      if (!safeHref) {
+                                        return null;
                                       }
-                                      target={isInternal ? "_self" : "_blank"}
-                                      rel={
-                                        isInternal
-                                          ? undefined
-                                          : "noopener noreferrer"
-                                      }
-                                    />
-                                  );
-                                })}
-                            </map>
-                          ) : null}
+                                      const isInternal =
+                                        safeHref.startsWith("#");
+                                      return (
+                                        <area
+                                          key={linkIndex}
+                                          shape="rect"
+                                          coords={scaleCoordinates(
+                                            link.coords,
+                                            displayScale,
+                                          )}
+                                          href={safeHref}
+                                          onClick={(e) =>
+                                            handleLinkClick(safeHref, e)
+                                          }
+                                          target={
+                                            isInternal ? "_self" : "_blank"
+                                          }
+                                          rel={
+                                            isInternal
+                                              ? undefined
+                                              : "noopener noreferrer"
+                                          }
+                                        />
+                                      );
+                                    })}
+                                  </map>
+                                ) : null}
 
-                          {page.pageLinks && imageDimensions[index]
-                            ? page.pageLinks
-                                .filter((link) => link.href.endsWith(".gif"))
-                                .map((link, linkIndex) => {
-                                  const [x1, y1, x2, y2] = scaleCoordinates(
-                                    link.coords,
-                                    getScaleFactor({
-                                      naturalHeight: page.metadata.height,
-                                      scaleFactor: page.metadata.scaleFactor,
-                                      pageIndex: index,
-                                    }),
-                                  )
-                                    .split(",")
-                                    .map(Number);
-
-                                  const overlayWidth = x2 - x1;
-                                  const overlayHeight = y2 - y1;
-
-                                  // Account for the padding on the outer container (px-4 md:px-8)
-                                  const padding = isMobile ? 16 : 32; // 1rem = 16px (px-4), 2rem = 32px (px-8)
-
-                                  return (
-                                    <img
-                                      key={`overlay-${index}-${linkIndex}`}
-                                      src={link.href}
-                                      alt={`Overlay ${index + 1}`}
-                                      style={{
-                                        position: "absolute",
-                                        top: y1,
-                                        left: x1 + padding,
-                                        width: `${overlayWidth}px`,
-                                        height: `${overlayHeight}px`,
-                                        pointerEvents: "none",
-                                      }}
-                                    />
-                                  );
-                                })
-                            : null}
+                                {imageDimensions[index]
+                                  ? media.map((link, linkIndex) =>
+                                      renderMediaOverlay({
+                                        key: `overlay-${index}-${linkIndex}`,
+                                        link,
+                                        displayScale,
+                                        leftOffset,
+                                        isCurrentPage,
+                                      }),
+                                    )
+                                  : null}
+                              </>
+                            );
+                          })()}
                         </div>
                       );
                     })}

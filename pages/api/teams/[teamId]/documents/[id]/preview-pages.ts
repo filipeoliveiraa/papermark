@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 
 import { enforceDocumentMemberScope } from "@/lib/api/rbac/guard";
 import { getFile } from "@/lib/files/get-file";
+import { signPageLinks } from "@/lib/files/sign-page-links";
 import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
 import { log } from "@/lib/utils";
@@ -95,15 +96,18 @@ export default async function handle(
         file: true,
         storageType: true,
         pageNumber: true,
+        pageLinks: true,
       },
     });
 
     const pagesWithUrls = await Promise.all(
       documentPages.map(async (page) => {
-        const { storageType, ...otherPage } = page;
+        const { storageType, pageLinks } = page;
+        const signedLinks = await signPageLinks(pageLinks);
         return {
-          pageNumber: otherPage.pageNumber,
+          pageNumber: page.pageNumber,
           file: await getFile({ data: page.file, type: storageType }),
+          ...(signedLinks ? { pageLinks: signedLinks } : {}),
         };
       }),
     );

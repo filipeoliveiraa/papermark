@@ -22,17 +22,19 @@ export const putFileServer = async ({
   teamId,
   docId,
   restricted = true,
+  subfolder,
 }: {
   file: File;
   teamId: string;
   docId?: string;
   restricted?: boolean;
+  subfolder?: string;
 }) => {
   const NEXT_PUBLIC_UPLOAD_TRANSPORT = process.env.NEXT_PUBLIC_UPLOAD_TRANSPORT;
 
   const { type, data } = await match(NEXT_PUBLIC_UPLOAD_TRANSPORT)
     .with("s3", async () =>
-      putFileInS3Server({ file, teamId, docId, restricted }),
+      putFileInS3Server({ file, teamId, docId, restricted, subfolder }),
     )
     .with("vercel", async () => putFileInVercelServer(file))
     .otherwise(() => {
@@ -65,11 +67,13 @@ const putFileInS3Server = async ({
   teamId,
   docId,
   restricted = true,
+  subfolder,
 }: {
   file: File;
   teamId: string;
   docId?: string;
   restricted?: boolean;
+  subfolder?: string;
 }) => {
   if (!docId) {
     docId = newId("doc");
@@ -95,7 +99,8 @@ const putFileInS3Server = async ({
 
   const slugifiedName = safeSlugify(name) + ext;
   const originalFileName = `${name}${ext}`;
-  const key = `${teamId}/${docId}/${slugifiedName}`;
+  const folderPrefix = subfolder ? `${safeSlugify(subfolder)}/` : "";
+  const key = `${teamId}/${docId}/${folderPrefix}${slugifiedName}`;
 
   const params = {
     Bucket: config.bucket,
